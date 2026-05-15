@@ -3,17 +3,20 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 14/05/2026
-Ultima cosa fatta: Backend completato al 100%. Preparazione CLAUDE.md per fase frontend.
-Prossima fase: Frontend React + TypeScript + Vite — setup progetto da zero.
+Ultima cosa fatta: Completato step 3 — Tailwind CSS + shadcn/ui installati e configurati. Path alias @/* configurato in tsconfig.json e tsconfig.app.json. Vite configurato con plugin Tailwind. Test con Button component riuscito.
+Prossima cosa: Step 4 — Setup React Router v6 con route protette per ruolo.
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
 
+### Nota React 19
+Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è un problema — React 19 è stabile.
+
 ### Prossima cosa da fare (in ordine)
 
-1. Inizializzare progetto Vite + React 18 + TypeScript
-2. Configurare ESLint + Prettier + struttura cartelle
-3. Integrare shadcn/ui + Tailwind CSS
+1. ~~Inizializzare progetto Vite + React + TypeScript~~ ✅ FATTO (React 19)
+2. ~~Creare struttura cartelle src/ + Configurare Prettier (ESLint già presente)~~ ✅ FATTO
+3. ~~Integrare shadcn/ui + Tailwind CSS~~ ✅ FATTO
 4. Setup React Router v6 con route protette per ruolo
 5. Setup Axios con interceptor JWT (attach token + refresh/logout su 401)
 6. Setup React Query (TanStack Query v5)
@@ -143,13 +146,18 @@ Sto costruendo questo progetto per fare uno switch di carriera verso il full sta
 Obiettivo dichiarato: trovare un'azienda che mi assuma come full stack developer.
 
 Come mi devi affiancare:
-- Ruolo: senior developer che mi guida
-- Spiega sempre le scelte tecniche — non dare solo il codice
+- Ruolo: senior developer che mi guida, io sono un middle developer che impara
+- NON scrivere il codice al posto mio — guidami verso la soluzione
+- Spiega sempre il concetto prima di mostrare il codice
+- Fai domande per farmi ragionare: "cosa pensi che dovremmo fare qui?"
+- Mostra esempi parziali o pattern, poi lascia che io li completi
+- Se sbaglio, non correggere direttamente — dimmi dove guardare e perché
 - Indica quando qualcosa non e production-ready e perche
 - Suggerisci le best practice del settore, non solo la soluzione che funziona
+- Dopo ogni implementazione chiedi: "cosa hai capito di questo passaggio?"
 - Obiettivo finale: progetto portfolio-ready che dimostri competenze full stack reali
-- Il backend e completato — non modificarlo salvo regressions o bug critici trovati durante il frontend
-
+- Il backend e completato — non modificarlo salvo regressions o bug critici
+- IMPORTANTE: ricordati che non ho esperienze sul frontend non dare nulla per scontato
 
 ---
 
