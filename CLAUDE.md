@@ -3,8 +3,8 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 14/05/2026
-Ultima cosa fatta: Completato step 3 — Tailwind CSS + shadcn/ui installati e configurati. Path alias @/* configurato in tsconfig.json e tsconfig.app.json. Vite configurato con plugin Tailwind. Test con Button component riuscito.
-Prossima cosa: Step 4 — Setup React Router v6 con route protette per ruolo.
+Ultima cosa fatta: Completato step 4 — React Router v6 configurato. ProtectedRoute con controllo token JWT e ruolo. Tutte le route definite (login, dashboard, zone, postazioni, fasce-orarie, prenotazioni, prenotazioni/nuova, admin/utenti, unauthorized). RouterProvider collegato in main.tsx. Test redirect su /dashboard → /login riuscito.
+Prossima cosa: Step 5 — Setup Axios con interceptor JWT (attach token + refresh/logout su 401).
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
@@ -17,7 +17,7 @@ Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è u
 1. ~~Inizializzare progetto Vite + React + TypeScript~~ ✅ FATTO (React 19)
 2. ~~Creare struttura cartelle src/ + Configurare Prettier (ESLint già presente)~~ ✅ FATTO
 3. ~~Integrare shadcn/ui + Tailwind CSS~~ ✅ FATTO
-4. Setup React Router v6 con route protette per ruolo
+4. ~~Setup React Router v6 con route protette per ruolo~~ ✅ FATTO
 5. Setup Axios con interceptor JWT (attach token + refresh/logout su 401)
 6. Setup React Query (TanStack Query v5)
 7. Pagina Login + hook useAuth con Context API
