@@ -174,12 +174,23 @@ All'inizio di ogni sessione allegare:
 3. Nuova decisione architetturale — aggiungere riga in "Note e Decisioni" nel tracker
 4. Fine sessione — aggiornare il blocco "LEGGI QUESTO PRIMA DI TUTTO" qui sopra + commit Git
 
-### Protocollo commit Git (fare sempre prima di chiudere)
+### Protocollo commit Git
+
+- Il commit e il push li fa SEMPRE Fabio, mai Claude
+- Claude deve fornire il messaggio di commit con l'elenco delle modifiche effettuate
+- Formato messaggio:
 
 feat: breve descrizione cosa hai fatto
 
 Se incompleto:
 feat: WIP - descrizione cosa stavi facendo (da completare)
+
+### Operazioni delicate — REGOLA OBBLIGATORIA
+
+Per operazioni che coinvolgono sicurezza o configurazione sensibile (es. .env, .gitignore, credenziali, variabili d'ambiente, rimozione file da tracking Git) Claude deve:
+1. Spiegare cosa sta per succedere e perché
+2. Passare le istruzioni a Fabio che le esegue
+3. MAI eseguire queste operazioni autonomamente
 
 
 ---
