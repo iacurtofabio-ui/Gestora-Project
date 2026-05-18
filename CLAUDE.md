@@ -163,9 +163,8 @@ Come mi devi affiancare:
 
 ## Tracker attivita — PRIORITA MASSIMA
 
-All'inizio di ogni sessione allegare:
-1. Lo ZIP del progetto frontend aggiornato
-2. Il file TrackAttivita_Gestora.xlsx (foglio chiave: Appunti e Step)
+Il tracker si trova in: `C:\Users\Carlo Taranto\Personale\GestoraProject\TrackAttività_Gestora.xlsx`
+Claude lo legge e aggiorna tramite PowerShell + Excel COM — nessun allegato necessario.
 
 ### Protocollo sessione
 
