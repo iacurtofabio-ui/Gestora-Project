@@ -1,9 +1,9 @@
   import { createBrowserRouter } from 'react-router-dom'
   import ProtectedRoute from './ProtectedRoute'
+  import LoginPage from '@/pages/LoginPage'
 
   const placeholder = (name: string) => () => <div>{name}</div>
 
-  const LoginPage = placeholder('Login')
   const DashboardPage = placeholder('Dashboard')
   const ZonePage = placeholder('Zone')
   const PostazionePage = placeholder('Postazioni')

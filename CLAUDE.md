@@ -3,8 +3,8 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 14/05/2026
-Ultima cosa fatta: Completato step 6 — React Query (TanStack Query v5) installato e configurato. QueryClient creato, QueryClientProvider wrappa RouterProvider in main.tsx. ReactQueryDevtools installati e visibili in sviluppo.
-Prossima cosa: Step 7 — Pagina Login + hook useAuth con Context API.
+Ultima cosa fatta: Completato step 7 — AuthContext con useAuth hook, LoginPage con React Hook Form + Zod, ProtectedRoute aggiornato per usare useAuth. Fix CORS nel backend (FrontendPolicy per localhost:5173). Fix claim ruolo JWT: chiave completa Microsoft claims URL. Login funzionante e redirect su /dashboard.
+Prossima cosa: Step 8 — Layout shell: sidebar, header, area contenuto.
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
@@ -20,7 +20,7 @@ Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è u
 4. ~~Setup React Router v6 con route protette per ruolo~~ ✅ FATTO
 5. ~~Setup Axios con interceptor JWT (attach token + refresh/logout su 401)~~ ✅ FATTO
 6. ~~Setup React Query (TanStack Query v5)~~ ✅ FATTO
-7. Pagina Login + hook useAuth con Context API
+7. ~~Pagina Login + hook useAuth con Context API~~ ✅ FATTO
 8. Layout shell: sidebar, header, area contenuto
 9. Pagina Dashboard (consuma GET /Dashboard/giornaliera e /settimanale)
 10. CRUD Zone, Postazioni, Fasce Orarie (Admin)
