@@ -3,8 +3,8 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 14/05/2026
-Ultima cosa fatta: Completato step 5 — Axios configurato con istanza centralizzata (src/lib/axios.ts). Interceptor request aggiunge token JWT. Interceptor response gestisce 401 con logout automatico. Variabile d'ambiente VITE_API_URL in .env (https://localhost:7175/api).
-Prossima cosa: Step 6 — Setup React Query (TanStack Query v5).
+Ultima cosa fatta: Completato step 6 — React Query (TanStack Query v5) installato e configurato. QueryClient creato, QueryClientProvider wrappa RouterProvider in main.tsx. ReactQueryDevtools installati e visibili in sviluppo.
+Prossima cosa: Step 7 — Pagina Login + hook useAuth con Context API.
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
@@ -19,7 +19,7 @@ Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è u
 3. ~~Integrare shadcn/ui + Tailwind CSS~~ ✅ FATTO
 4. ~~Setup React Router v6 con route protette per ruolo~~ ✅ FATTO
 5. ~~Setup Axios con interceptor JWT (attach token + refresh/logout su 401)~~ ✅ FATTO
-6. Setup React Query (TanStack Query v5)
+6. ~~Setup React Query (TanStack Query v5)~~ ✅ FATTO
 7. Pagina Login + hook useAuth con Context API
 8. Layout shell: sidebar, header, area contenuto
 9. Pagina Dashboard (consuma GET /Dashboard/giornaliera e /settimanale)
