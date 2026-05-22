@@ -2,9 +2,9 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 14/05/2026
-Ultima cosa fatta: Completato step 7 — AuthContext con useAuth hook, LoginPage con React Hook Form + Zod, ProtectedRoute aggiornato per usare useAuth. Fix CORS nel backend (FrontendPolicy per localhost:5173). Fix claim ruolo JWT: chiave completa Microsoft claims URL. Login funzionante e redirect su /dashboard.
-Prossima cosa: Step 8 — Layout shell: sidebar, header, area contenuto.
+Ultima sessione: 22/05/2026
+Ultima cosa fatta: Completato step 8 — Layout shell con AppLayout.tsx: sidebar con Link per ruolo (Admin Utenti solo Admin), header con email utente e bottone logout, Outlet per contenuto. Route annidate nel router con ProtectedRoute padre per gruppo di ruoli.
+Prossima cosa: Step 9 — Pagina Dashboard (consuma GET /Dashboard/giornaliera e /settimanale).
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
