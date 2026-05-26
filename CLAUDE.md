@@ -2,9 +2,9 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 22/05/2026
-Ultima cosa fatta: Completato step 8 — Layout shell con AppLayout.tsx: sidebar con Link per ruolo (Admin Utenti solo Admin), header con email utente e bottone logout, Outlet per contenuto. Route annidate nel router con ProtectedRoute padre per gruppo di ruoli.
-Prossima cosa: Step 9 — Pagina Dashboard (consuma GET /Dashboard/giornaliera e /settimanale).
+Ultima sessione: 26/05/2026
+Ultima cosa fatta: Completato step 9 — Pagina Dashboard con KPI giornalieri (4 card), tabella coperti per fascia oraria, KPI settimanali e tabella dettaglio giorni settimana. Hook useDashboard con useQuery tipizzato. Tipi TypeScript in src/types/dashboard.ts.
+Prossima cosa: Step 10 — CRUD Zone, Postazioni, Fasce Orarie (Admin).
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
