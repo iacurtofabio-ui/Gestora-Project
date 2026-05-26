@@ -3,8 +3,8 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 26/05/2026
-Ultima cosa fatta: Completato step 9 — Pagina Dashboard con KPI giornalieri (4 card), tabella coperti per fascia oraria, KPI settimanali e tabella dettaglio giorni settimana. Hook useDashboard con useQuery tipizzato. Tipi TypeScript in src/types/dashboard.ts.
-Prossima cosa: Step 10 — CRUD Zone, Postazioni, Fasce Orarie (Admin).
+Ultima cosa fatta: Iniziato step 10 — CRUD Zone. Lista zone funzionante con tabella (nome, attiva, bottoni modifica/elimina). Hook useZone con useQuery + useMutation. Tipi in src/types/zona.ts. Bottoni ancora non collegati — prossimo passo: modal form per create/edit e collegamento delete.
+Prossima cosa: Completare CRUD Zone (modal + azioni), poi Postazioni e Fasce Orarie.
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<

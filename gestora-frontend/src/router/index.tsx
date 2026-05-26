@@ -4,11 +4,11 @@
   import AppLayout from '@/layouts/AppLayout'
   import { Button } from '@/components/ui/button'
   import DashboardPage from '@/pages/DashboardPage'
+  import ZonePage from '@/pages/ZonePage'
 
   const placeholder = (name: string) => () => <div>{name}</div>
 
   
-  const ZonePage = placeholder('Zone')
   const PostazionePage = placeholder('Postazioni')
   const FasceOrariePage = placeholder('Fasce Orarie')
   const PrenotazioniPage = placeholder('Prenotazioni')
