@@ -2,9 +2,9 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 26/05/2026
-Ultima cosa fatta: Iniziato step 10 — CRUD Zone. Lista zone funzionante con tabella (nome, attiva, bottoni modifica/elimina). Hook useZone con useQuery + useMutation. Tipi in src/types/zona.ts. Bottoni ancora non collegati — prossimo passo: modal form per create/edit e collegamento delete.
-Prossima cosa: Completare CRUD Zone (modal + azioni), poi Postazioni e Fasce Orarie.
+Ultima sessione: 27/05/2026
+Ultima cosa fatta: Completato CRUD Zone — lista, modal create/edit con React Hook Form + Zod + useEffect reset, delete con conferma. Tutto testato su DB. Hook useZone con useQuery + useMutation + invalidateQueries.
+Prossima cosa: CRUD Postazioni, poi Fasce Orarie.
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
