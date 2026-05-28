@@ -2,12 +2,23 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 27/05/2026
-Ultima cosa fatta: Completato CRUD Zone — lista, modal create/edit con React Hook Form + Zod + useEffect reset, delete con conferma. Tutto testato su DB. Hook useZone con useQuery + useMutation + invalidateQueries.
-Prossima cosa: CRUD Postazioni, poi Fasce Orarie.
+Ultima sessione: 28/05/2026
+Ultima cosa fatta: Completato CRUD Postazioni — lista con filtro zona, modal create/edit con validazione Zod (valueAsNumber per campi numerici), delete con toast. Toast su tutte le operazioni Zone e Postazioni gestiti negli hook. Pattern onSuccess/onError consolidato.
+Prossima cosa: CRUD Fasce Orarie, poi Gestione Prenotazioni.
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
+
+### Iter di progetto — SEQUENZA OBBLIGATORIA
+1. Completare il frontend
+2. Applicare le fix al backend (vedi `BACKEND_FIX_TODO.md`)
+3. Testing generale del prodotto completo
+4. Rilascio in produzione
+
+### File fix backend — LEGGERE AD OGNI SESSIONE
+Ogni volta che durante lo sviluppo frontend si trova un problema nel backend,
+va aggiunto subito in: `C:\Users\Carlo Taranto\Personale\GestoraProject\BACKEND_FIX_TODO.md`
+NON toccare il backend ora — registrare solo la fix e andare avanti con il frontend.
 
 ### Nota React 19
 Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è un problema — React 19 è stabile.
@@ -158,6 +169,17 @@ Come mi devi affiancare:
 - Obiettivo finale: progetto portfolio-ready che dimostri competenze full stack reali
 - Il backend e completato — non modificarlo salvo regressions o bug critici
 - IMPORTANTE: ricordati che non ho esperienze sul frontend non dare nulla per scontato
+
+### Regole di affiancamento — OBBLIGATORIE
+
+- Ogni concetto nuovo va spiegato partendo da zero, senza dare nulla per scontato
+- Prima di chiedere a Fabio di scrivere codice, mostra sempre un esempio concreto e spiegalo riga per riga
+- Un passo alla volta: non dare mai più di una istruzione contemporaneamente
+- Se Fabio dice "non capisco", fermati e rispiega con parole diverse e un esempio più semplice
+- Non usare termini tecnici senza spiegarli la prima volta che compaiono
+- Quando si introduce un pattern nuovo (es. callback, async, hooks), spiegare il PERCHÉ prima del COME
+- Se Fabio commette un errore, spiegare cosa è andato storto e perché, non solo come correggerlo
+- Ricordare sempre: tutto quello che facciamo è la prima volta per Fabio sul frontend
 
 ---
 

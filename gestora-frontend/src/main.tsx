@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { router } from './router/index'
 import { AuthProvider } from '@/context/AuthContext'
 import './index.css'
+import { Toaster } from 'sonner'   // ← aggiungi questo import
 
 const queryClient = new QueryClient()
 
@@ -15,6 +16,7 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
         <ReactQueryDevtools initialIsOpen={false} />
+        <Toaster richColors position="top-right" />
       </QueryClientProvider>
     </AuthProvider>
   </StrictMode>

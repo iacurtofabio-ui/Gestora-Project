@@ -31,6 +31,7 @@ export default function ZonaModal({ isOpen, onClose, zona }: Props) {
             attiva: zona?.attiva ?? true,
         },
     })
+
     useEffect(() => {
         reset({
             nome: zona?.nome ?? '',
@@ -40,11 +41,10 @@ export default function ZonaModal({ isOpen, onClose, zona }: Props) {
 
     function onSubmit(data: ZonaForm) {
         if (zona) {
-            updateZona.mutate({ ...data, id: zona.id })
+            updateZona.mutate({ ...data, id: zona.id }, { onSuccess: () => onClose() })
         } else {
-            creaZona.mutate(data)
+            creaZona.mutate(data, { onSuccess: () => onClose() })
         }
-        onClose()
     }
 
     return (
