@@ -2,9 +2,9 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 28/05/2026
-Ultima cosa fatta: Completato CRUD Postazioni — lista con filtro zona, modal create/edit con validazione Zod (valueAsNumber per campi numerici), delete con toast. Toast su tutte le operazioni Zone e Postazioni gestiti negli hook. Pattern onSuccess/onError consolidato.
-Prossima cosa: CRUD Fasce Orarie, poi Gestione Prenotazioni.
+Ultima sessione: 03/06/2026
+Ultima cosa fatta: CRUD Fasce Orarie completato — types, hook, pagina, modal. Fix URL hook (FasceOrarie, non FasciaOraria). Testato: crea, modifica, elimina funzionanti.
+Prossima cosa: Gestione Prenotazioni (Staff + Cliente).
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<

@@ -3,7 +3,6 @@ import { usePostazioni, useDeletePostazione } from '@/hooks/usePostazioni'
 import { useState } from 'react'
 import type { PostazioneDTO } from '@/types/postazione'
 import PostazioneModal from '@/components/PostazioneModal'
-import { toast } from 'sonner'
 
 export default function PostazionePage() {
     const zone = useZone()
@@ -38,6 +37,13 @@ export default function PostazionePage() {
                     </button>
                 </div>
             </div>
+            {zonaSelezionataId && (
+                <div className="px-4 py-2 text-sm text-gray-500 border-b">
+                    Zona: <span className="font-semibold text-gray-700">
+                        {zone.data?.find(z => z.id === zonaSelezionataId)?.nome}
+                    </span>
+                </div>
+            )}
             <table className="w-full text-sm">
                 <thead>
                     <tr className="border-b">

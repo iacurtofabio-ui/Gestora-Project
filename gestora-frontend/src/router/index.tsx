@@ -5,11 +5,10 @@ import AppLayout from '@/layouts/AppLayout'
 import { Button } from '@/components/ui/button'
 import DashboardPage from '@/pages/DashboardPage'
 import ZonePage from '@/pages/ZonePage'
-import PostazionePage from '@/pages/postazionePage'
+import PostazionePage from '@/pages/PostazionePage'
+import FasciaOrariaPage from '@/pages/FasciaOrariaPage'
 
 const placeholder = (name: string) => () => <div>{name}</div>
-
-const FasceOrariePage = placeholder('Fasce Orarie')
 const PrenotazioniPage = placeholder('Prenotazioni')
 const NuovaPrenotazionePage = placeholder('Nuova Prenotazione')
 const AdminUtentiPage = placeholder('Admin Utenti')
@@ -29,7 +28,7 @@ export const router = createBrowserRouter([
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/zone', element: <ZonePage /> },
       { path: '/postazioni', element: <PostazionePage /> },
-      { path: '/fasce/orarie', element: <FasceOrariePage /> },
+      { path: '/fasce-orarie', element: <FasciaOrariaPage /> },
       { path: '/prenotazioni', element: <PrenotazioniPage /> },
     ],
   },

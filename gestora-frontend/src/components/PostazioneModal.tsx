@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import type { PostazioneDTO } from "@/types/postazione";
 import { useCreaPostazione, useUpdatePostazione } from "@/hooks/usePostazioni";
+import { useZone } from "@/hooks/useZone";
 import { toast } from "sonner";
 
 const schema = z.object({
@@ -26,6 +27,7 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
 
     const creaPostazione = useCreaPostazione()
     const updatePostazione = useUpdatePostazione()
+    const zone = useZone()
 
     const { register, handleSubmit, formState: { errors, isSubmitting }, reset, } = useForm<PostazioneForm>({
         resolver: zodResolver(schema),
@@ -110,12 +112,15 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
                     </div>
                     <div>
                         <label className="text-sm font-medium text-gray-700">Zona</label>
-                        <input
+                        <select
                             {...register('zonaId', { valueAsNumber: true })}
-                            type="number"
-                            placeholder="Zona ID"
                             className="w-full border rounded px-3 py-2"
-                        />
+                        >
+                            <option value="">-- Seleziona zona --</option>
+                            {zone.data?.map(z => (
+                                <option key={z.id} value={z.id}>{z.nome}</option>
+                            ))}
+                        </select>
                         {errors.zonaId && <p className="text-red-500 text-sm mt-1">{errors.zonaId.message}</p>}
                     </div>
                     <div className="flex items-center gap-2">

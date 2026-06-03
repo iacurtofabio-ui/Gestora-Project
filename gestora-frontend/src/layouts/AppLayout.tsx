@@ -5,7 +5,7 @@ const links = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/zone', label: 'Zone' },
   { to: '/postazioni', label: 'Postazioni' },
-  { to: '/fasce/orarie', label: 'Fasce Orarie' },
+  { to: '/fasce-orarie', label: 'Fasce Orarie' },
   { to: '/prenotazioni', label: 'Prenotazioni' },
 ]
 
