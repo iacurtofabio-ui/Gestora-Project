@@ -2,8 +2,8 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 03/06/2026
-Ultima cosa fatta: CRUD Fasce Orarie completato — types, hook, pagina, modal. Fix URL hook (FasceOrarie, non FasciaOraria). Testato: crea, modifica, elimina funzionanti.
+Ultima sessione: 04/06/2026
+Ultima cosa fatta: ConfirmDialog riusabile (shadcn AlertDialog) + conferma prima di elimina su Zone, Postazioni, Fasce Orarie. Testato e funzionante.
 Prossima cosa: Gestione Prenotazioni (Staff + Cliente).
 
 ### !! BACKEND COMPLETATO !!

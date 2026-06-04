@@ -2,13 +2,15 @@ import { useDeleteZona, useZone } from '@/hooks/useZone'
 import { useState } from 'react'
 import type { ZonaDTO } from '@/types/zona'
 import ZonaModal from '@/components/ZonaModal'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 export default function ZonePage() {
-  
+
   const response = useZone()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [zonaSelezionata, setZonaSelezionata] = useState<ZonaDTO | undefined>(undefined)
   const deleteZona = useDeleteZona()
+  const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
 
   if (response.isLoading) return <div>Caricamento...</div>
   if (response.isError) return <div>Errore nel caricamento</div>
@@ -41,7 +43,7 @@ export default function ZonePage() {
                 >
                   Modifica
                 </button>
-                <button className="text-red-500 hover:underline text-sm" onClick={() => deleteZona.mutate(zona.id)}>
+                <button className="text-red-500 hover:underline text-sm" onClick={() => setIdDaEliminare(zona.id)}>
                   Elimina
                 </button>
               </td>
@@ -53,6 +55,12 @@ export default function ZonePage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         zona={zonaSelezionata}
+      />
+      <ConfirmDialog
+        open={idDaEliminare !== undefined}
+        descrizione="Sei sicuro di voler eliminare questa zona? L'operazione non è reversibile."
+        onConfirm={() => { deleteZona.mutate(idDaEliminare!); setIdDaEliminare(undefined) }}
+        onCancel={() => setIdDaEliminare(undefined)}
       />
     </div>
   )

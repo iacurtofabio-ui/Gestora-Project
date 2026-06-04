@@ -78,6 +78,25 @@ Aggiungere anche `PATCH /api/FasciaOraria/update-stato/{id}?attiva=true` per att
 
 ---
 
+### FIX-004 — Nessuna validazione unicità fascia oraria per giorno
+
+**Problema:**
+È possibile creare due fasce orarie con la stessa ora di inizio nello stesso giorno della settimana.
+Non esiste un controllo di unicità sul campo `(OrarioInizio, GiornoSettimana)`.
+
+**Quando si verifica:**
+Pagina Fasce Orarie → Aggiungi → si inserisce stessa ora inizio e stesso giorno di una fascia esistente → Salva.
+
+**Cosa fare:**
+Aggiungere un controllo nel service prima del salvataggio:
+verificare che non esista già una fascia con la stessa `OrarioInizio` e `GiornoSettimana`.
+Se esiste, restituire un errore `400 Bad Request` con messaggio chiaro.
+
+**File da modificare:**
+- `Services/FasceOrarie/FasciaOrariaService.cs` (metodo CreaFasciaAsync)
+
+---
+
 ## Fix completate
 
 *(nessuna ancora)*

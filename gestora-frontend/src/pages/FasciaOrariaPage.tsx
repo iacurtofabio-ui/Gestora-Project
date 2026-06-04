@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FasciaOrariaDTO } from '@/types/fasciaOraria';
 import { useFasceOrarie, useDeleteFasciaOraria } from "@/hooks/useFasceOrarie";
 import FasciaOrariaModal from '@/components/FasciaOrariaModal'
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const GIORNI = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
 
@@ -9,6 +10,7 @@ export default function FasciaOrariaPage() {
     // --- hook dati ---
     const { data, isLoading, isError } = useFasceOrarie()
     const deleteFasciaOraria = useDeleteFasciaOraria()
+    const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
 
     // --- stato UI ---
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -61,7 +63,7 @@ export default function FasciaOrariaPage() {
                                 </button>
                                 <button
                                     className="text-red-500 hover:underline text-sm"
-                                    onClick={() => deleteFasciaOraria.mutate(fasciaOraria.id)}
+                                    onClick={() => setIdDaEliminare(fasciaOraria.id)}
                                 >
                                     Elimina
                                 </button>
@@ -75,6 +77,12 @@ export default function FasciaOrariaPage() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 fascia={fasciaSelezionata}
+            />
+            <ConfirmDialog
+                open={idDaEliminare !== undefined}
+                descrizione="Sei sicuro di voler eliminare questa fascia oraria? L'operazione non è reversibile."
+                onConfirm={() => { deleteFasciaOraria.mutate(idDaEliminare!); setIdDaEliminare(undefined) }}
+                onCancel={() => setIdDaEliminare(undefined)}
             />
         </div>
     )

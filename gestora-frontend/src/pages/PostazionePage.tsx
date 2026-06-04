@@ -3,6 +3,7 @@ import { usePostazioni, useDeletePostazione } from '@/hooks/usePostazioni'
 import { useState } from 'react'
 import type { PostazioneDTO } from '@/types/postazione'
 import PostazioneModal from '@/components/PostazioneModal'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 export default function PostazionePage() {
     const zone = useZone()
@@ -10,9 +11,9 @@ export default function PostazionePage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [postazioneSelezionata, setPostazioneSelezionata] = useState<PostazioneDTO | undefined>(undefined)
     const deletePostazione = useDeletePostazione()
-    const postazioni = usePostazioni(zonaSelezionataId ?? 0, {
-        enabled: zonaSelezionataId !== undefined,
-    })
+    const postazioni = usePostazioni(zonaSelezionataId ?? 0, { enabled: zonaSelezionataId !== undefined })
+    const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
+
 
     if (zone.isLoading) return <div>Caricamento...</div>
     if (zone.isError) return <div>Errore nel caricamento</div>
@@ -65,7 +66,7 @@ export default function PostazionePage() {
                                     onClick={() => { setPostazioneSelezionata(postazione); setIsModalOpen(true) }}                                >
                                     Modifica
                                 </button>
-                                <button className="text-red-500 hover:underline text-sm" onClick={() => deletePostazione.mutate(postazione.id)}>
+                                <button className="text-red-500 hover:underline text-sm" onClick={() => setIdDaEliminare(postazione.id)}>
                                     Elimina
                                 </button>
                             </td>
@@ -77,6 +78,12 @@ export default function PostazionePage() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 postazione={postazioneSelezionata}
+            />
+            <ConfirmDialog
+                open={idDaEliminare !== undefined}
+                descrizione="Sei sicuro di voler eliminare questa postazione? L'operazione non è reversibile."
+                onConfirm={() => { deletePostazione.mutate(idDaEliminare!); setIdDaEliminare(undefined) }}
+                onCancel={() => setIdDaEliminare(undefined)}
             />
         </div>
     )
