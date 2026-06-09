@@ -18,6 +18,14 @@ export function useCreaZona() {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona creata con successo')
     },
+    onError: (error: any) => {
+      const data = error?.response?.data
+      const errors: { field: string; error: string }[] = data?.errors ?? []
+      const msg = errors.length > 0
+        ? errors.map((e) => e.error).join(', ')
+        : (data?.message ?? 'Errore durante la creazione')
+      toast.error(msg)
+    },
   })
 }
 
@@ -28,6 +36,14 @@ export function useUpdateZona() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona aggiornata con successo')
+    },
+    onError: (error: any) => {
+      const data = error?.response?.data
+      const errors: { field: string; error: string }[] = data?.errors ?? []
+      const msg = errors.length > 0
+        ? errors.map((e) => e.error).join(', ')
+        : (data?.message ?? 'Errore durante l\'aggiornamento')
+      toast.error(msg)
     },
   })
 }
@@ -41,7 +57,11 @@ export function useDeleteZona() {
       toast.success('Zona eliminata con successo')
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message ?? 'Errore durante l\'eliminazione'
+      const data = error?.response?.data
+      const errors: { field: string; error: string }[] = data?.errors ?? []
+      const msg = errors.length > 0
+        ? errors.map((e) => e.error).join(', ')
+        : (data?.message ?? 'Errore durante la cancellazione')
       toast.error(msg)
     }
   })
@@ -55,6 +75,14 @@ export function useUpdateStatoZona() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Stato della zona aggiornato con successo')
+    },
+    onError: (error: any) => {
+      const data = error?.response?.data
+      const errors: { field: string; error: string }[] = data?.errors ?? []
+      const msg = errors.length > 0
+        ? errors.map((e) => e.error).join(', ')
+        : (data?.message ?? 'Errore durante l\'aggiornamento stato')
+      toast.error(msg)
     },
   })
 }

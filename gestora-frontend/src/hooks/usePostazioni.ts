@@ -15,7 +15,18 @@ export function useCreaPostazione() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: PostazioneFormDTO) => apiClient.post('/Postazione/crea-postazione', data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['postazioni'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['postazioni'] })
+      toast.success('Postazione creata con successo')
+    },
+    onError: (error: any) => {
+      const data = error?.response?.data
+      const errors: { field: string; error: string }[] = data?.errors ?? []
+      const msg = errors.length > 0
+        ? errors.map((e) => e.error).join(', ')
+        : (data?.message ?? 'Errore durante la creazione')
+      toast.error(msg)
+    },
   })
 }
 
@@ -23,7 +34,18 @@ export function useUpdatePostazione() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: PostazioneDTO) => apiClient.put('/Postazione/update-postazione', data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['postazioni'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['postazioni'] })
+      toast.success('Postazione aggiornata con successo')
+    },
+    onError: (error: any) => {
+      const data = error?.response?.data
+      const errors: { field: string; error: string }[] = data?.errors ?? []
+      const msg = errors.length > 0
+        ? errors.map((e) => e.error).join(', ')
+        : (data?.message ?? 'Errore durante l\'aggiornamento')
+      toast.error(msg)
+    },
   })
 }
 
@@ -36,7 +58,11 @@ export function useDeletePostazione() {
       toast.success('Postazione eliminata con successo')
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message ?? 'Errore durante l\'eliminazione'
+      const data = error?.response?.data
+      const errors: { field: string; error: string }[] = data?.errors ?? []
+      const msg = errors.length > 0
+        ? errors.map((e) => e.error).join(', ')
+        : (data?.message ?? 'Errore durante la cancellazione')
       toast.error(msg)
     }
   })

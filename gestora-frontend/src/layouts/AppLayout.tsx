@@ -1,18 +1,22 @@
 import { Outlet, Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
-const links = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/zone', label: 'Zone' },
-  { to: '/postazioni', label: 'Postazioni' },
-  { to: '/fasce-orarie', label: 'Fasce Orarie' },
-  { to: '/prenotazioni', label: 'Prenotazioni' },
-]
-
 const linkClass = 'px-3 py-2 rounded hover:bg-gray-100 text-sm font-medium text-gray-700'
 
 export default function AppLayout() {
   const { user, logout } = useAuth()
+
+  const links = [
+    ...(user?.role === 'Admin' || user?.role === 'Staff'
+      ? [
+        { to: '/dashboard', label: 'Dashboard' },
+        { to: '/zone', label: 'Zone' },
+        { to: '/postazioni', label: 'Postazioni' },
+        { to: '/fasce-orarie', label: 'Fasce Orarie' },
+      ]
+      : []),
+    { to: '/prenotazioni', label: 'Prenotazioni' },
+  ]
 
   return (
     <div className="flex h-screen bg-gray-50">

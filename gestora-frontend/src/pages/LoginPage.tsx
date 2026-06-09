@@ -27,8 +27,11 @@ import { useForm } from 'react-hook-form'
     async function onSubmit(data: LoginForm) {
       try {
         const response = await apiClient.post('/AuthenticationUser/login', data)
-        login(response.data.token)
-        navigate('/dashboard')
+        const token = response.data.token
+        login(token)
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        const role = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
+        navigate(role === 'Cliente' ? '/prenotazioni' : '/dashboard')
       } catch {
         setError('root', { message: 'Credenziali non valide' })
       }

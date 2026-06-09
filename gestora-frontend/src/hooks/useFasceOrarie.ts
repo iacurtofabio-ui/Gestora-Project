@@ -21,9 +21,13 @@ export function useCreaFasciaOraria() {
             toast.success('Fascia oraria creata con successo')
         },
         onError: (error: any) => {
-            const msg = error?.response?.data?.message ?? 'Errore durante la creazione'
+            const data = error?.response?.data
+            const errors: { field: string; error: string }[] = data?.errors ?? []
+            const msg = errors.length > 0
+                ? errors.map((e) => e.error).join(', ')
+                : (data?.message ?? 'Errore durante la creazione')
             toast.error(msg)
-        }
+        },
     })
 }
 
@@ -36,9 +40,13 @@ export function useUpdateFasciaOraria() {
             toast.success('Fascia oraria aggiornata con successo')
         },
         onError: (error: any) => {
-            const msg = error?.response?.data?.message ?? 'Errore durante l\'aggiornamento'
+            const data = error?.response?.data
+            const errors: { field: string; error: string }[] = data?.errors ?? []
+            const msg = errors.length > 0
+                ? errors.map((e) => e.error).join(', ')
+                : (data?.message ?? 'Errore durante l\'aggiornamento')
             toast.error(msg)
-        }
+        },
     })
 }
 
@@ -51,8 +59,12 @@ export function useDeleteFasciaOraria() {
             toast.success('Fascia oraria eliminata con successo')
         },
         onError: (error: any) => {
-            const msg = error?.response?.data?.message ?? 'Errore durante l\'eliminazione'
+            const data = error?.response?.data
+            const errors: { field: string; error: string }[] = data?.errors ?? []
+            const msg = errors.length > 0
+                ? errors.map((e) => e.error).join(', ')
+                : (data?.message ?? 'Errore durante l\'eliminazione')
             toast.error(msg)
-        }
+        },
     })
 }

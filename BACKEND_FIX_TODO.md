@@ -97,6 +97,45 @@ Se esiste, restituire un errore `400 Bad Request` con messaggio chiaro.
 
 ---
 
+### FIX-005 — PrenotazioneDTO manca fasciaOrariaId e zonaId
+
+**Problema:**
+`PrenotazioneDTO` restituisce `oraInizio`/`oraFine` ma non `fasciaOrariaId` e `zonaId`.
+Il frontend non può pre-compilare il form di modifica senza questi campi.
+
+**Quando si verifica:**
+Pagina Prenotazioni → click Modifica su una prenotazione esistente.
+
+**Cosa fare:**
+Aggiungere `FasciaOrariaId` e `ZonaId` a `PrenotazioneDTO` nel mapping del service.
+
+**File da modificare:**
+- `Services/Prenotazioni/PrenotazioneService.cs` (mapping → DTO)
+- `Services/Prenotazioni/DTOs/PrenotazioneDTO.cs`
+
+---
+
+### FIX-006 — Nessun endpoint per le prenotazioni del Cliente
+
+**Problema:**
+`GET /api/Prenotazione/get-all-prenotazioni` è accessibile solo ad Admin/Staff (403 per Cliente).
+Il Cliente non ha nessun endpoint per vedere le proprie prenotazioni.
+
+**Quando si verifica:**
+Pagina Prenotazioni con utente ruolo Cliente → errore 403.
+
+**Cosa fare:**
+Aggiungere endpoint `GET /api/Prenotazione/get-mie-prenotazioni` che restituisce
+solo le prenotazioni dell'utente loggato (filtro per UserId dal JWT).
+Oppure modificare `get-all-prenotazioni` per filtrare automaticamente in base al ruolo:
+se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte.
+
+**File da modificare:**
+- `Controllers/PrenotazioneController.cs`
+- `Services/Prenotazioni/PrenotazioneService.cs`
+
+---
+
 ## Fix completate
 
 *(nessuna ancora)*

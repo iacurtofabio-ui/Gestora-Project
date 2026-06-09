@@ -1,20 +1,19 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute'
 import LoginPage from '@/pages/LoginPage'
 import AppLayout from '@/layouts/AppLayout'
-import { Button } from '@/components/ui/button'
+import PrenotazionePage from '@/pages/PrenotazionePage'
 import DashboardPage from '@/pages/DashboardPage'
 import ZonePage from '@/pages/ZonePage'
 import PostazionePage from '@/pages/PostazionePage'
 import FasciaOrariaPage from '@/pages/FasciaOrariaPage'
 
 const placeholder = (name: string) => () => <div>{name}</div>
-const PrenotazioniPage = placeholder('Prenotazioni')
-const NuovaPrenotazionePage = placeholder('Nuova Prenotazione')
 const AdminUtentiPage = placeholder('Admin Utenti')
 const UnauthorizedPage = placeholder('Unauthorized')
 
 export const router = createBrowserRouter([
+  { path: '/', element: <Navigate to="/login" replace /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/unauthorized', element: <UnauthorizedPage /> },
 
@@ -29,10 +28,18 @@ export const router = createBrowserRouter([
       { path: '/zone', element: <ZonePage /> },
       { path: '/postazioni', element: <PostazionePage /> },
       { path: '/fasce-orarie', element: <FasciaOrariaPage /> },
-      { path: '/prenotazioni', element: <PrenotazioniPage /> },
     ],
   },
-
+  {
+    element: (
+      <ProtectedRoute allowedRoles={['Admin', 'Staff', 'Cliente']}>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { path: '/prenotazioni', element: <PrenotazionePage /> },
+    ],
+  },
   {
     element: (
       <ProtectedRoute allowedRoles={['Admin']}>
@@ -42,16 +49,5 @@ export const router = createBrowserRouter([
     children: [
       { path: '/admin-utenti', element: <AdminUtentiPage /> },
     ],
-  },
-
-  {
-    element: (
-      <ProtectedRoute allowedRoles={['Admin', 'Staff', 'Cliente']}>
-        <AppLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { path: '/prenotazioni/nuova', element: <NuovaPrenotazionePage /> },
-    ],
-  },
+  }
 ])

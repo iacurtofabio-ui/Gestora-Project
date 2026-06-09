@@ -2,9 +2,9 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 04/06/2026
-Ultima cosa fatta: ConfirmDialog riusabile (shadcn AlertDialog) + conferma prima di elimina su Zone, Postazioni, Fasce Orarie. Testato e funzionante.
-Prossima cosa: Gestione Prenotazioni (Staff + Cliente).
+Ultima sessione: 09/06/2026
+Ultima cosa fatta: Gestione Prenotazioni completa (types, hook, modal, pagina). Fix router role-based (Admin/Staff vs Cliente). Login redirect per ruolo. Sidebar filtrata per ruolo. Error handling unificato su tutti gli hook (legge errors[] dal backend).
+Prossima cosa: Pannello Admin Utenti (consuma endpoint Auth).
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
