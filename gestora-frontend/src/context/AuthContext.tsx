@@ -1,6 +1,7 @@
 import { createContext, useContext, useState } from 'react'
 
   type AuthUser = {
+    id: string
     email: string
     role: string
     token: string
@@ -20,13 +21,13 @@ import { createContext, useContext, useState } from 'react'
       const token = localStorage.getItem('token')
       if (!token) return null
       const payload = JSON.parse(atob(token.split('.')[1]))
-      return { token, email: payload.email, role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] }
+      return { token, id: payload.sub, email: payload.email, role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] }
     })
 
     function login(token: string) {
       localStorage.setItem('token', token)
       const payload = JSON.parse(atob(token.split('.')[1]))
-      setUser({ token, email: payload.email, role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] })
+      setUser({ token, id: payload.sub, email: payload.email, role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] })
     }
 
     function logout() {

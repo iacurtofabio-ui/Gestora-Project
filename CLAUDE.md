@@ -2,9 +2,9 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 09/06/2026
-Ultima cosa fatta: Gestione Prenotazioni completa (types, hook, modal, pagina). Fix router role-based (Admin/Staff vs Cliente). Login redirect per ruolo. Sidebar filtrata per ruolo. Error handling unificato su tutti gli hook (legge errors[] dal backend).
-Prossima cosa: Pannello Admin Utenti (consuma endpoint Auth).
+Ultima sessione: 11/06/2026
+Ultima cosa fatta: Pannello Admin Utenti completo (types, hook, 3 modal, pagina). shadcn Input/Label installati. AuthContext aggiornato con campo id estratto da claim sub JWT. Build produzione verde (npm run build).
+Prossima cosa: Deploy su Vercel (.env.local locale + variabili ambiente Vercel + Railway URL).
 
 ### !! BACKEND COMPLETATO !!
 ### >> PROSSIMA FASE: FRONTEND <<
@@ -32,11 +32,11 @@ Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è u
 5. ~~Setup Axios con interceptor JWT (attach token + refresh/logout su 401)~~ ✅ FATTO
 6. ~~Setup React Query (TanStack Query v5)~~ ✅ FATTO
 7. ~~Pagina Login + hook useAuth con Context API~~ ✅ FATTO
-8. Layout shell: sidebar, header, area contenuto
-9. Pagina Dashboard (consuma GET /Dashboard/giornaliera e /settimanale)
-10. CRUD Zone, Postazioni, Fasce Orarie (Admin)
-11. Gestione Prenotazioni (Staff + Cliente)
-12. Pannello Admin utenti (consuma endpoint Auth)
+8. ~~Layout shell: sidebar, header, area contenuto~~ ✅ FATTO
+9. ~~Pagina Dashboard (consuma GET /Dashboard/giornaliera e /settimanale)~~ ✅ FATTO
+10. ~~CRUD Zone, Postazioni, Fasce Orarie (Admin)~~ ✅ FATTO
+11. ~~Gestione Prenotazioni (Staff + Cliente)~~ ✅ FATTO
+12. ~~Pannello Admin utenti (consuma endpoint Auth)~~ ✅ FATTO
 13. Deploy su Vercel
 
 
@@ -56,8 +56,8 @@ BACKEND (completato):
 - Test: xUnit + Moq, 18 test unitari (tutti verdi)
 - Deploy: Railway (backend + PostgreSQL)
 
-FRONTEND (prossima fase):
-- React 18 + TypeScript + Vite
+FRONTEND (completato — deploy pendente):
+- React 19 + TypeScript + Vite
 - shadcn/ui + Tailwind CSS
 - React Query (TanStack Query v5)
 - React Hook Form + Zod

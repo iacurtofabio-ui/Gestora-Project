@@ -7,10 +7,9 @@ import DashboardPage from '@/pages/DashboardPage'
 import ZonePage from '@/pages/ZonePage'
 import PostazionePage from '@/pages/PostazionePage'
 import FasciaOrariaPage from '@/pages/FasciaOrariaPage'
+import AdminUtentiPage from '@/pages/AdminUtentiPage'
 
-const placeholder = (name: string) => () => <div>{name}</div>
-const AdminUtentiPage = placeholder('Admin Utenti')
-const UnauthorizedPage = placeholder('Unauthorized')
+const UnauthorizedPage = () => <div className="p-6 text-red-500">Non sei autorizzato ad accedere a questa pagina.</div>
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
