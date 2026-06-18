@@ -1,0 +1,277 @@
+# Piano di Rilascio — Gestora
+# Documento: Solution Architecture Assessment
+# Data: 11/06/2026
+# Versione: 1.0
+
+---
+
+## 1. Executive Summary
+
+Il progetto Gestora è composto da un backend ASP.NET Core 9 e un frontend React 19.
+Il codice di entrambi i livelli è funzionante in locale. Nessuno dei due è ancora in produzione.
+
+L'analisi del codice sorgente ha rilevato problemi che vanno oltre quelli già registrati
+in BACKEND_FIX_TODO.md. In particolare, è stato identificato un blocco critico per il
+deploy in produzione non precedentemente registrato: la configurazione CORS hardcoded
+sul solo localhost impedirà qualsiasi comunicazione tra Vercel e Railway.
+
+Il documento descrive la sequenza di lavoro raccomandata per portare il prodotto
+in produzione in modo stabile e professionale.
+
+---
+
+## 2. Analisi Stato Attuale
+
+### 2.1 Backend
+
+| Area | Stato | Note |
+|---|---|---|
+| Architettura | OK | Clean Architecture, Repository+Service pattern corretto |
+| Autenticazione JWT | OK | ASP.NET Identity + JWT Bearer, 3 ruoli |
+| Validazione input | OK | FluentValidation su tutti i DTO |
+| Error handling | OK | ExceptionMiddleware centralizzato, risposta uniforme |
+| Logging | OK | Serilog con output su console e file |
+| Cache | OK | IMemoryCache 30 min con invalidazione su write |
+| Jobs schedulati | OK | Quartz.NET con persistent store su PostgreSQL |
+| Unit test | PARZIALE | 18 test su 3 service — nessun test su controller, auth, dashboard |
+| Configurazione produzione | DA FARE | Secrets vuoti in appsettings.json (correto), Railway env vars non configurate |
+| CORS | CRITICO | Hardcoded su localhost:5173 — blocca produzione |
+| HTTPS redirect | DA DECIDERE | Commentato nel codice con nota aperta |
+| Migration DB | DA FARE | Le migration EF Core devono girare su Railway al primo avvio |
+
+### 2.2 Frontend
+
+| Area | Stato | Note |
+|---|---|---|
+| Setup e infrastruttura | OK | Vite, React 19, TypeScript, shadcn/ui, Tailwind |
+| Autenticazione | OK | JWT in localStorage, interceptor Axios, AuthContext con id/email/role |
+| Routing role-based | OK | Route protette per ruolo, redirect per ruolo al login |
+| CRUD Zone/Postazioni/FasceOrarie | OK | Completo con modal, ConfirmDialog, error handling |
+| Gestione Prenotazioni (Admin/Staff) | OK | Funzionante, filtri, azioni stato |
+| Gestione Prenotazioni (Cliente) | BLOCCATO | Mostra messaggio 403 — pending FIX-006 backend |
+| Pannello Admin Utenti | OK | Lista, modifica, ruoli, reset password, elimina |
+| Build produzione | OK | npm run build verde, bundle 600 kB |
+| Variabili ambiente | DA FARE | VITE_API_URL non ancora configurato per produzione |
+| Test | ASSENTE | Nessun test unitario o di integrazione frontend |
+
+---
+
+## 3. Problemi Rilevati
+
+Classificazione: CRITICO > ALTO > MEDIO > BASSO
+
+### CRITICO — Blocca il deploy in produzione
+
+**CORS-001 — CORS hardcoded su localhost**
+File: GestoraWebApi/Program.cs riga 107
+Problema: policy.WithOrigins("http://localhost:5173") è scritto fisso nel codice.
+In produzione il frontend sarà su https://{nome}.vercel.app — tutte le chiamate
+API saranno bloccate dal browser con errore CORS.
+Soluzione: leggere gli origin consentiti da configurazione (appsettings / env var Railway)
+e aggiungere l'URL Vercel alla policy in produzione.
+Non registrato in BACKEND_FIX_TODO.md — aggiungere.
+
+### ALTO — Compromette funzionalità core
+
+**FIX-006 — Nessun endpoint prenotazioni per Cliente**
+Il Cliente ottiene 403 su get-all-prenotazioni. La funzionalità è bloccata per un intero ruolo.
+Soluzione: aggiungere get-mie-prenotazioni filtrato per UserId dal JWT, oppure
+modificare get-all-prenotazioni per filtrare automaticamente per ruolo.
+
+**FIX-005 — PrenotazioneDTO manca FasciaOrariaId e ZonaId**
+La modifica di una prenotazione non può funzionare senza questi campi nel DTO.
+La funzionalità di edit è incompleta.
+
+**FIX-003 — FasceOrarie restituisce 404 invece di array vuoto**
+FasceOrarieController.GetFasceAttive() riga 57: if (!fasce.Any()) return NotFound(...)
+Comportamento scorretto: 404 significa "risorsa non trovata", non "lista vuota".
+La lista vuota è un risultato valido e deve tornare Ok([]).
+Stesso pattern presente anche in fasce-per-giorno (riga 78) — da correggere insieme.
+
+### MEDIO — Funzionalità incomplete o degradate
+
+**FIX-002 — Nessun endpoint get-all fasce orarie**
+L'admin non può vedere né riattivare le fasce disattivate dalla UI.
+
+**FIX-004 — Nessuna validazione unicità fascia oraria**
+Possibile creare fasce duplicate sullo stesso giorno e orario.
+
+### BASSO — Qualità del codice e UX
+
+**FIX-001 — Messaggio errore zona inesistente non parlante**
+Il messaggio di Entity Framework non è comprensibile per l'utente.
+
+**NAMING-001 — File PrenotazioneDTO1.cs**
+Il file GestoraWebApi/Services/Prenotazioni/DTOs/PrenotazioneDTO1.cs contiene
+la classe PrenotazioneCreateDTO. Il nome del file non corrisponde al contenuto.
+Rinominare in PrenotazioneCreateDTO.cs per chiarezza.
+
+---
+
+## 4. Sequenza di Lavoro Raccomandata
+
+La sequenza segue lo standard enterprise: stabilizzare il backend, deployarlo,
+verificarlo, poi muoversi sul frontend, poi testing integrato su produzione.
+
+```
+FASE 1 — Fix e stabilizzazione backend
+FASE 2 — Test backend
+FASE 3 — Deploy backend (Railway)
+FASE 4 — Verifica backend in produzione
+FASE 5 — Verifica e fix frontend
+FASE 6 — Deploy frontend (Vercel)
+FASE 7 — Testing integrato su produzione
+FASE 8 — Rilascio
+```
+
+---
+
+## 5. Dettaglio Fasi
+
+### FASE 1 — Fix e stabilizzazione backend
+
+Ordine di esecuzione (dal più critico al meno critico):
+
+1. CORS-001: rendere gli origin CORS configurabili da appsettings/env var
+2. FIX-003: rimuovere NotFound su lista vuota in fasce-attive e fasce-per-giorno
+3. FIX-006: aggiungere endpoint get-mie-prenotazioni per Cliente
+4. FIX-005: aggiungere FasciaOrariaId e ZonaId a PrenotazioneDTO
+5. FIX-002: aggiungere endpoint get-all-fasce + PATCH update-stato/{id}
+6. FIX-004: aggiungere validazione unicità (OrarioInizio, GiornoSettimana)
+7. FIX-001: migliorare messaggio errore zona inesistente
+8. NAMING-001: rinominare PrenotazioneDTO1.cs
+9. Decidere sulla HTTPS redirect (riga 163 Program.cs)
+
+Nota su HTTPS: Railway espone già HTTPS sul proprio dominio tramite reverse proxy.
+Il container interno non deve fare HTTPS redirect. Lasciare commentato è corretto.
+
+### FASE 2 — Test backend
+
+Eseguire i 18 unit test esistenti: dotnet test
+Verificare manualmente via Swagger (localhost) tutti gli endpoint modificati:
+- fasce-attive con DB vuoto → deve tornare 200 []
+- fasce-per-giorno con DB vuoto → deve tornare 200 []
+- get-mie-prenotazioni con token Cliente → deve tornare solo le proprie
+- get-all-prenotazioni con token Admin → deve tornare tutte
+- CORS: chiamata da browser con Origin http://localhost:5173 → OK
+- Tutti gli endpoint delle fix applicate
+
+### FASE 3 — Deploy backend su Railway
+
+Prerequisiti prima del deploy:
+- Connection string PostgreSQL Railway configurata come env var
+- JWT Secret configurato come env var (mai in appsettings.json committato)
+- CORS origin produzione configurato come env var (URL Vercel)
+- Decidere se usare Railway Migrate automatica o run manuale (dotnet ef database update)
+
+Checklist deploy:
+1. Creare servizio PostgreSQL su Railway
+2. Creare servizio .NET su Railway collegato al repo GitHub
+3. Impostare variabili ambiente: ConnectionStrings__DefaultConnection, JwtSettings__Secret,
+   AllowedOrigins (URL Vercel da inserire dopo il deploy frontend)
+4. Verificare che le Quartz tables vengano create automaticamente al primo avvio
+5. Eseguire seed-admin una sola volta per creare il primo utente Admin
+
+### FASE 4 — Verifica backend in produzione
+
+Prima di toccare il frontend, verificare che il backend Railway funzioni correttamente:
+- Login con utente Admin → ottieni token
+- GET /api/Zona/get-all-zone → lista zone
+- GET /api/FasciaOraria/fasce-attive → 200 (anche se vuoto)
+- GET /api/Dashboard/giornaliera?data=oggi → risposta dashboard
+- Logs Railway visibili e senza errori di avvio
+
+### FASE 5 — Verifica e fix frontend
+
+Con l'URL Railway noto, aggiornare VITE_API_URL e testare in locale contro produzione:
+- Creare .env.local con VITE_API_URL=https://{url-railway}/api
+- Testare tutti i flussi: login, CRUD, prenotazioni
+- Verificare che le chiamate API raggiungano Railway senza errori CORS
+- Applicare eventuali fix frontend che emergono dai test
+
+### FASE 6 — Deploy frontend su Vercel
+
+Prerequisiti:
+- Repo GitHub aggiornato con ultimo commit
+- URL Railway backend confermato funzionante
+
+Passi:
+1. Collegare repo GitHub a Vercel
+2. Impostare root directory: gestora-frontend
+3. Impostare variabile ambiente: VITE_API_URL = https://{url-railway}/api
+4. Deployare
+5. Copiare URL Vercel (es. https://gestora-xyz.vercel.app)
+6. Tornare su Railway e aggiornare CORS AllowedOrigins con l'URL Vercel
+7. Fare un nuovo deploy Railway (o restart) per applicare la nuova variabile CORS
+
+### FASE 7 — Testing integrato su produzione
+
+Testare su ambiente reale (Vercel + Railway + PostgreSQL Railway) tutti i flussi:
+
+Flusso Admin:
+- Login → redirect a /dashboard
+- Dashboard carica KPI
+- CRUD Zone, Postazioni, Fasce Orarie (crea, modifica, elimina)
+- Gestione Prenotazioni: visualizza, conferma, completa, annulla
+- Pannello Utenti: visualizza, modifica, assegna ruoli, reset password, elimina
+
+Flusso Staff:
+- Login → redirect a /dashboard
+- Dashboard, visualizzazione entità in sola lettura
+- Prenotazioni: conferma, completa, annulla
+
+Flusso Cliente:
+- Login → redirect a /prenotazioni
+- Visualizza solo le proprie prenotazioni
+- Crea nuova prenotazione
+- Annulla prenotazione propria
+
+Flusso non autenticato:
+- / → redirect a /login
+- Route protetta senza token → redirect a /login
+- Route con ruolo sbagliato → /unauthorized
+
+### FASE 8 — Rilascio
+
+- Aggiornare CLAUDE.md con URL Railway e URL Vercel
+- Commit finale con tag di versione (es. v1.0.0)
+- Documentare credenziali Admin iniziali in luogo sicuro (non nel repo)
+- Aggiornare tracker con stati finali
+
+---
+
+## 6. Riepilogo Priorità Fix Backend
+
+| Codice | Descrizione | Priorità | Fase |
+|---|---|---|---|
+| CORS-001 | CORS hardcoded localhost | CRITICO | Fase 1 (prima di tutto) |
+| FIX-003 | 404 invece di [] su liste vuote | ALTO | Fase 1 |
+| FIX-006 | Nessun endpoint prenotazioni Cliente | ALTO | Fase 1 |
+| FIX-005 | PrenotazioneDTO manca FasciaOrariaId/ZonaId | ALTO | Fase 1 |
+| FIX-002 | Nessun get-all fasce + PATCH stato | MEDIO | Fase 1 |
+| FIX-004 | Nessuna validazione unicità fascia oraria | MEDIO | Fase 1 |
+| FIX-001 | Messaggio errore zona inesistente | BASSO | Fase 1 |
+| NAMING-001 | File PrenotazioneDTO1.cs mal nominato | BASSO | Fase 1 |
+
+---
+
+## 7. Note Architetturali
+
+**Su HTTPS in produzione:**
+Railway termina HTTPS a livello di reverse proxy. L'applicazione ASP.NET Core
+gira su HTTP internamente. Non abilitare UseHttpsRedirection nel container Railway
+perché causerebbe redirect loop. Il commento nel codice è corretto — lasciare così.
+
+**Su Quartz.NET in produzione:**
+Quartz usa PostgreSQL come persistent store. Al primo avvio tenterà di creare
+le tabelle QRTZ_* se non esistono. Verificare che l'utente DB abbia permessi DDL,
+oppure eseguire lo script SQL Quartz manualmente prima del primo avvio.
+
+**Su JWT Secret in produzione:**
+Il segreto JWT deve essere almeno 256 bit (32 caratteri). Non deve mai essere
+committato nel repo. Usare esclusivamente Railway environment variables.
+
+**Su Session/Token expiry:**
+Il token ha scadenza 60 minuti (appsettings.json). Non c'è refresh token.
+Allo scadere del token il frontend fa logout automatico (interceptor Axios su 401).
+Per un portfolio è accettabile. In produzione reale si implementerebbe un refresh token.

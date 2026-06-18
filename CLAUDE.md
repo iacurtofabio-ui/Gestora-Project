@@ -2,23 +2,24 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 11/06/2026
-Ultima cosa fatta: Pannello Admin Utenti completo (types, hook, 3 modal, pagina). shadcn Input/Label installati. AuthContext aggiornato con campo id estratto da claim sub JWT. Build produzione verde (npm run build).
-Prossima cosa: Deploy su Vercel (.env.local locale + variabili ambiente Vercel + Railway URL).
+Ultima sessione: 18/06/2026
+Ultima cosa fatta: FASE 1 parziale — CORS-001, FIX-003, FIX-006, FIX-005 completati. Build verde (0 errori, 50 warning pre-esistenti). Test aggiornato (mock ILogActivityService).
+Prossima cosa: FIX-002 — endpoint get-all-fasce + PATCH update-stato/{id} per FasceOrarie.
 
-### !! BACKEND COMPLETATO !!
-### >> PROSSIMA FASE: FRONTEND <<
-
-### Iter di progetto — SEQUENZA OBBLIGATORIA
-1. Completare il frontend
-2. Applicare le fix al backend (vedi `BACKEND_FIX_TODO.md`)
-3. Testing generale del prodotto completo
-4. Rilascio in produzione
+### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
+1. ~~Completare il frontend~~ ✅ FATTO
+2. Fix backend (vedi `BACKEND_FIX_TODO.md` e `PIANO_RILASCIO.md`)
+3. Test backend (dotnet test + verifica manuale Swagger)
+4. Deploy backend su Railway
+5. Verifica backend in produzione
+6. Fix/verifica frontend contro Railway URL
+7. Deploy frontend su Vercel
+8. Testing integrato su produzione
+9. Rilascio v1.0.0
 
 ### File fix backend — LEGGERE AD OGNI SESSIONE
-Ogni volta che durante lo sviluppo frontend si trova un problema nel backend,
-va aggiunto subito in: `C:\Users\Carlo Taranto\Personale\GestoraProject\BACKEND_FIX_TODO.md`
-NON toccare il backend ora — registrare solo la fix e andare avanti con il frontend.
+Ogni problema backend trovato va registrato in:
+`C:\Users\Carlo Taranto\Personale\GestoraProject\BACKEND_FIX_TODO.md`
 
 ### Nota React 19
 Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è un problema — React 19 è stabile.
@@ -180,6 +181,17 @@ Come mi devi affiancare:
 - Quando si introduce un pattern nuovo (es. callback, async, hooks), spiegare il PERCHÉ prima del COME
 - Se Fabio commette un errore, spiegare cosa è andato storto e perché, non solo come correggerlo
 - Ricordare sempre: tutto quello che facciamo è la prima volta per Fabio sul frontend
+
+### Protocollo panoramica step — OBBLIGATORIO
+
+Prima di iniziare qualsiasi nuovo step, fornire SEMPRE una panoramica che include:
+1. **Cosa facciamo**: obiettivo dello step in una riga
+2. **Perché**: motivazione tecnica o di business
+3. **File coinvolti**: elenco dei file che toccheremo
+4. **Concetti chiave**: se lo step introduce pattern nuovi, nominarli qui
+5. **Risultato atteso**: cosa sarà diverso/funzionante al termine
+
+Solo dopo la panoramica procedere con il codice.
 
 ---
 

@@ -18,6 +18,36 @@ Ogni fix ha:
 
 ## Fix da fare
 
+### CORS-001 — CORS hardcoded su localhost ⚠️ CRITICO — blocca produzione
+
+**Problema:**
+`Program.cs` riga 107: `policy.WithOrigins("http://localhost:5173")` è scritto fisso nel codice.
+In produzione il frontend sarà su `https://{nome}.vercel.app` — tutte le chiamate API
+saranno bloccate dal browser con errore CORS prima ancora di raggiungere il server.
+
+**Quando si verifica:**
+Qualsiasi chiamata API dal frontend Vercel verso Railway.
+
+**Cosa fare:**
+Leggere gli origin consentiti da configurazione (appsettings / env var Railway):
+```csharp
+// appsettings.json
+"AllowedOrigins": ["http://localhost:5173"]
+
+// appsettings.Production.json (o Railway env var)
+"AllowedOrigins": ["https://{nome}.vercel.app"]
+
+// Program.cs
+var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
+```
+
+**File da modificare:**
+- `Program.cs` (CORS policy)
+- `appsettings.json` (aggiungere sezione AllowedOrigins)
+
+---
+
 ### FIX-001 — Errore non parlante quando la zona non esiste
 
 **Problema:**
