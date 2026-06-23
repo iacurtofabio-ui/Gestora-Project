@@ -1,3 +1,7 @@
 # File temporanei Excel
 ~$*.xlsx
 ~$*.xls
+
+# Graphify - skill e grafo locali, non versionati
+.claude/
+graphify-out/
