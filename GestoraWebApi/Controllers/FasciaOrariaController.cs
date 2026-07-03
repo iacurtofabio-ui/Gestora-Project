@@ -124,5 +124,31 @@ namespace GestoraWebApi.Controllers
 
             return Ok(new { message = "Fascia oraria eliminata con successo" });
         }
+
+        /// <summary>Restituisce tutte le fasce orarie (attive e non). Solo Admin.</summary>
+        [Authorize(Roles = Roles.Admin)]
+        [HttpGet("get-all-fasce")]
+        public async Task<IActionResult> GetAllFasce()
+        {
+            var fasce = await _fasciaOrariaService.GetAllFasceAsync();
+
+            _logger.LogInformation("[{Controller}] - [{Method}]: Recuperate {Count} fasce totali - {Data}",
+                nameof(FasceOrarieController), nameof(GetAllFasce), fasce.Count, DateTime.Now);
+
+            return Ok(fasce);
+        }
+
+        /// <summary>Attiva o disattiva una fascia oraria. Solo Admin.</summary>
+        [Authorize(Roles = Roles.Admin)]
+        [HttpPatch("update-stato/{id}")]
+        public async Task<IActionResult> UpdateStatoAsync(long id, [FromQuery] bool attiva)
+        {
+            await _fasciaOrariaService.UpdateStatoAsync(id, attiva);
+
+            _logger.LogInformation("[{Controller}] - [{Method}]: Stato fascia {Id} aggiornato a {Attiva} - {Data}",
+                nameof(FasceOrarieController), nameof(UpdateStatoAsync), id, attiva, DateTime.Now);
+
+            return Ok(new { message = $"Stato fascia aggiornato con successo." });
+        }
     }
 }

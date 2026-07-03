@@ -10,7 +10,8 @@
       "Bash(Get-ChildItem *)",
       "Bash(New-Item -ItemType File -Path \"C:\\\\Users\\\\Carlo Taranto\\\\Personale\\\\GestoraProject\\\\GUIDA_CRUD_FRONTEND.md\" -Force)",
       "Bash(Out-Null)",
-      "PowerShell(New-Item *)"
+      "PowerShell(New-Item *)",
+      "PowerShell(\\(Get-Item \"graphify-out\\\\graph.json\"\\).LastWriteTime)"
     ]
   }
 }

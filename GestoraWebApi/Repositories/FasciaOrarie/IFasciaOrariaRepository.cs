@@ -1,4 +1,5 @@
 ﻿using GestoraWebApi.Models;
+using GestoraWebApi.Services.FasciaOrarie.DTOs;
 
 namespace GestoraWebApi.Repositories.FasciaOrarie
 {
@@ -14,5 +15,6 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
         Task<List<FasciaOraria>> GetFasceByGiornoAsync(DayOfWeek giorno);
         Task<int> CountNumeroCopertiFasciaOrariaAsync(long fasciaId, DateOnly data);
         Task<bool> IsFasciaUsataAsync(long fasciaId);
+        Task<List<FasciaOraria>> GetAllFasceAsync();
     }
 }

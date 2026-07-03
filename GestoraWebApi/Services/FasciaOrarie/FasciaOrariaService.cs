@@ -236,5 +236,37 @@ namespace GestoraWebApi.Services.FasciaOrarie
         {
             throw new NotImplementedException();
         }
+
+        public async Task<List<FasciaOrariaDTO>> GetAllFasceAsync()
+        {
+
+            var fasce = await _fasciaRepository.GetAllFasceAsync();
+
+            var result = fasce.Select(f => new FasciaOrariaDTO
+            {
+                Id = f.Id,
+                GiornoSettimana = f.GiornoSettimana,
+                MaxPrenotazioni = f.MaxPrenotazioni,
+                Attiva = f.Attiva,
+                OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
+                OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
+            }).ToList();
+
+            return result;
+        }
+
+        public async Task UpdateStatoAsync(long id, bool attiva)
+        {
+            var fascia = await _fasciaRepository.GetByIdAsync(id);
+
+            if (fascia == null)
+                throw new KeyNotFoundException($"Fascia oraria con ID {id} non trovata.");
+
+            fascia.Attiva = attiva;
+
+            await _fasciaRepository.UpdateAsync(fascia);
+
+            _cache.Remove(CacheKeys.FasceAttive);
+        }
     }
 }

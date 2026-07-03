@@ -2,9 +2,9 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 18/06/2026
-Ultima cosa fatta: FASE 1 parziale — CORS-001, FIX-003, FIX-006, FIX-005 completati. Build verde (0 errori, 50 warning pre-esistenti). Test aggiornato (mock ILogActivityService).
-Prossima cosa: FIX-002 — endpoint get-all-fasce + PATCH update-stato/{id} per FasceOrarie.
+Ultima sessione: 03/07/2026
+Ultima cosa fatta: FASE 1 parziale — FIX-002 completato. GET get-all-fasce + PATCH update-stato/{id} su FasceOrarie. 21 test verdi. Fix regressione PrenotazioniServiceTests (mock IHttpContextAccessor).
+Prossima cosa: FIX-004 — validazione unicità (OrarioInizio, GiornoSettimana) in FasciaOrariaService.
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO

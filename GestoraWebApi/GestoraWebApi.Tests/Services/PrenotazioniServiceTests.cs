@@ -17,27 +17,45 @@ namespace GestoraWebApi.Tests.Services;
 
 public class PrenotazioniServiceTests
 {
-    private readonly Mock<IPrenotazioniRepository>      _prenotazioniRepoMock;
+    private readonly Mock<IPrenotazioniRepository> _prenotazioniRepoMock;
     private readonly Mock<IPostazioneAssignmentService> _assignmentServiceMock;
-    private readonly Mock<IFasciaOrariaRepository>      _fasciaRepoMock;
-    private readonly Mock<IZonaRepository>              _zonaRepoMock;
-    private readonly Mock<IMapper>                      _mapperMock;
-    private readonly Mock<IHttpContextAccessor>         _httpContextMock;
+    private readonly Mock<IFasciaOrariaRepository> _fasciaRepoMock;
+    private readonly Mock<IZonaRepository> _zonaRepoMock;
+    private readonly Mock<IMapper> _mapperMock;
+    private readonly Mock<IHttpContextAccessor> _httpContextMock;
     private readonly Mock<ILogger<PrenotazioniService>> _loggerMock;
-    private readonly GestoraContext                     _context;
-    private readonly PrenotazioniService                _service;
+    private readonly GestoraContext _context;
+    private readonly PrenotazioniService _service;
     private readonly Mock<ILogActivityService> _logActivityMock;
 
     public PrenotazioniServiceTests()
     {
-        _prenotazioniRepoMock  = new Mock<IPrenotazioniRepository>();
+        _prenotazioniRepoMock = new Mock<IPrenotazioniRepository>();
         _assignmentServiceMock = new Mock<IPostazioneAssignmentService>();
-        _fasciaRepoMock        = new Mock<IFasciaOrariaRepository>();
-        _zonaRepoMock          = new Mock<IZonaRepository>();
-        _mapperMock            = new Mock<IMapper>();
-        _httpContextMock       = new Mock<IHttpContextAccessor>();
-        _loggerMock            = new Mock<ILogger<PrenotazioniService>>();
-        _logActivityMock       = new Mock<ILogActivityService>();
+        _fasciaRepoMock = new Mock<IFasciaOrariaRepository>();
+        _zonaRepoMock = new Mock<IZonaRepository>();
+        _mapperMock = new Mock<IMapper>();
+        _httpContextMock = new Mock<IHttpContextAccessor>();
+        _loggerMock = new Mock<ILogger<PrenotazioniService>>();
+        _logActivityMock = new Mock<ILogActivityService>();
+
+
+        // ↓ BLOCCO DA AGGIUNGERE ↓
+        var claims = new[] { new
+  System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier,
+  "user-test-123") };
+        var identity = new
+    System.Security.Claims.ClaimsIdentity(claims,
+    "Test");
+        var claimsPrincipal = new System.Security.
+    Claims.ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext
+        {
+            User = claimsPrincipal
+        };
+        _httpContextMock.Setup(h =>
+    h.HttpContext).Returns(httpContext);
+        // ↑ FINE BLOCCO ↑
 
         var options = new DbContextOptionsBuilder<GestoraContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())

@@ -168,4 +168,8 @@ se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte
 
 ## Fix completate
 
-*(nessuna ancora)*
+- **CORS-001** — CORS configurabile da appsettings/env var ✅ (sessione 18/06/2026)
+- **FIX-003** — FasceOrarie restituisce 200 [] su lista vuota ✅ (sessione 18/06/2026)
+- **FIX-006** — Endpoint get-mie-prenotazioni per Cliente ✅ (sessione 18/06/2026)
+- **FIX-005** — PrenotazioneDTO con FasciaOrariaId e ZonaId ✅ (sessione 18/06/2026)
+- **FIX-002** — GET get-all-fasce + PATCH update-stato/{id} per FasceOrarie ✅ (sessione 03/07/2026)

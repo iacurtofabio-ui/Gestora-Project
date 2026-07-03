@@ -1,6 +1,7 @@
 ﻿using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
+using GestoraWebApi.Services.FasciaOrarie.DTOs;
 using Microsoft.EntityFrameworkCore;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -85,6 +86,13 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
         {
             _context.FasciaOrarie.Remove(entity);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<FasciaOraria>> GetAllFasceAsync()
+        {
+            return await _context.Set<FasciaOraria>()
+                .AsNoTracking()
+                .ToListAsync();
         }
     }
 }

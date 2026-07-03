@@ -14,6 +14,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
         Task<List<FasciaOrariaDTO>> GetFasceAttiveAsync();
         Task<List<FasciaOrariaDTO>> GetFasceByGiornoAsync(DayOfWeek giorno);
         Task<DisponibilitaFasciaDTO> VerificaDisponibilitaPerFasciaAsync(long fasciaId, DateOnly data);
-
+        Task<List<FasciaOrariaDTO>> GetAllFasceAsync();
+        Task UpdateStatoAsync(long id, bool attiva);
     }
 }
