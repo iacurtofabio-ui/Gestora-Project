@@ -166,6 +166,31 @@ se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte
 
 ---
 
+### SEC-001 — Segreti in chiaro in appsettings versionati ⚠️ SICUREZZA
+
+**Problema:**
+`appsettings.Development.json` contiene la password del DB (PostgreSQL) e il JWT Secret in chiaro,
+ed è tracciato da git → i segreti finiscono nella history del repository.
+
+**Quando si verifica:**
+Sempre: chiunque abbia accesso al repo (anche alla sola history) legge le credenziali.
+
+**Cosa fare:**
+- Spostare i segreti fuori dal file versionato: **User Secrets** in sviluppo (`dotnet user-secrets`)
+  ed **env var / secret store** in produzione (Railway).
+- Lasciare in `appsettings*.json` solo placeholder; se il file contiene segreti, aggiungerlo a `.gitignore`.
+- **Ruotare** le credenziali già esposte (password DB + JWT Secret): restano comunque nella git history.
+
+**File da modificare:**
+- `appsettings.Development.json` (rimuovere i segreti)
+- `.gitignore`
+- configurazione Railway (env vars)
+
+> Nota: annotato durante la riorganizzazione dei progetti (spostamento in `02_Personali\Gestora`).
+> Da affrontare insieme agli sviluppi backend.
+
+---
+
 ## Fix completate
 
 - **CORS-001** — CORS configurabile da appsettings/env var ✅ (sessione 18/06/2026)
