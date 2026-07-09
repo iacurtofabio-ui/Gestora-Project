@@ -19,7 +19,7 @@ Prossima cosa: FIX-004 — validazione unicità (OrarioInizio, GiornoSettimana) 
 
 ### File fix backend — LEGGERE AD OGNI SESSIONE
 Ogni problema backend trovato va registrato in:
-`C:\Users\Carlo Taranto\Personale\GestoraProject\BACKEND_FIX_TODO.md`
+`C:\Users\Carlo Taranto\Progetti_Tech\02_Personali\Gestora\BACKEND_FIX_TODO.md`
 
 ### Nota React 19
 Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è un problema — React 19 è stabile.
@@ -197,7 +197,7 @@ Solo dopo la panoramica procedere con il codice.
 
 ## Tracker attivita — PRIORITA MASSIMA
 
-Il tracker si trova in: `C:\Users\Carlo Taranto\Personale\GestoraProject\TrackAttività_Gestora.xlsx`
+Il tracker si trova in: `C:\Users\Carlo Taranto\Progetti_Tech\02_Personali\Gestora\TrackAttività_Gestora.xlsx`
 Claude lo legge e aggiorna tramite PowerShell + Excel COM — nessun allegato necessario.
 
 ### Protocollo sessione
