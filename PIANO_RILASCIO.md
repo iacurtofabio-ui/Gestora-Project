@@ -177,7 +177,7 @@ Checklist deploy:
 Prima di toccare il frontend, verificare che il backend Railway funzioni correttamente:
 - Login con utente Admin → ottieni token
 - GET /api/Zona/get-all-zone → lista zone
-- GET /api/FasciaOraria/fasce-attive → 200 (anche se vuoto)
+- GET /api/FasceOrarie/fasce-attive → 200 (anche se vuoto)
 - GET /api/Dashboard/giornaliera?data=oggi → risposta dashboard
 - Logs Railway visibili e senza errori di avvio
 

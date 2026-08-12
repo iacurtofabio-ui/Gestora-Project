@@ -3,9 +3,6 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
-# Claude Code configuration (tool config, not application code)
-CLAUDE.md
-
 # Tracker maintenance scripts (one-off PowerShell scripts)
 *.ps1
 

@@ -1,0 +1,29 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Rivedi le modifiche di questa PR sul progetto Gestora (backend ASP.NET Core /
+            frontend React). Segnala solo problemi concreti: bug, vulnerabilità di sicurezza
+            (es. IDOR, injection), violazioni dei pattern già stabiliti nel progetto
+            (Controller → Service → Repository per il backend, pattern CRUD a 4 file per il
+            frontend). Non commentare stile/formattazione. Rispondi in italiano.

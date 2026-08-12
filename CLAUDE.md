@@ -2,9 +2,14 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 03/07/2026
-Ultima cosa fatta: FASE 1 parziale — FIX-002 completato. GET get-all-fasce + PATCH update-stato/{id} su FasceOrarie. 21 test verdi. Fix regressione PrenotazioniServiceTests (mock IHttpContextAccessor).
-Prossima cosa: FIX-004 — validazione unicità (OrarioInizio, GiornoSettimana) in FasciaOrariaService.
+Ultima sessione: 12/08/2026
+Ultima cosa fatta: pulizia documentazione. Riscritti i CLAUDE.md per area (erano corrotti da
+escaping PowerShell), riformulato FIX-004 in BACKEND_FIX_TODO.md, aggiunto CACHE-001,
+ridimensionato SEC-001 (verificato: i segreti non sono mai entrati nella git history).
+Aggiunta CI GitHub Actions in `.github/workflows/`.
+Prossima cosa: implementare FIX-004 riformulato in FasciaOrariaService — (A) controllo
+sovrapposizione mancante in UpdateStatoAsync, regressione introdotta da FIX-002;
+(C) esito di TimeSpan.TryParse ignorato. Poi valutare (B).
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO
@@ -72,82 +77,10 @@ MOBILE (fase futura):
 
 ---
 
-## Backend — riferimento rapido per il frontend
+## Riferimento tecnico per area
 
-### URL base API
-
-- Locale: https://localhost:{porta}/api
-- Produzione: {URL Railway — da aggiornare dopo deploy}
-
-### Autenticazione
-
-- JWT Bearer — il token si ottiene da POST /api/AuthenticationUser/login
-- Header da allegare ad ogni richiesta autenticata: Authorization: Bearer {token}
-- Formato date in tutti gli endpoint: yyyy-MM-dd (es. 2026-05-14)
-- Errori: formato unificato { statusCode, message, errors: [{field, error}] }
-
-### Ruoli disponibili
-
-- Admin: accesso completo
-- Staff: operativo (conferma/completa/annulla prenotazioni, lettura dati)
-- Cliente: limitato (gestisce solo le proprie prenotazioni)
-
-### Endpoint per area
-
-Auth:
-- POST /api/AuthenticationUser/register
-- POST /api/AuthenticationUser/login  <-- restituisce il JWT
-- POST /api/AuthenticationUser/assign-role
-- DELETE /api/AuthenticationUser/remove-role
-- GET /api/AuthenticationUser/get-users
-- GET /api/AuthenticationUser/get-user/{id}
-- PUT /api/AuthenticationUser/update-user/{id}
-- DELETE /api/AuthenticationUser/delete-user/{id}
-- POST /api/AuthenticationUser/reset-password/{id}
-
-Dashboard (Admin + Staff):
-- GET /api/Dashboard/giornaliera?data=yyyy-MM-dd
-- GET /api/Dashboard/settimanale?dataInizio=yyyy-MM-dd
-
-Zone:
-- GET /api/Zona/get-zone-attive
-- GET /api/Zona/get-all-zone
-- GET /api/Zona/get-zona/{id}
-- POST /api/Zona/crea-zona
-- PUT /api/Zona/update-zona
-- PATCH /api/Zona/update-stato/{id}?attiva=true
-- DELETE /api/Zona/delete-zona/{id}
-
-Postazioni:
-- GET /api/Postazione/get-postazioni-attive
-- GET /api/Postazione/get-postazioni-disponibili
-- GET /api/Postazione/get-postazioni-per-zona
-- GET /api/Postazione/get-postazione-id
-- POST /api/Postazione/crea-postazione
-- PUT /api/Postazione/update-postazione
-- PUT /api/Postazione/associa-postazione-a-zona
-- DELETE /api/Postazione/delete-postazione
-
-Fasce Orarie:
-- GET /api/FasciaOraria/fasce-attive
-- GET /api/FasciaOraria/fasce-per-giorno?giorno={0-6}  (0=Dom, 1=Lun, ..., 6=Sab)
-- GET /api/FasciaOraria/fasce-disponibili?fasciaId={id}&data=yyyy-MM-dd
-- POST /api/FasciaOraria/crea-fascia
-- PUT /api/FasciaOraria/update-fascia
-- DELETE /api/FasciaOraria/delete-fascia
-
-Prenotazioni:
-- POST /api/Prenotazione/crea-prenotazione
-- POST /api/Prenotazione/check-disponibilita  <-- pubblico, no auth
-- GET /api/Prenotazione/get-prenotazione?id={id}
-- GET /api/Prenotazione/get-all-prenotazioni  (con filtri opzionali)
-- GET /api/Prenotazione/get-prenotazioni-by-data?data=yyyy-MM-dd
-- PUT /api/Prenotazione/update-prenotazione
-- DELETE /api/Prenotazione/delete-prenotazione
-- PATCH /api/Prenotazione/conferma-prenotazione?id={id}
-- PATCH /api/Prenotazione/completa-prenotazione?id={id}
-- PATCH /api/Prenotazione/annulla-prenotazione?id={id}
-
+- Backend (architettura, endpoint reali, note tecniche): `GestoraWebApi\CLAUDE.md`
+- Frontend (stack, pattern CRUD, routing): `gestora-frontend\CLAUDE.md`
 
 ---
 
@@ -197,10 +130,26 @@ Solo dopo la panoramica procedere con il codice.
 
 ## Tracker attivita — PRIORITA MASSIMA
 
-Il tracker si trova in: `C:\Users\Carlo Taranto\Progetti_Tech\02_Personali\Gestora\TrackAttività_Gestora.xlsx`
-Claude lo legge e aggiorna tramite PowerShell + Excel COM — nessun allegato necessario.
+Il tracker **unico e ufficiale** si trova in: `TrackAttività_Gestora.xlsx` (stessa cartella di
+questo file). Claude lo legge e aggiorna tramite PowerShell + Excel COM — nessun allegato
+necessario.
 
-### Protocollo sessione
+> Non esistono altri tracker validi. Se in futuro compare un secondo file xlsx/md che sembra un
+> tracker di progetto (è già successo con `Gestora_Piano_Operativo.xlsx`, generato da una
+> sessione Claude esterna e rimosso il 12/08/2026 perché duplicava e disallineava lo stato),
+> non aggiornarlo — segnalarlo a Fabio come possibile doppione prima di usarlo.
+
+### Procedura standard di ripresa sessione
+
+1. Leggere il blocco "LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE" in cima a questo file
+2. Leggere il foglio **Appunti e Step** di `TrackAttività_Gestora.xlsx`
+3. `git status` — se ci sono modifiche non committate da prima, capire cosa sono prima di
+   assumere che siano lavoro "in corso"
+4. Se si riprende un task a metà: eseguire la skill `verifica-gestora` per un'evidenza fresca
+   (build/test) invece di fidarsi dell'ultimo stato scritto a mano
+5. Procedere con il lavoro richiesto
+
+### Protocollo sessione (tracker)
 
 1. Inizio — leggere questo file + foglio Appunti e Step del tracker
 2. Dopo ogni implementazione — aggiornare stato nel tracker da "Da fare" a "Completato"

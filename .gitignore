@@ -3,5 +3,5 @@
 ~$*.xls
 
 # Graphify - skill e grafo locali, non versionati
-.claude/
+.claude/skills/graphify/
 graphify-out/

@@ -3,15 +3,34 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
+      "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(git rm *)",
-      "Bash(git commit *)",
-      "Bash(Get-ChildItem C:\\\\Users\\\\Carlo Taranto\\\\Personale\\\\GestoraProject *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(dotnet build*)",
+      "Bash(dotnet test*)",
+      "Bash(dotnet ef migrations list*)",
+      "Bash(npm run build*)",
+      "Bash(npm run lint*)",
+      "Bash(npm run dev*)",
       "Bash(Get-ChildItem *)",
-      "Bash(New-Item -ItemType File -Path \"C:\\\\Users\\\\Carlo Taranto\\\\Personale\\\\GestoraProject\\\\GUIDA_CRUD_FRONTEND.md\" -Force)",
       "Bash(Out-Null)",
+      "PowerShell(git status*)",
+      "PowerShell(git diff*)",
+      "PowerShell(git log*)",
+      "PowerShell(dotnet build*)",
+      "PowerShell(dotnet test*)",
+      "PowerShell(dotnet ef migrations list*)",
+      "PowerShell(npm run build*)",
+      "PowerShell(npm run lint*)",
+      "PowerShell(npm run dev*)",
       "PowerShell(New-Item *)",
-      "PowerShell(\\(Get-Item \"graphify-out\\\\graph.json\"\\).LastWriteTime)"
+      "PowerShell(\\(Get-Item \"graphify-out\\\\graph.json\"\\).LastWriteTime)",
+      "Bash(git mv *)",
+      "Bash(git check-ignore *)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }
