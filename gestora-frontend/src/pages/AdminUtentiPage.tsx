@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useUtenti, useDeleteUser } from '@/hooks/useAdminUtenti'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import type { UserDTO } from '@/types/utente'

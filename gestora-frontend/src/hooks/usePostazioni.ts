@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
 import apiClient from '@/lib/axios'
 import type { PostazioneDTO, PostazioneFormDTO } from '@/types/postazione'
+import type { ApiErrorResponse } from '@/types/apiError'
 import { toast } from 'sonner'
 
 export function usePostazioni(zonaId: number, options?: { enabled?: boolean }) {
@@ -19,9 +21,9 @@ export function useCreaPostazione() {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
       toast.success('Postazione creata con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante la creazione')
@@ -38,9 +40,9 @@ export function useUpdatePostazione() {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
       toast.success('Postazione aggiornata con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante l\'aggiornamento')
@@ -57,9 +59,9 @@ export function useDeletePostazione() {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
       toast.success('Postazione eliminata con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante la cancellazione')

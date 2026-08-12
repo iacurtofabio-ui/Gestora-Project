@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
   import { z } from 'zod'
   import { zodResolver } from '@hookform/resolvers/zod'
   import { useNavigate } from 'react-router-dom'
-  import { useAuth } from '@/context/AuthContext'
+  import { useAuth } from '@/hooks/useAuth'
   import apiClient from '@/lib/axios'
   import { Button } from '@/components/ui/button'
 

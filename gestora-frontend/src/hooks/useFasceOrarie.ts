@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
 import apiClient from '@/lib/axios'
 import { toast } from 'sonner'
 import type { FasciaOrariaDTO, FasciaOrariaFormDTO } from '@/types/fasciaOraria'
+import type { ApiErrorResponse } from '@/types/apiError'
 
 
 
@@ -20,9 +22,9 @@ export function useCreaFasciaOraria() {
             queryClient.invalidateQueries({ queryKey: ['fasce-orarie'] })
             toast.success('Fascia oraria creata con successo')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante la creazione')
@@ -39,9 +41,9 @@ export function useUpdateFasciaOraria() {
             queryClient.invalidateQueries({ queryKey: ['fasce-orarie'] })
             toast.success('Fascia oraria aggiornata con successo')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante l\'aggiornamento')
@@ -58,9 +60,9 @@ export function useDeleteFasciaOraria() {
             queryClient.invalidateQueries({ queryKey: ['fasce-orarie'] })
             toast.success('Fascia oraria eliminata con successo')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante l\'eliminazione')

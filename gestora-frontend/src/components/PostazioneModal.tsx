@@ -3,7 +3,9 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
+import type { AxiosError } from 'axios'
 import type { PostazioneDTO } from "@/types/postazione";
+import type { ApiErrorResponse } from '@/types/apiError'
 import { useCreaPostazione, useUpdatePostazione } from "@/hooks/usePostazioni";
 import { useZone } from "@/hooks/useZone";
 import { toast } from "sonner";
@@ -45,7 +47,7 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
             zonaId: postazione?.zonaId,
             attiva: postazione?.attiva ?? true,
         })
-    }, [postazione])
+    }, [postazione, reset])
 
     function onSubmit(data: PostazioneForm) {
         if (postazione) {
@@ -55,9 +57,9 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
                         toast.success('Postazione aggiornata con successo')
                         onClose()
                     },
-                    onError: (error: any) => {
-                        const data = error?.response?.data
-                        const errors = data?.errors as { field: string; error: string }[] | undefined
+                    onError: (error: AxiosError<ApiErrorResponse>) => {
+                        const data = error.response?.data
+                        const errors = data?.errors
                         if (errors && errors.length > 0) {
                             errors.forEach(e => toast.error(e.error))
                         } else {
@@ -71,9 +73,9 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
                     toast.success('Postazione creata con successo')
                     onClose()
                 },
-                onError: (error: any) => {
-                    const data = error?.response?.data
-                    const errors = data?.errors as { field: string; error: string }[] | undefined
+                onError: (error: AxiosError<ApiErrorResponse>) => {
+                    const data = error.response?.data
+                    const errors = data?.errors
                     if (errors && errors.length > 0) {
                         errors.forEach(e => toast.error(e.error))
                     } else {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isAxiosError } from 'axios'
 import {
     usePrenotazioni,
     useConfermaPrenotazione,
@@ -8,7 +9,7 @@ import {
 import PrenotazioneModal from '@/components/PrenotazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { STATI_PRENOTAZIONE } from '@/types/prenotazione'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 
 const OPZIONI_STATO = [
     { value: '', label: 'Tutti gli stati' },
@@ -39,7 +40,7 @@ export default function PrenotazionePage() {
 
     if (prenotazioni.isLoading) return <div>Caricamento...</div>
     if (prenotazioni.isError) {
-        const status = (prenotazioni.error as any)?.response?.status
+        const status = isAxiosError(prenotazioni.error) ? prenotazioni.error.response?.status : undefined
         if (status === 403) return (
             <div className="p-6 text-sm text-gray-500">
                 Non hai i permessi per visualizzare questa sezione. Contatta l'amministratore.

@@ -50,7 +50,7 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
             maxPrenotazioni: fascia?.maxPrenotazioni,
             attiva: fascia?.attiva ?? true,
         })
-    }, [fascia])
+    }, [fascia, reset])
 
     function onSubmit(data: FasciaOrariaFormDTO) {
         if (fascia) {

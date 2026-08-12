@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
 import apiClient from '@/lib/axios'
 import { toast } from 'sonner'
 import type { UserDTO, UpdateUserFormDTO, AssignRoleDTO, ResetPasswordDTO } from '@/types/utente'
+import type { ApiErrorResponse } from '@/types/apiError'
 
 export function useUtenti() {
   return useQuery<UserDTO[]>({
@@ -19,9 +21,9 @@ export function useUpdateUser() {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Utente aggiornato con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante l\'aggiornamento')
@@ -38,9 +40,9 @@ export function useDeleteUser() {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Utente eliminato con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante l\'eliminazione')
@@ -57,9 +59,9 @@ export function useAssignRole() {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Ruolo assegnato con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante l\'assegnazione del ruolo')
@@ -76,9 +78,9 @@ export function useRemoveRole() {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Ruolo rimosso con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante la rimozione del ruolo')
@@ -96,9 +98,9 @@ export function useResetPassword() {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Password resettata con successo')
     },
-    onError: (error: any) => {
-      const data = error?.response?.data
-      const errors: { field: string; error: string }[] = data?.errors ?? []
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      const data = error.response?.data
+      const errors = data?.errors ?? []
       const msg = errors.length > 0
         ? errors.map((e) => e.error).join(', ')
         : (data?.message ?? 'Errore durante il reset password')

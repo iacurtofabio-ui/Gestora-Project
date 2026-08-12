@@ -8,8 +8,7 @@ import ZonePage from '@/pages/ZonePage'
 import PostazionePage from '@/pages/PostazionePage'
 import FasciaOrariaPage from '@/pages/FasciaOrariaPage'
 import AdminUtentiPage from '@/pages/AdminUtentiPage'
-
-const UnauthorizedPage = () => <div className="p-6 text-red-500">Non sei autorizzato ad accedere a questa pagina.</div>
+import UnauthorizedPage from '@/pages/UnauthorizedPage'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },

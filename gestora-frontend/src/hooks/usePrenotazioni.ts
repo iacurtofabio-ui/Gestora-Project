@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { AxiosError } from 'axios'
 import apiClient from '@/lib/axios'
 import { toast } from 'sonner'
 import type { PrenotazioneDTO, PrenotazioneCreateDTO } from '@/types/prenotazione'
+import type { ApiErrorResponse } from '@/types/apiError'
 
 type PrenotazioniParams = {
     data?: string
@@ -36,9 +38,9 @@ export function useCreaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione creata con successo')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante la creazione')
@@ -55,9 +57,9 @@ export function useConfermaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione confermata')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante la conferma')
@@ -74,9 +76,9 @@ export function useCompletaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione completata')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante il completamento')
@@ -93,9 +95,9 @@ export function useAnnullaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione annullata')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante l\'annullamento')
@@ -112,9 +114,9 @@ export function useDeletePrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione eliminata')
         },
-        onError: (error: any) => {
-            const data = error?.response?.data
-            const errors: { field: string; error: string }[] = data?.errors ?? []
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
             const msg = errors.length > 0
                 ? errors.map((e) => e.error).join(', ')
                 : (data?.message ?? 'Errore durante l\'eliminazione')

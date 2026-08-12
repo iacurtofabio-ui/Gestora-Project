@@ -1,5 +1,5 @@
 import { Outlet, Link } from 'react-router-dom'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 
 const linkClass = 'px-3 py-2 rounded hover:bg-gray-100 text-sm font-medium text-gray-700'
 

@@ -39,7 +39,7 @@ export default function PrenotazioneModal({ isOpen, onClose }: Props) {
 
     useEffect(() => {
         if (!isOpen) reset()
-    }, [isOpen])
+    }, [isOpen, reset])
 
     const onSubmit = (values: FormValues) => {
         creaPrenotazione.mutate(

@@ -64,4 +64,5 @@ function Button({
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- pattern standard shadcn/ui, non ristrutturare per restare compatibili con `npx shadcn add`
 export { Button, buttonVariants }

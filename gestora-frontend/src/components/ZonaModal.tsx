@@ -37,7 +37,7 @@ export default function ZonaModal({ isOpen, onClose, zona }: Props) {
             nome: zona?.nome ?? '',
             attiva: zona?.attiva ?? true,
         })
-    }, [zona])
+    }, [zona, reset])
 
     function onSubmit(data: ZonaForm) {
         if (zona) {
