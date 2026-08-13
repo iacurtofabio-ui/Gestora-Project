@@ -5,6 +5,7 @@ using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.Postazioni;
 using GestoraWebApi.Services.Postazioni.DTOs;
+using MockQueryable.Moq;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
@@ -47,5 +48,25 @@ public class PostazioneServiceTests
 
         // Assert
         Assert.False(_cache.TryGetValue(CacheKeys.PostazioniAttive, out _));
+    }
+
+    // FIX-001: UpdateAsync(PostazioneUpdateDTO) non validava l'esistenza della zona,
+    // lasciando che una ZonaId inesistente esplodesse in un DbUpdateException tecnico.
+    [Fact]
+    public async Task UpdateAsync_ThrowsArgumentException_WhenZonaNonEsiste()
+    {
+        // Arrange
+        var postazione = new Postazione { Id = 1, Numero = 5, Attiva = true, ZonaId = 10 };
+        var dto = new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = 4, ZonaId = 999 };
+
+        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(postazione);
+        _postazioneRepoMock.Setup(r => r.HasPrenotazioniAsync(1)).ReturnsAsync(false);
+        _postazioneRepoMock.Setup(r => r.GetAllQueryable())
+                            .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+        _zonaRepoMock.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((Zona?)null);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.UpdateAsync(dto));
+        _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Never);
     }
 }

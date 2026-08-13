@@ -126,6 +126,11 @@ namespace GestoraWebApi.Services.Postazioni
             if (existingPostazione != null)
                 throw new InvalidOperationException($"Esiste già una postazione con il numero '{dto.Numero}'.");
 
+            // Controllo esistenza zona (FIX-001: evita il messaggio tecnico EF su violazione FK)
+            var zona = await _zonaRepository.GetByIdAsync(dto.ZonaId);
+            if (zona == null)
+                throw new ArgumentException("La zona specificata per la postazione non esiste.");
+
             // Mappaggio dei campi consentiti con AutoMapper
             _mapper.Map(dto, postazione);
 
