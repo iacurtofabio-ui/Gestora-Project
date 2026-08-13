@@ -3,13 +3,20 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 12/08/2026
-Ultima cosa fatta: pulizia documentazione. Riscritti i CLAUDE.md per area (erano corrotti da
-escaping PowerShell), riformulato FIX-004 in BACKEND_FIX_TODO.md, aggiunto CACHE-001,
-ridimensionato SEC-001 (verificato: i segreti non sono mai entrati nella git history).
-Aggiunta CI GitHub Actions in `.github/workflows/`.
+Ultima cosa fatta: punto della situazione completo sul repo — rinominati i CLAUDE.md di area
+(erano mal nominati, mai caricati in cascata), corretti i riferimenti percorso rotti in questo
+file, ristretto `.gitignore` di root (ignorava tutta `.claude/`, non solo graphify: settings.json/
+commands/skills ora tracciati), rimossi `Gestora_Piano_Operativo.xlsx` (tracker duplicato/stale
+da sessione Claude esterna) e `GUIDA_CRUD_FRONTEND.md` (assorbito in gestora-frontend/CLAUDE.md),
+fix indentazione YAML nei 3 workflow CI, rimosso claude-code-review.yml (richiede secret non
+configurato per scelta di costo). Risolti anche i 30 problemi di lint frontend emersi dalla prima
+esecuzione della CI (21 `any` → `AxiosError<ApiErrorResponse>`, 3 violazioni fast-refresh separando
+AuthContext/useAuth/UnauthorizedPage, 4 dipendenze `reset` mancanti). Tutto committato e pushato
+su dev, CI backend+frontend verdi.
 Prossima cosa: implementare FIX-004 riformulato in FasciaOrariaService — (A) controllo
-sovrapposizione mancante in UpdateStatoAsync, regressione introdotta da FIX-002;
-(C) esito di TimeSpan.TryParse ignorato. Poi valutare (B).
+sovrapposizione mancante in UpdateStatoAsync, regressione introdotta da FIX-002; (B) query di
+sovrapposizione ignora le fasce disattivate; (C) esito di TimeSpan.TryParse ignorato. Dettagli
+completi in BACKEND_FIX_TODO.md.
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO

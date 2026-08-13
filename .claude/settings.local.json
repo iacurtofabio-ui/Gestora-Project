@@ -30,7 +30,8 @@
       "PowerShell(\\(Get-Item \"graphify-out\\\\graph.json\"\\).LastWriteTime)",
       "Bash(git mv *)",
       "Bash(git check-ignore *)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "PowerShell(graphify query *)"
     ]
   }
 }
