@@ -22,7 +22,7 @@ const OPZIONI_STATO = [
 export default function PrenotazionePage() {
 
     const { user } = useAuth()
-    const isStaff = user?.role === 'Admin' || user?.role === 'Staff'
+    const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
     const [filtroData, setFiltroData] = useState('')
     const [filtroStato, setFiltroStato] = useState('')
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -124,7 +124,7 @@ export default function PrenotazionePage() {
                                         Completa
                                     </button>
                                 )}
-                                {(p.stato === STATI_PRENOTAZIONE.ATTIVA || p.stato === STATI_PRENOTAZIONE.IN_CORSO) &&
+                                {isStaff && (p.stato === STATI_PRENOTAZIONE.ATTIVA || p.stato === STATI_PRENOTAZIONE.IN_CORSO) &&
                                     (
                                         <button
                                             className="text-red-500 hover:underline text-sm"

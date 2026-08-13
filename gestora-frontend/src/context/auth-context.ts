@@ -3,7 +3,7 @@ import { createContext } from 'react'
 export type AuthUser = {
   id: string
   email: string
-  role: string
+  roles: string[]
   token: string
 }
 

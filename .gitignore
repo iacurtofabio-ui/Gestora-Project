@@ -5,3 +5,6 @@
 # Graphify - skill e grafo locali, non versionati
 .claude/skills/graphify/
 graphify-out/
+
+# Playwright MCP - snapshot temporanei da test manuali in browser
+.playwright-mcp/

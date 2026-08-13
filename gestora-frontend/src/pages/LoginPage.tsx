@@ -30,8 +30,9 @@ import { useForm } from 'react-hook-form'
         const token = response.data.token
         login(token)
         const payload = JSON.parse(atob(token.split('.')[1]))
-        const role = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
-        navigate(role === 'Cliente' ? '/prenotazioni' : '/dashboard')
+        const roles: string | string[] = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
+        const soloCliente = Array.isArray(roles) ? roles.every((r) => r === 'Cliente') : roles === 'Cliente'
+        navigate(soloCliente ? '/prenotazioni' : '/dashboard')
       } catch {
         setError('root', { message: 'Credenziali non valide' })
       }

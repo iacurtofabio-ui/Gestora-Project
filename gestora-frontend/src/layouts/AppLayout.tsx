@@ -7,7 +7,7 @@ export default function AppLayout() {
   const { user, logout } = useAuth()
 
   const links = [
-    ...(user?.role === 'Admin' || user?.role === 'Staff'
+    ...(user?.roles.includes('Admin') || user?.roles.includes('Staff')
       ? [
         { to: '/dashboard', label: 'Dashboard' },
         { to: '/zone', label: 'Zone' },
@@ -27,7 +27,7 @@ export default function AppLayout() {
               {link.label}
             </Link>
           ))}
-          {user?.role === 'Admin' && (
+          {user?.roles.includes('Admin') && (
             <Link to="/admin-utenti" className={linkClass}>
               Admin Utenti
             </Link>
