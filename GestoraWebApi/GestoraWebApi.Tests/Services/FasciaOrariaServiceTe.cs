@@ -2,6 +2,8 @@
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Services.FasciaOrarie;
+using GestoraWebApi.Services.FasciaOrarie.DTOs;
+using MockQueryable.Moq;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
 using System;
@@ -69,7 +71,8 @@ namespace GestoraWebApi.Tests.Services
         public async Task UpdateStatoAsync_SetsAttivaCorrectly_WhenFasciaExists()
         {
             // Arrange
-            var fascia = new FasciaOraria { Id = 1, Attiva = true };
+            var fascia = new FasciaOraria { Id = 1, Attiva = true, GiornoSettimana = DayOfWeek.Monday,
+                                             OrarioInizio = new TimeOnly(12, 0), OrarioFine = new TimeOnly(14, 0) };
             _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fascia);
 
             // Act
@@ -78,6 +81,121 @@ namespace GestoraWebApi.Tests.Services
             // Assert
             Assert.False(fascia.Attiva);
             _repoMock.Verify(r => r.UpdateAsync(fascia), Times.Once);
+        }
+
+        // --- FIX-004 A: UpdateStatoAsync deve controllare la sovrapposizione quando riattiva ---
+
+        [Fact]
+        public async Task UpdateStatoAsync_ThrowsInvalidOperationException_WhenReactivatingOverlapsAttiva()
+        {
+            // Arrange: fascia disattivata 12:00-14:00 lunedì, si sovrappone a una attiva 13:00-15:00
+            var fasciaDaRiattivare = new FasciaOraria { Id = 1, Attiva = false, GiornoSettimana = DayOfWeek.Monday,
+                                                          OrarioInizio = new TimeOnly(12, 0), OrarioFine = new TimeOnly(14, 0) };
+            var fasciaAttivaEsistente = new FasciaOraria { Id = 2, Attiva = true, GiornoSettimana = DayOfWeek.Monday,
+                                                             OrarioInizio = new TimeOnly(13, 0), OrarioFine = new TimeOnly(15, 0) };
+
+            _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fasciaDaRiattivare);
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria> { fasciaDaRiattivare, fasciaAttivaEsistente }.AsQueryable().BuildMockDbSet().Object);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateStatoAsync(1, true));
+            _repoMock.Verify(r => r.UpdateAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        // --- FIX-004 B: la sovrapposizione va controllata anche contro fasce disattivate ---
+
+        [Fact]
+        public async Task AddAsync_ThrowsInvalidOperationException_WhenOverlapsFasciaDisattivata()
+        {
+            // Arrange: fascia disattivata 12:00-14:00 lunedì già presente
+            var fasciaDisattivata = new FasciaOraria { Id = 1, Attiva = false, GiornoSettimana = DayOfWeek.Monday,
+                                                         OrarioInizio = new TimeOnly(12, 0), OrarioFine = new TimeOnly(14, 0) };
+
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria> { fasciaDisattivata }.AsQueryable().BuildMockDbSet().Object);
+
+            var dto = new FasciaOrariaDTO
+            {
+                GiornoSettimana = DayOfWeek.Monday,
+                OrarioInizio = "13:00",
+                OrarioFine = "15:00",
+                MaxPrenotazioni = 10,
+                Attiva = true
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _service.AddAsync(dto));
+            _repoMock.Verify(r => r.AddAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        // --- FIX-004 C: un orario non parsabile deve fallire in modo esplicito, non salvare 00:00 ---
+
+        [Fact]
+        public async Task AddAsync_ThrowsArgumentException_WhenOrarioInizioNonValido()
+        {
+            // Arrange
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+
+            var dto = new FasciaOrariaDTO
+            {
+                GiornoSettimana = DayOfWeek.Monday,
+                OrarioInizio = "non-un-orario",
+                OrarioFine = "15:00",
+                MaxPrenotazioni = 10,
+                Attiva = true
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ArgumentException>(() => _service.AddAsync(dto));
+            _repoMock.Verify(r => r.AddAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        // --- CACHE-001: le scritture devono invalidare anche la cache per giorno ---
+
+        [Fact]
+        public async Task AddAsync_InvalidatesCachePerGiorno_AfterInsert()
+        {
+            // Arrange
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+
+            var cacheKey = GestoraWebApi.Common.CacheKeys.FascePerGiorno + (int)DayOfWeek.Monday;
+            _cache.Set(cacheKey, new List<FasciaOrariaDTO> { new FasciaOrariaDTO() });
+
+            var dto = new FasciaOrariaDTO
+            {
+                GiornoSettimana = DayOfWeek.Monday,
+                OrarioInizio = "12:00",
+                OrarioFine = "14:00",
+                MaxPrenotazioni = 10,
+                Attiva = true
+            };
+
+            // Act
+            await _service.AddAsync(dto);
+
+            // Assert
+            Assert.False(_cache.TryGetValue(cacheKey, out _));
+        }
+
+        [Fact]
+        public async Task UpdateStatoAsync_InvalidatesCachePerGiorno_AfterUpdate()
+        {
+            // Arrange
+            var fascia = new FasciaOraria { Id = 1, Attiva = true, GiornoSettimana = DayOfWeek.Tuesday,
+                                             OrarioInizio = new TimeOnly(9, 0), OrarioFine = new TimeOnly(10, 0) };
+            _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fascia);
+
+            var cacheKey = GestoraWebApi.Common.CacheKeys.FascePerGiorno + (int)DayOfWeek.Tuesday;
+            _cache.Set(cacheKey, new List<FasciaOrariaDTO> { new FasciaOrariaDTO() });
+
+            // Act
+            await _service.UpdateStatoAsync(1, false);
+
+            // Assert
+            Assert.False(_cache.TryGetValue(cacheKey, out _));
         }
     }
 }

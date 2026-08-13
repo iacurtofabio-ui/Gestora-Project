@@ -27,27 +27,10 @@ namespace GestoraWebApi.Services.FasciaOrarie
         }
         public async Task AddAsync(FasciaOrariaDTO dto)
         {
-            TimeSpan.TryParse(dto.OrarioInizio, out var orarioInizio);
-            TimeSpan.TryParse(dto.OrarioFine, out var orarioFine);
+            var orarioInizio = ParseOrario(dto.OrarioInizio, nameof(dto.OrarioInizio));
+            var orarioFine = ParseOrario(dto.OrarioFine, nameof(dto.OrarioFine));
 
-            // Controllo sovrapposizione fasce orarie
-            var sovrapposta = await _fasciaRepository
-                .GetAllQueryable()
-                .AnyAsync(f =>
-                    f.GiornoSettimana == dto.GiornoSettimana &&
-                    f.Attiva && // Consideriamo solo le fasce attive
-                    (
-                        //La nuova fascia finisce prima che inizi quella esistente, oppure
-                        //La nuova fascia inizia dopo che quella esistente è finita.
-                        (orarioInizio < f.OrarioFine.ToTimeSpan() &&
-                         orarioFine > f.OrarioInizio.ToTimeSpan())
-                    )
-                );
-
-            if (sovrapposta)
-            {
-                throw new InvalidOperationException("Operazione non riuscita! La fascia oraria si sovrappone ad una già esistente.");
-            }
+            await GuardSovrapposizioneAsync(dto.Id, dto.GiornoSettimana, orarioInizio, orarioFine);
 
             var fascia = new FasciaOraria
             {
@@ -62,6 +45,42 @@ namespace GestoraWebApi.Services.FasciaOrarie
             await _fasciaRepository.AddAsync(fascia);
 
             _cache.Remove(CacheKeys.FasceAttive);
+            _cache.Remove(CacheKeys.FascePerGiorno + (int)dto.GiornoSettimana);
+        }
+
+        /// <summary>
+        /// Controlla che (inizio, fine) su un dato giorno non si sovrapponga a nessuna fascia
+        /// esistente, attiva o disattivata. Va incluse anche le disattivate: altrimenti una
+        /// fascia disattivata sovrapposta può essere riattivata più tardi senza controlli
+        /// (problema A) e produrre due fasce attive sovrapposte (problema B).
+        /// </summary>
+        private async Task GuardSovrapposizioneAsync(long idDaEscludere, DayOfWeek giorno, TimeSpan inizio, TimeSpan fine)
+        {
+            var sovrapposta = await _fasciaRepository
+                .GetAllQueryable()
+                .AnyAsync(f =>
+                    f.Id != idDaEscludere &&
+                    f.GiornoSettimana == giorno &&
+                    (
+                        inizio < f.OrarioFine.ToTimeSpan() &&
+                        fine > f.OrarioInizio.ToTimeSpan()
+                    )
+                );
+
+            if (sovrapposta)
+            {
+                throw new InvalidOperationException("Operazione non riuscita! La fascia oraria si sovrappone ad una già esistente.");
+            }
+        }
+
+        private static TimeSpan ParseOrario(string orario, string nomeCampo)
+        {
+            if (!TimeSpan.TryParse(orario, out var risultato))
+            {
+                throw new ArgumentException($"Il campo '{nomeCampo}' non è un orario valido: '{orario}'.");
+            }
+
+            return risultato;
         }
 
         public async Task<DisponibilitaFasciaDTO> VerificaDisponibilitaPerFasciaAsync(long fasciaId, DateOnly data)
@@ -185,8 +204,8 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
         public async Task UpdateAsync(FasciaOrariaDTO dto)
         {
-            TimeSpan.TryParse(dto.OrarioInizio, out var orarioInizio);
-            TimeSpan.TryParse(dto.OrarioFine, out var orarioFine);
+            var orarioInizio = ParseOrario(dto.OrarioInizio, nameof(dto.OrarioInizio));
+            var orarioFine = ParseOrario(dto.OrarioFine, nameof(dto.OrarioFine));
 
             // Recupera la fascia esistente
             var existing = await _fasciaRepository.GetByIdAsync(dto.Id);
@@ -202,23 +221,9 @@ namespace GestoraWebApi.Services.FasciaOrarie
                 throw new InvalidOperationException("Impossibile modificare la fascia: è già assegnata a una prenotazione.");
             }
 
-            // Controllo sovrapposizione fasce orarie
-            var sovrapposta = await _fasciaRepository
-                .GetAllQueryable()
-                .AnyAsync(f =>
-                    f.Id != dto.Id &&
-                    f.GiornoSettimana == dto.GiornoSettimana &&
-                    f.Attiva &&
-                    (
-                        orarioInizio < f.OrarioFine.ToTimeSpan() &&
-                        orarioFine > f.OrarioInizio.ToTimeSpan()
-                    )
-                );
+            await GuardSovrapposizioneAsync(dto.Id, dto.GiornoSettimana, orarioInizio, orarioFine);
 
-            if (sovrapposta)
-            {
-                throw new InvalidOperationException("Operazione non riuscita! La modifica causerebbe una sovrapposizione con una fascia già esistente.");
-            }
+            var giornoPrecedente = existing.GiornoSettimana;
 
             // Applico le modifiche sull'entità esistente
             existing.GiornoSettimana = dto.GiornoSettimana;
@@ -230,6 +235,11 @@ namespace GestoraWebApi.Services.FasciaOrarie
             await _fasciaRepository.UpdateAsync(existing);
 
             _cache.Remove(CacheKeys.FasceAttive);
+            _cache.Remove(CacheKeys.FascePerGiorno + (int)giornoPrecedente);
+            if (giornoPrecedente != dto.GiornoSettimana)
+            {
+                _cache.Remove(CacheKeys.FascePerGiorno + (int)dto.GiornoSettimana);
+            }
         }
 
         Task<FasciaOrariaDTO> IService<FasciaOrariaDTO>.GetByIdAsync(long id)
@@ -262,11 +272,18 @@ namespace GestoraWebApi.Services.FasciaOrarie
             if (fascia == null)
                 throw new KeyNotFoundException($"Fascia oraria con ID {id} non trovata.");
 
+            if (attiva)
+            {
+                await GuardSovrapposizioneAsync(id, fascia.GiornoSettimana,
+                    fascia.OrarioInizio.ToTimeSpan(), fascia.OrarioFine.ToTimeSpan());
+            }
+
             fascia.Attiva = attiva;
 
             await _fasciaRepository.UpdateAsync(fascia);
 
             _cache.Remove(CacheKeys.FasceAttive);
+            _cache.Remove(CacheKeys.FascePerGiorno + (int)fascia.GiornoSettimana);
         }
     }
 }
