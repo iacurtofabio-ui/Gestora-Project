@@ -2,21 +2,25 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 12/08/2026
-Ultima cosa fatta: punto della situazione completo sul repo — rinominati i CLAUDE.md di area
-(erano mal nominati, mai caricati in cascata), corretti i riferimenti percorso rotti in questo
-file, ristretto `.gitignore` di root (ignorava tutta `.claude/`, non solo graphify: settings.json/
-commands/skills ora tracciati), rimossi `Gestora_Piano_Operativo.xlsx` (tracker duplicato/stale
-da sessione Claude esterna) e `GUIDA_CRUD_FRONTEND.md` (assorbito in gestora-frontend/CLAUDE.md),
-fix indentazione YAML nei 3 workflow CI, rimosso claude-code-review.yml (richiede secret non
-configurato per scelta di costo). Risolti anche i 30 problemi di lint frontend emersi dalla prima
-esecuzione della CI (21 `any` → `AxiosError<ApiErrorResponse>`, 3 violazioni fast-refresh separando
-AuthContext/useAuth/UnauthorizedPage, 4 dipendenze `reset` mancanti). Tutto committato e pushato
-su dev, CI backend+frontend verdi.
-Prossima cosa: implementare FIX-004 riformulato in FasciaOrariaService — (A) controllo
-sovrapposizione mancante in UpdateStatoAsync, regressione introdotta da FIX-002; (B) query di
-sovrapposizione ignora le fasce disattivate; (C) esito di TimeSpan.TryParse ignorato. Dettagli
-completi in BACKEND_FIX_TODO.md.
+Ultima sessione: 13/08/2026
+Ultima cosa fatta: FASE 1 del piano di rilascio (fix backend) completata in 3 blocchi committati
+separatamente su dev (non ancora pushati — push a cura di Fabio):
+1. FIX-004 (A/B/C) + CACHE-001 in FasciaOrariaService: guard di sovrapposizione condiviso su
+   AddAsync/UpdateAsync/UpdateStatoAsync, esteso anche alle fasce disattivate; TimeSpan.TryParse
+   ora valida l'esito; invalidazione cache fasce_giorno_{n} su tutte le scritture. Aggiunto il
+   pacchetto MockQueryable.Moq (7.0.3, compatibile net9.0) ai test per mockare IQueryable con
+   supporto async EF Core. 8 nuovi test.
+2. Verifica pattern cache su ZonaService (ok) e PostazioneService: trovato e corretto un buco
+   identico a CACHE-001 in AssociaPostazioneAZonaAsync (non invalidava PostazioniAttive).
+3. FIX-001: PostazioneService.UpdateAsync(PostazioneUpdateDTO) non validava l'esistenza della
+   zona (AddAsync sì) — aggiunta la stessa validazione. NAMING-001: PrenotazioneDTO1.cs rinominato
+   in PrenotazioneCreateDTO.cs.
+Tutti i test verdi (28/28). BACKEND_FIX_TODO.md aggiornato, tutti i fix di Fase 1 spostati in
+"Fix completate" tranne SEC-001 (richiede dotnet user-secrets — operazione delicata, da eseguire
+Fabio, istruzioni fornite ma non ancora eseguite) e AUDIT-001 (decisione architetturale aperta,
+rimandata post-v1.0).
+Prossima cosa: FASE 2 del piano di rilascio — dotnet test (già verde) + verifica manuale Swagger
+degli endpoint toccati. Poi FASE 3 (deploy Railway). Vedi PIANO_RILASCIO.md.
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO

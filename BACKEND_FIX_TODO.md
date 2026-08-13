@@ -48,29 +48,6 @@ policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod();
 
 ---
 
-### FIX-001 — Errore non parlante quando la zona non esiste
-
-**Problema:**
-Quando si crea una postazione inserendo un ID zona che non esiste nel sistema,
-il backend restituisce un messaggio tecnico di Entity Framework:
-*"An error occurred while saving the entity changes. See the inner exception for details."*
-Questo messaggio non è comprensibile per l'utente finale.
-
-**Quando si verifica:**
-Pagina Postazioni → Aggiungi → si inserisce un numero di zona inesistente → Salva
-
-**Cosa fare:**
-Nel service o controller di Postazione, aggiungere un try/catch attorno al salvataggio
-su database. Se Entity Framework lancia un'eccezione di violazione di foreign key
-(zona non trovata), restituire un messaggio chiaro come:
-*"La zona specificata non esiste. Seleziona una zona valida."*
-
-**File da modificare:**
-- `Services/Postazioni/PostazioneService.cs` (metodo CreaPostazione)
-- oppure `Controllers/PostazioneController.cs`
-
----
-
 ### FIX-003 — FasceOrarie restituisce 404 invece di array vuoto
 
 **Problema:**
@@ -105,57 +82,6 @@ Aggiungere anche `PATCH /api/FasceOrarie/update-stato/{id}?attiva=true` per atti
 **File da modificare:**
 - `Services/FasceOrarie/FasciaOrariaService.cs`
 - `Controllers/FasciaOrariaController.cs`
-
----
-
-### FIX-004 — Buchi nella validazione sovrapposizione fasce orarie
-
-> ⚠️ **Riformulato il 12/08/2026 dopo lettura del codice.** La formulazione originale chiedeva
-> una validazione di unicità su `(OrarioInizio, GiornoSettimana)`. È **ridondante**: `AddAsync`
-> (L34-50) e `UpdateAsync` (L206-221) hanno già un controllo di sovrapposizione orari, e due
-> fasce con stessa ora di inizio nello stesso giorno si sovrappongono sempre → il duplicato
-> esatto è già bloccato. I buchi reali sono altri tre, elencati qui sotto.
-
-**Problema A — `UpdateStatoAsync` non controlla la sovrapposizione (regressione da FIX-002)**
-
-Il metodo aggiunto con FIX-002 (L258) fa `fascia.Attiva = attiva` e salva, senza alcun controllo.
-Riattivare una fascia disattivata che si sovrappone a una fascia attiva passa senza errori.
-È la via più semplice per portare il DB in stato incoerente, ed è stata aperta da FIX-002.
-
-**Problema B — il controllo filtra `f.Attiva`, ignorando le fasce disattivate**
-
-La query di sovrapposizione considera solo `f.Attiva == true`. È quindi possibile creare una
-fascia sovrapposta a una disattivata; poi basta riattivare quest'ultima (problema A) per
-ritrovarsi con due fasce attive sovrapposte. A e B vanno chiusi insieme.
-
-**Problema C — l'esito di `TimeSpan.TryParse` viene scartato** (L30-31 e L188-189)
-
-```csharp
-TimeSpan.TryParse(dto.OrarioInizio, out var orarioInizio);  // il bool di ritorno è ignorato
-```
-
-Un orario non parsabile diventa `00:00` in silenzio e viene salvato senza errori.
-
-**Quando si verifica:**
-- A: Fasce Orarie → riattiva una fascia disattivata sovrapposta a una attiva → salva senza errore
-- B: Fasce Orarie → Aggiungi una fascia sull'orario di una disattivata → passa
-- C: chiamata API con `orarioInizio` non valido → salvato come 00:00
-
-**Cosa fare:**
-Estrarre un metodo privato condiviso e chiamarlo da tutti e tre i punti di scrittura:
-
-```csharp
-private async Task GuardSovrapposizioneAsync(long idDaEscludere, DayOfWeek giorno,
-                                             TimeSpan inizio, TimeSpan fine)
-```
-
-Chiamarlo in `AddAsync`, `UpdateAsync` e `UpdateStatoAsync` (solo quando `attiva == true`).
-Per C, gestire l'esito `false` del `TryParse` con `ArgumentException` → il middleware la mappa a 400.
-Coerente col pattern del progetto: i service lanciano eccezioni tipizzate, mai risposte HTTP.
-
-**File da modificare:**
-- `Services/FasceOrarie/FasciaOrariaService.cs` (`AddAsync`, `UpdateAsync`, `UpdateStatoAsync`)
-- `GestoraWebApi.Tests/Services/FasciaOrariaServiceTe.cs` (test sui tre casi)
 
 ---
 
@@ -195,33 +121,6 @@ se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte
 **File da modificare:**
 - `Controllers/PrenotazioneController.cs`
 - `Services/Prenotazioni/PrenotazioneService.cs`
-
----
-
-### CACHE-001 — Cache `fasce-per-giorno` mai invalidata dopo una scrittura
-
-**Problema:**
-`FasciaOrariaService` usa due chiavi di cache: `CacheKeys.FasceAttive` (`fasce_attive`) e
-`CacheKeys.FascePerGiorno + (int)giorno` (`fasce_giorno_0..6`, usata da `GetFasceByGiornoAsync`, L141).
-`AddAsync`, `UpdateAsync` e `UpdateStatoAsync` invalidano **solo** `FasceAttive`.
-Le chiavi per giorno restano in cache con i dati vecchi per tutta la durata (30 minuti).
-
-**Quando si verifica:**
-Si crea, modifica o disattiva una fascia → `GET /api/FasceOrarie/fasce-per-giorno?giorno=X`
-continua a restituire i dati precedenti fino allo scadere dei 30 minuti.
-Impatta anche il flusso di prenotazione, che si appoggia alle fasce del giorno.
-
-**Cosa fare:**
-Nei tre metodi di scrittura, invalidare anche la chiave del giorno interessato:
-`_cache.Remove(CacheKeys.FascePerGiorno + (int)giorno)`.
-Attenzione a `UpdateAsync`: se il `GiornoSettimana` cambia vanno invalidati **entrambi** i
-giorni, quello vecchio e quello nuovo.
-
-**File da modificare:**
-- `Services/FasceOrarie/FasciaOrariaService.cs` (`AddAsync`, `UpdateAsync`, `UpdateStatoAsync`)
-
-> Nota: rilevato il 12/08/2026 leggendo il codice. Lo stesso pattern va verificato su
-> `ZonaService` e `PostazioneService`, che usano anch'essi chiavi multiple.
 
 ---
 
@@ -281,3 +180,13 @@ discutere prima di implementare — non è ancora un fix definito, solo un'esige
 - **FIX-006** — Endpoint get-mie-prenotazioni per Cliente ✅ (sessione 18/06/2026)
 - **FIX-005** — PrenotazioneDTO con FasciaOrariaId e ZonaId ✅ (sessione 18/06/2026)
 - **FIX-002** — GET get-all-fasce + PATCH update-stato/{id} per FasceOrarie ✅ (sessione 03/07/2026)
+- **FIX-004 (A/B/C)** — Guard sovrapposizione condiviso su AddAsync/UpdateAsync/UpdateStatoAsync
+  di `FasciaOrariaService`, esteso anche alle fasce disattivate; `TimeSpan.TryParse` ora valida
+  l'esito. 8 nuovi test. ✅ (sessione 13/08/2026)
+- **CACHE-001** — Invalidazione `fasce_giorno_{n}` su tutte le scritture di `FasciaOrariaService`
+  (entrambi i giorni se `UpdateAsync` cambia `GiornoSettimana`). Verificato lo stesso pattern su
+  `ZonaService` (ok, chiave unica condivisa) e `PostazioneService`: trovato e corretto un buco
+  identico in `AssociaPostazioneAZonaAsync` (non invalidava `PostazioniAttive`). ✅ (sessione 13/08/2026)
+- **FIX-001** — `PostazioneService.AddAsync` validava già l'esistenza della zona; aggiunta la
+  stessa validazione a `UpdateAsync(PostazioneUpdateDTO)`, che ne era priva. ✅ (sessione 13/08/2026)
+- **NAMING-001** — `PrenotazioneDTO1.cs` rinominato in `PrenotazioneCreateDTO.cs`. ✅ (sessione 13/08/2026)
