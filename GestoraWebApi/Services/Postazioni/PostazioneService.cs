@@ -227,6 +227,8 @@ namespace GestoraWebApi.Services.Postazioni
             postazione.ZonaId = zonaId;
 
             await _postazioneRepository.UpdateAsync(postazione);
+
+            _cache.Remove(CacheKeys.PostazioniAttive);
         }
     }
 }
