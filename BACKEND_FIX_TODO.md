@@ -124,6 +124,36 @@ se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte
 
 ---
 
+### RBAC-002 — Regola di cutoff per modifica/annullamento self-service del Cliente
+
+**Problema:**
+Fino al 13/08/2026 il Cliente poteva modificare (`update-prenotazione`) e annullare
+(`annulla-prenotazione`) liberamente le proprie prenotazioni, senza alcun vincolo temporale.
+Un annullamento o una modifica dell'ultimo minuto fa perdere al locale la possibilità di
+riassegnare il tavolo a un altro cliente — un rischio operativo concreto, non solo di UX.
+
+**Decisione presa il 13/08/2026 (interim):**
+`update-prenotazione` e `annulla-prenotazione` sono state ristrette a `Roles.AdminOrStaff`
+(tolto `Cliente`) finché non viene progettata la regola definitiva. Nel frattempo il Cliente
+può modificare/annullare una prenotazione solo tramite Staff/Admin (telefono, di persona, ecc.),
+non più in autonomia dall'app.
+
+**Cosa fare (feature da progettare, non ancora un fix definito):**
+Introdurre una finestra di cutoff configurabile (es. "annullabile/modificabile solo fino a N ore
+prima dell'orario prenotato") e riaprire `update-prenotazione`/`annulla-prenotazione` al Cliente
+con quel vincolo. Decisioni aperte da prendere prima di implementare:
+- Quante ore di preavviso minimo?
+- Oltre la soglia: azione bloccata del tutto, o richiede approvazione Staff?
+- Il vincolo vale anche per Admin/Staff che agiscono per conto del cliente, o solo per il ruolo
+  Cliente?
+
+**File da modificare (quando si progetta la regola):**
+- `Services/Prenotazioni/PrenotazioneService.cs` (`UpdateAsync`, `AnnullaPrenotazioneAsync`)
+- `Controllers/PrenotazioneController.cs` (riportare `Roles.AdminOrStaffOrCliente` una volta
+  che il vincolo di cutoff è implementato nel service)
+
+---
+
 ### AUDIT-001 — Nessuna tracciabilità utente sulle azioni
 
 **Problema:**
@@ -164,6 +194,12 @@ discutere prima di implementare — non è ancora un fix definito, solo un'esige
 - **FIX-001** — `PostazioneService.AddAsync` validava già l'esistenza della zona; aggiunta la
   stessa validazione a `UpdateAsync(PostazioneUpdateDTO)`, che ne era priva. ✅ (sessione 13/08/2026)
 - **NAMING-001** — `PrenotazioneDTO1.cs` rinominato in `PrenotazioneCreateDTO.cs`. ✅ (sessione 13/08/2026)
+- **RBAC-001** — Allineato il modello di ruoli a quanto definito da Fabio il 13/08/2026: Staff
+  ha lettura completa (aggiunto `get-all-fasce` a `AdminOrStaff`, prima solo Admin) e scrittura
+  su prenotazioni limitata a crea/modifica/conferma/completa/annulla (tolto `delete-prenotazione`,
+  ora solo Admin); Cliente ristretto a crea-prenotazione + lettura propria (tolti
+  `update-prenotazione`/`annulla-prenotazione`, vedi RBAC-002 per la regola di cutoff da
+  progettare prima di riaprirli). ✅ (sessione 13/08/2026)
 - **SEC-001** — Segreti dev (`appsettings.Development.json`) mai entrati nella git history
   (verificato 12/08/2026, priorità scesa da CRITICO a BASSO). Migrati a `dotnet user-secrets`,
   file ripulito con placeholder vuoti, app testata end-to-end. Percorso store e comandi in

@@ -63,7 +63,7 @@ namespace GestoraWebApi.Controllers
         /// <summary>
         /// Restituisce le fasce orarie attive per un giorno specifico della settimana.
         /// Utile per il calendario prenotazioni nel frontend.
-        /// GiornoSettimana: 0=Domenica, 1=Lunedì, 2=Martedì, 3=Mercoledì, 4=Giovedì, 5=Venerdì, 6=Sabato
+        /// GiornoSettimana: 0=Domenica, 1=Lunedï¿½, 2=Martedï¿½, 3=Mercoledï¿½, 4=Giovedï¿½, 5=Venerdï¿½, 6=Sabato
         /// </summary>
         [Authorize(Roles = Roles.AdminOrStaffOrCliente)]
         [HttpGet("fasce-per-giorno")]
@@ -125,8 +125,8 @@ namespace GestoraWebApi.Controllers
             return Ok(new { message = "Fascia oraria eliminata con successo" });
         }
 
-        /// <summary>Restituisce tutte le fasce orarie (attive e non). Solo Admin.</summary>
-        [Authorize(Roles = Roles.Admin)]
+        /// <summary>Restituisce tutte le fasce orarie (attive e non). Solo Admin e Staff.</summary>
+        [Authorize(Roles = Roles.AdminOrStaff)]
         [HttpGet("get-all-fasce")]
         public async Task<IActionResult> GetAllFasce()
         {

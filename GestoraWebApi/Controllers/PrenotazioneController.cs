@@ -88,8 +88,8 @@ namespace GestoraWebApi.Controllers
             return Ok(prenotazioni);
         }
 
-        /// <summary>Aggiorna i dati di una prenotazione esistente. Solo se in stato Attiva e di proprietà dell'utente.</summary>
-        [Authorize(Roles = Roles.AdminOrStaffOrCliente)]
+        /// <summary>Aggiorna i dati di una prenotazione esistente. Solo se in stato Attiva. Solo Admin e Staff.</summary>
+        [Authorize(Roles = Roles.AdminOrStaff)]
         [HttpPut("update-prenotazione")]
         public async Task<IActionResult> UpdatePrenotazione(long id, [FromBody] PrenotazioneCreateDTO dto)
         {
@@ -101,8 +101,8 @@ namespace GestoraWebApi.Controllers
             return Ok(new { message = "Prenotazione aggiornata con successo." });
         }
 
-        /// <summary>Elimina una prenotazione. Solo se in stato Attiva o Annullata.</summary>
-        [Authorize(Roles = Roles.AdminOrStaff)]
+        /// <summary>Elimina una prenotazione. Solo se in stato Attiva o Annullata. Solo Admin.</summary>
+        [Authorize(Roles = Roles.Admin)]
         [HttpDelete("delete-prenotazione")]
         public async Task<IActionResult> DeletePrenotazione(long id)
         {
@@ -140,8 +140,9 @@ namespace GestoraWebApi.Controllers
             return Ok(new { message = "Prenotazione completata con successo." });
         }
 
-        /// <summary>Annulla una prenotazione. Non annullabile se già Completata.</summary>
-        [Authorize(Roles = Roles.AdminOrStaffOrCliente)]
+        /// <summary>Annulla una prenotazione. Non annullabile se già Completata. Solo Admin e Staff — l'annullamento
+        /// self-service per il Cliente richiede prima una regola di cutoff temporale, vedi BACKEND_FIX_TODO.md.</summary>
+        [Authorize(Roles = Roles.AdminOrStaff)]
         [HttpPatch("annulla-prenotazione")]
         public async Task<IActionResult> AnnullaPrenotazione(long id)
         {
