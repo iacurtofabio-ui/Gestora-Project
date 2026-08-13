@@ -23,8 +23,26 @@ migrati fuori da appsettings.Development.json), verificato con build/avvio/login
 per leggere/modificare i secrets in futuro. BACKEND_FIX_TODO.md aggiornato: tutti i fix di Fase 1
 ora in "Fix completate", resta solo AUDIT-001 (decisione architetturale aperta, rimandata post-v1.0).
 FASE 1 completamente chiusa.
-Prossima cosa: FASE 2 del piano di rilascio — dotnet test (già verde) + verifica manuale Swagger
-degli endpoint toccati dai fix. Poi FASE 3 (deploy Railway). Vedi PIANO_RILASCIO.md.
+Durante la Fase 2 è emerso un bug reale (non pianificato): l'utente super.admin@email.com
+(Admin+Staff+Cliente) risultava sempre "Non sei autorizzato" — il frontend assumeva role come
+stringa singola, ma con più ruoli il JWT lo serializza come array. Deviazione dal piano per
+risolverlo: (1) verificati con Fabio riga per riga tutti gli [Authorize(Roles=...)] reali sui
+controller, ridefinito il perimetro RBAC di Staff (lettura completa, scrittura limitata a
+crea/modifica/conferma/completa/annulla prenotazioni, tolto delete) e Cliente (tolti
+update-prenotazione/annulla-prenotazione — serve prima una regola di cutoff temporale, tracciata
+come RBAC-002 in BACKEND_FIX_TODO.md); (2) fix frontend: AuthUser.role → roles: string[],
+normalizeRoles() in AuthContext, ProtectedRoute/AppLayout/PrenotazionePage/LoginPage aggiornati
+a .includes() su array. Verificato con tsc, eslint, e login reale in browser (Playwright) su
+super.admin. Su richiesta di Fabio, rimossa dal blocco "Come affiancarmi" la guida passo-passo
+obbligatoria — ora implemento direttamente, spiegando solo se serve.
+FASE 2 completata: dotnet test verde (28/28) + verifica manuale via Swagger/curl con token Admin
+reale su tutti i fix di sessione — FIX-004 A/B/C (riattivazione con sovrapposizione bloccata,
+creazione sovrapposta a fascia disattivata bloccata, orario non valido → 400), CACHE-001
+(fasce-per-giorno riflette subito le scritture, verificato con test prima/dopo), FIX-001 (zona
+inesistente su update postazione → 400 con messaggio chiaro), CORS (preflight OK per
+localhost:5173). Dati di test creati durante la verifica ripuliti dal DB locale.
+Prossima cosa: FASE 3 del piano di rilascio — deploy backend su Railway. Vedi PIANO_RILASCIO.md
+sezione "FASE 3" per la checklist (env vars, migration, seed-admin).
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO
