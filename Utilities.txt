@@ -1,0 +1,25 @@
+GESTORA — NOTE UTILI / PROMEMORIA
+==================================
+File di appunti pratici (percorsi, comandi, cose da ricordare). Non è un tracker di progetto:
+per lo stato lavori vedi CLAUDE.md e TrackAttività_Gestora.xlsx.
+
+
+--- SEC-001 — User Secrets backend (13/08/2026) ---
+
+Segreti di sviluppo (connection string PostgreSQL + JWT Secret) spostati fuori da
+appsettings.Development.json nello User Secrets store di .NET.
+
+UserSecretsId (in GestoraWebApi/GestoraWebApi.csproj):
+  aa9f6e84-1217-48e1-9783-b07f152f7874
+
+Percorso del file secrets.json su questa macchina:
+  C:\Users\Carlo Taranto\AppData\Roaming\Microsoft\UserSecrets\aa9f6e84-1217-48e1-9783-b07f152f7874\secrets.json
+
+Per leggere/modificare i valori (da eseguire dentro la cartella GestoraWebApi\):
+  dotnet user-secrets list
+  dotnet user-secrets set "JwtSettings:Secret" "nuovo-valore"
+  dotnet user-secrets remove "JwtSettings:Secret"
+
+Nota: questi valori vivono solo su questa macchina, fuori dal repo. Su un clone nuovo vanno
+ricreati con "dotnet user-secrets init" + "set" (vedi CLAUDE.md sessione 13/08/2026 per i passaggi
+completi).

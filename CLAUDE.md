@@ -15,12 +15,16 @@ separatamente su dev (non ancora pushati — push a cura di Fabio):
 3. FIX-001: PostazioneService.UpdateAsync(PostazioneUpdateDTO) non validava l'esistenza della
    zona (AddAsync sì) — aggiunta la stessa validazione. NAMING-001: PrenotazioneDTO1.cs rinominato
    in PrenotazioneCreateDTO.cs.
-Tutti i test verdi (28/28). BACKEND_FIX_TODO.md aggiornato, tutti i fix di Fase 1 spostati in
-"Fix completate" tranne SEC-001 (richiede dotnet user-secrets — operazione delicata, da eseguire
-Fabio, istruzioni fornite ma non ancora eseguite) e AUDIT-001 (decisione architetturale aperta,
-rimandata post-v1.0).
+Tutti i test verdi (28/28). 5 commit pushati su dev da Fabio. Completato anche SEC-001: Fabio ha
+eseguito `dotnet user-secrets init` + `set` (guidato passo passo, connection string + JWT Secret
+migrati fuori da appsettings.Development.json), verificato con build/avvio/login. Committato
+`UserSecretsId` nel csproj. Creato `Utilities.txt` in root progetto con percorso dello store
+(`%APPDATA%\Microsoft\UserSecrets\aa9f6e84-1217-48e1-9783-b07f152f7874\secrets.json`) e comandi
+per leggere/modificare i secrets in futuro. BACKEND_FIX_TODO.md aggiornato: tutti i fix di Fase 1
+ora in "Fix completate", resta solo AUDIT-001 (decisione architetturale aperta, rimandata post-v1.0).
+FASE 1 completamente chiusa.
 Prossima cosa: FASE 2 del piano di rilascio — dotnet test (già verde) + verifica manuale Swagger
-degli endpoint toccati. Poi FASE 3 (deploy Railway). Vedi PIANO_RILASCIO.md.
+degli endpoint toccati dai fix. Poi FASE 3 (deploy Railway). Vedi PIANO_RILASCIO.md.
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO

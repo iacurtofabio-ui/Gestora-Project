@@ -124,32 +124,6 @@ se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte
 
 ---
 
-### SEC-001 — Segreti in appsettings ⚠️ SICUREZZA — RIDIMENSIONATO
-
-**Problema (rivalutato il 12/08/2026):**
-`appsettings.Development.json` contiene la password del DB (PostgreSQL) e il JWT Secret in chiaro.
-Si temeva che fosse tracciato da git, con i segreti finiti nella history.
-
-**Verifica effettuata (12/08/2026):**
-- Il file è ignorato da `GestoraWebApi/.gitignore:12`
-- `git ls-files "*appsettings*"` → risulta tracciato **solo** `appsettings.json`
-- `git log --all -- GestoraWebApi/appsettings.Development.json` → **nessun commit**
-
-→ I segreti **non sono mai entrati nella git history**. Nessuna credenziale da ruotare.
-La priorità scende da CRITICO a BASSO.
-
-**Cosa resta da fare:**
-- Migrare i segreti di sviluppo a **User Secrets** (`dotnet user-secrets`) — buona pratica,
-  evita che un `git add -f` accidentale li esponga in futuro.
-- In produzione usare esclusivamente **env var Railway**, mai file versionati.
-- Verificare che `appsettings.json` (quello tracciato) contenga solo placeholder vuoti.
-
-**File da modificare:**
-- `appsettings.Development.json` (migrazione a user-secrets)
-- configurazione Railway (env vars)
-
----
-
 ### AUDIT-001 — Nessuna tracciabilità utente sulle azioni
 
 **Problema:**
@@ -190,3 +164,8 @@ discutere prima di implementare — non è ancora un fix definito, solo un'esige
 - **FIX-001** — `PostazioneService.AddAsync` validava già l'esistenza della zona; aggiunta la
   stessa validazione a `UpdateAsync(PostazioneUpdateDTO)`, che ne era priva. ✅ (sessione 13/08/2026)
 - **NAMING-001** — `PrenotazioneDTO1.cs` rinominato in `PrenotazioneCreateDTO.cs`. ✅ (sessione 13/08/2026)
+- **SEC-001** — Segreti dev (`appsettings.Development.json`) mai entrati nella git history
+  (verificato 12/08/2026, priorità scesa da CRITICO a BASSO). Migrati a `dotnet user-secrets`,
+  file ripulito con placeholder vuoti, app testata end-to-end. Percorso store e comandi in
+  `Utilities.txt`. In produzione resta da usare esclusivamente env var Railway (Fase 3).
+  ✅ (sessione 13/08/2026)
