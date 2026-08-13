@@ -7,6 +7,7 @@
     <!-- Aggiunto per Swagger e commenti XML -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
+    <UserSecretsId>aa9f6e84-1217-48e1-9783-b07f152f7874</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
