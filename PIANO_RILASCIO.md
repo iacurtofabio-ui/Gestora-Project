@@ -5,6 +5,25 @@
 
 ---
 
+## STATO AGGIORNATO — 13/08/2026
+
+> Il resto del documento (sezioni 1-8) è l'assessment originale dell'11/06/2026, lasciato
+> intatto come riferimento storico. Questo blocco riporta lo stato reale delle fasi.
+
+- **FASE 1 — Fix e stabilizzazione backend: ✅ COMPLETATA.** Tutti i fix di §6 chiusi (dettaglio
+  in `BACKEND_FIX_TODO.md`, sezione "Fix completate"). In più, non pianificato in origine: SEC-001
+  (migrazione a `dotnet user-secrets`) e una ridefinizione del perimetro RBAC di Staff/Cliente
+  (RBAC-001, con RBAC-002 aperto per una regola di cutoff self-service — vedi
+  `BACKEND_FIX_TODO.md`).
+- **FASE 2 — Test backend: ✅ COMPLETATA.** `dotnet test` 28/28 verdi. Verifica manuale via
+  Swagger/curl con token Admin reale su tutti i fix: FIX-004 A/B/C, CACHE-001, FIX-001, CORS —
+  tutti confermati. Durante questa fase è emerso e risolto un bug frontend non pianificato
+  (gestione ruoli multipli, vedi `gestora-frontend/CLAUDE.md`).
+- **FASE 3 — Deploy backend su Railway: DA FARE.** Prossimo passo.
+- **FASE 4-8: DA FARE**, in attesa del completamento di Fase 3.
+
+---
+
 ## 1. Executive Summary
 
 Il progetto Gestora è composto da un backend ASP.NET Core 9 e un frontend React 19.

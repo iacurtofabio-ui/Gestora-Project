@@ -46,16 +46,36 @@ Postazione: `GET get-postazioni-attive`, `GET get-postazioni-disponibili`,
 `GET get-postazioni-per-zona`, `GET get-postazione-id`, `POST crea-postazione`,
 `PUT update-postazione`, `PUT associa-postazione-a-zona`, `DELETE delete-postazione`.
 
-FasceOrarie: `GET fasce-attive`, `GET get-all-fasce`, `GET fasce-per-giorno?giorno={0-6}`,
+FasceOrarie: `GET fasce-attive`, `GET get-all-fasce` (Admin+Staff), `GET fasce-per-giorno?giorno={0-6}`,
 `GET fasce-disponibili?fasciaId=&data=`, `POST crea-fascia`, `PUT update-fascia`,
 `PATCH update-stato/{id}?attiva=`, `DELETE delete-fascia`.
 
 Prenotazione: `POST crea-prenotazione`, `POST check-disponibilita` (pubblico, no auth),
 `GET get-prenotazione?id=`, `GET get-all-prenotazioni` (filtri opzionali via
 `PrenotazioniQueryParams`, paginato), `GET get-mie-prenotazioni` (solo Cliente, filtra su
-UserId dal JWT), `GET get-prenotazioni-by-data?data=`, `PUT update-prenotazione`,
-`DELETE delete-prenotazione`, `PATCH conferma-prenotazione?id=`,
-`PATCH completa-prenotazione?id=`, `PATCH annulla-prenotazione?id=`.
+UserId dal JWT), `GET get-prenotazioni-by-data?data=`, `PUT update-prenotazione` (Admin+Staff,
+tolto Cliente — vedi RBAC-001/RBAC-002), `DELETE delete-prenotazione` (solo Admin),
+`PATCH conferma-prenotazione?id=` (Admin+Staff), `PATCH completa-prenotazione?id=` (Admin+Staff),
+`PATCH annulla-prenotazione?id=` (Admin+Staff, tolto Cliente — vedi RBAC-002 in
+BACKEND_FIX_TODO.md per la regola di cutoff da progettare prima di riaprirlo al Cliente).
+
+## RBAC — perimetro ruoli (allineato 13/08/2026, vedi `Auth/Roles.cs`)
+
+- **Admin**: tutti i permessi, nessuna eccezione.
+- **Staff**: lettura completa su Zone/Postazioni/FasceOrarie/Prenotazioni (incluso `get-all-fasce`,
+  `get-all-zone`, dettagli). Scrittura solo su Prenotazioni: crea, modifica, conferma, completa,
+  annulla — **non** elimina (`delete-prenotazione` solo Admin) e **non** scrive su
+  Zone/Postazioni/FasceOrarie (resta solo Admin).
+- **Cliente**: crea-prenotazione + lettura propria (`get-mie-prenotazioni`) e di supporto alla
+  prenotazione (zone/postazioni/fasce attive). **Non** può modificare o annullare le proprie
+  prenotazioni self-service (tolto il 13/08/2026, RBAC-002) — richiede intervento Staff/Admin
+  finché non viene progettata una regola di cutoff temporale.
+
+Un utente **può avere più ruoli contemporaneamente** (many-to-many `UserRoles`) — è un caso
+d'uso legittimo, non un'anomalia (es. account che gestisce il locale ma prenota anche per sé
+come Cliente). Il JWT serializza il claim `role` come stringa se l'utente ha un solo ruolo, come
+array se ne ha più di uno — il frontend deve normalizzare sempre a array, vedi
+`gestora-frontend/CLAUDE.md`.
 
 ## Note tecniche da tenere a mente
 
@@ -63,16 +83,21 @@ UserId dal JWT), `GET get-prenotazioni-by-data?data=`, `PUT update-prenotazione`
   `Program.cs`, non riattivarlo in produzione.
 - CORS: origin letti da `AllowedOrigins` in appsettings/env var, mai hardcoded.
 - Cache: chiavi in `Common/CacheKeys.cs` — attenzione a invalidare **tutte** le chiavi
-  derivate (es. `FascePerGiorno+giorno`), non solo quella base. ⚠️ Oggi `FasciaOrariaService`
-  non lo fa: vedi CACHE-001 in `BACKEND_FIX_TODO.md`.
-- Segreti: `appsettings.Development.json` è in `GestoraWebApi/.gitignore` e **non è mai
-  entrato nella git history** (verificato 12/08/2026) — nessuna credenziale da ruotare.
-  Resta consigliata la migrazione a `dotnet user-secrets`, ma non è urgente (SEC-001).
+  derivate (es. `FascePerGiorno+giorno`), non solo quella base. `FasciaOrariaService` e
+  `PostazioneService` lo fanno correttamente (CACHE-001 risolto 13/08/2026); se si aggiungono
+  nuove chiavi derivate altrove, verificare lo stesso pattern.
+- Segreti: connection string e JWT Secret di sviluppo vivono in **User Secrets**
+  (`dotnet user-secrets`, non in `appsettings.Development.json` che ora contiene solo
+  placeholder vuoti — SEC-001 risolto 13/08/2026). Percorso dello store e comandi in
+  `Utilities.txt` alla root del progetto. In produzione: solo env var Railway.
 
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, pattern Arrange/Act/Assert. Un file per service
-(`FasciaOrariaServiceTe.cs`, `PostazioneAssignmentServiceTests.cs`,
-`PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`). Eseguire con `dotnet test` dalla cartella
-`GestoraWebApi/`. Nessun test su controller o su `AuthenticationUserController` — la logica di
-auth non è ancora estratta in un service dedicato.
+(`FasciaOrariaServiceTe.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
+`PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`). 28 test totali. Eseguire con `dotnet test`
+dalla cartella `GestoraWebApi/`. Nessun test su controller o su `AuthenticationUserController` —
+la logica di auth non è ancora estratta in un service dedicato. Per mockare `IQueryable<T>`
+restituito dai repository (necessario per testare query EF Core come `AnyAsync`/`FirstOrDefaultAsync`
+su un repository mockato) si usa il pacchetto `MockQueryable.Moq` (7.0.3, l'unica versione
+compatibile con net9.0) — pattern: `lista.AsQueryable().BuildMockDbSet().Object`.

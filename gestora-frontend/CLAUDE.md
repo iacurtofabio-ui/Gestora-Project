@@ -17,6 +17,24 @@ interceptor JWT (attach token da localStorage, logout + redirect su 401).
 di route: Admin/Staff, Admin/Staff/Cliente, Admin-only. Nuove pagine vanno registrate qui,
 dentro il gruppo di ruolo corretto — non creare controlli di ruolo ad-hoc nella pagina stessa.
 
+## Ruoli utente — sempre array, mai stringa singola
+
+⚠️ Un utente **può avere più ruoli** (Admin+Staff+Cliente insieme è un caso d'uso legittimo, non
+un'anomalia — vedi `GestoraWebApi/CLAUDE.md` sezione RBAC). Il JWT serializza il claim
+`http://schemas.microsoft.com/ws/2008/06/identity/claims/role` come **stringa singola** se
+l'utente ha un solo ruolo, come **array** se ne ha più di uno — comportamento standard di
+ASP.NET Identity, non un bug backend.
+
+`AuthUser.roles` (`src/context/auth-context.ts`) è quindi tipizzato `string[]`, **mai** `string`.
+`AuthContext.tsx` normalizza sempre il claim grezzo con `normalizeRoles()` prima di metterlo in
+`roles` — non leggere mai il claim direttamente altrove. Per controllare i ruoli:
+- singolo controllo: `user?.roles.includes('Admin')`
+- controllo su un elenco di ruoli consentiti: `allowedRoles.some(r => user.roles.includes(r))`
+  (pattern usato in `ProtectedRoute.tsx`)
+
+Mai `user.roles === 'Admin'` o `allowedRoles.includes(user.roles)` — confronterebbe un array
+con una stringa, sempre falso (bug reale, risolto il 13/08/2026, vedi tracker).
+
 ## Pattern CRUD standard
 
 Ogni modulo CRUD segue questa struttura a 4 file:
