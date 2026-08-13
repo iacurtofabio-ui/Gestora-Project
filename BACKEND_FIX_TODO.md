@@ -18,6 +18,12 @@ Ogni fix ha:
 
 ## Fix da fare
 
+> Nota 13/08/2026: le sezioni sotto (CORS-001, FIX-003, FIX-002, FIX-005, FIX-006) descrivono
+> problemi risolti da tempo — la scrittura originale resta come riferimento storico, lo stato
+> reale è nell'elenco "Fix completate" più sotto. I due punti di debito tecnico ancora aperti
+> (RBAC-002, AUDIT-001) sono ora nella sezione "Backlog post-v1.0" in fondo al file — deciso con
+> Fabio il 13/08/2026 di non bloccare il rilascio (Fase 3+) per chiuderli prima.
+
 ### CORS-001 — CORS hardcoded su localhost ⚠️ CRITICO — blocca produzione
 
 **Problema:**
@@ -124,6 +130,12 @@ se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte
 
 ---
 
+## Backlog post-v1.0 (non bloccante per il rilascio)
+
+> Deciso con Fabio il 13/08/2026: questi punti sono debito tecnico legittimo, ma nessuno dei tre
+> blocca il rilascio (Fase 3-8 di `PIANO_RILASCIO.md`). Si affrontano dopo, a mente libera, senza
+> far slittare il deploy.
+
 ### RBAC-002 — Regola di cutoff per modifica/annullamento self-service del Cliente
 
 **Problema:**
@@ -136,7 +148,8 @@ riassegnare il tavolo a un altro cliente — un rischio operativo concreto, non 
 `update-prenotazione` e `annulla-prenotazione` sono state ristrette a `Roles.AdminOrStaff`
 (tolto `Cliente`) finché non viene progettata la regola definitiva. Nel frattempo il Cliente
 può modificare/annullare una prenotazione solo tramite Staff/Admin (telefono, di persona, ecc.),
-non più in autonomia dall'app.
+non più in autonomia dall'app. Questo interim resta valido anche in produzione — non è bloccante,
+è il comportamento accettato per v1.0.
 
 **Cosa fare (feature da progettare, non ancora un fix definito):**
 Introdurre una finestra di cutoff configurabile (es. "annullabile/modificabile solo fino a N ore
@@ -174,6 +187,22 @@ discutere prima di implementare — non è ancora un fix definito, solo un'esige
 
 > Nota: migrata il 12/08/2026 da un file sciolto (`Appunti Fix da valutare.txt`), rimosso
 > perché fuori da qualunque tracker.
+
+---
+
+### NAMING-001-residuo — Nome file controller disallineato dalla classe
+
+**Problema:**
+`Controllers/FasciaOrariaController.cs` contiene la classe `FasceOrarieController` (route base
+`/api/FasceOrarie/`). Il DTO omonimo (`PrenotazioneDTO1.cs`) è già stato rinominato il 13/08/2026
+(NAMING-001 originale) — questo è un secondo caso dello stesso problema, non ancora sistemato.
+
+**Cosa fare:**
+Rinominare il file in `FasceOrarieController.cs` con `git mv` (preserva la history). Puramente
+cosmetico, zero rischio funzionale — rimandabile senza costi.
+
+**File da modificare:**
+- `Controllers/FasciaOrariaController.cs` → `Controllers/FasceOrarieController.cs`
 
 ---
 

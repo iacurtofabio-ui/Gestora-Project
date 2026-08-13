@@ -41,6 +41,12 @@ creazione sovrapposta a fascia disattivata bloccata, orario non valido → 400),
 (fasce-per-giorno riflette subito le scritture, verificato con test prima/dopo), FIX-001 (zona
 inesistente su update postazione → 400 con messaggio chiaro), CORS (preflight OK per
 localhost:5173). Dati di test creati durante la verifica ripuliti dal DB locale.
+Decisione presa con Fabio (13/08/2026): il debito tecnico rimasto (RBAC-002 — regola di cutoff
+self-service Cliente; AUDIT-001 — tracciabilità utente; NAMING-001-residuo — file controller
+disallineato) NON blocca il rilascio. Spostati in "Backlog post-v1.0" in BACKEND_FIX_TODO.md,
+da affrontare dopo il deploy — nessuno dei tre tocca il percorso di produzione, e continuare a
+rincorrere rifiniture rischiava di far slittare indefinitamente la Fase 3 (come già successo
+oggi passando da "verifica Fase 2" a una ridefinizione RBAC completa).
 Prossima cosa: FASE 3 del piano di rilascio — deploy backend su Railway. Vedi PIANO_RILASCIO.md
 sezione "FASE 3" per la checklist (env vars, migration, seed-admin).
 

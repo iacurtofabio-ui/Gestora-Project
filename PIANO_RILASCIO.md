@@ -21,6 +21,10 @@
   (gestione ruoli multipli, vedi `gestora-frontend/CLAUDE.md`).
 - **FASE 3 — Deploy backend su Railway: DA FARE.** Prossimo passo.
 - **FASE 4-8: DA FARE**, in attesa del completamento di Fase 3.
+- **Decisione 13/08/2026**: il debito tecnico residuo (RBAC-002, AUDIT-001, NAMING-001-residuo —
+  dettaglio in `BACKEND_FIX_TODO.md`, sezione "Backlog post-v1.0") non blocca la Fase 3 né le
+  successive. Si affronta dopo il rilascio v1.0.0, per non far slittare il deploy inseguendo
+  rifiniture non bloccanti.
 
 ---
 
