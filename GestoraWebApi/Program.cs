@@ -33,8 +33,45 @@ using GestoraWebApi.Infrastructure.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configurazione obbligatoria: senza questi valori il servizio non puo funzionare.
+// Si valida subito, prima di registrare qualsiasi servizio, per fallire con un messaggio
+// esplicito invece che piu avanti con errori opachi del driver
+// (es. "The ConnectionString property has not been initialized" dentro il seed dei ruoli).
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Configurazione mancante: ConnectionStrings:DefaultConnection. " +
+        "In sviluppo impostarla con 'dotnet user-secrets set', in produzione come variabile " +
+        "d'ambiente ConnectionStrings__DefaultConnection.");
+}
+
+var jwtSecret = builder.Configuration["JwtSettings:Secret"];
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException(
+        "Configurazione mancante: JwtSettings:Secret. " +
+        "In sviluppo impostarlo con 'dotnet user-secrets set', in produzione come variabile " +
+        "d'ambiente JwtSettings__Secret.");
+}
+
+// HMAC-SHA256 richiede una chiave di almeno 256 bit: sotto questa soglia la generazione
+// del token fallirebbe solo al primo login, non all'avvio.
+if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+{
+    throw new InvalidOperationException(
+        "JwtSettings:Secret troppo corto: servono almeno 32 caratteri (256 bit) per HMAC-SHA256.");
+}
+
 builder.Services.AddDbContext<GestoraContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString, npgsql =>
+        // Connection resiliency: la rete privata tra i container non e' immediatamente
+        // disponibile all'avvio e puo avere interruzioni transitorie. Senza retry il primo
+        // avvio puo fallire anche con la configurazione corretta.
+        npgsql.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorCodesToAdd: null)));
 
 // Serilog
 Log.Logger = new LoggerConfiguration()
@@ -66,7 +103,7 @@ builder.Services.AddQuartz(q =>
     {
         store.UsePostgres(pg =>
         {
-            pg.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+            pg.ConnectionString = connectionString;
             pg.TablePrefix = "QRTZ_";
         });
         store.UseNewtonsoftJsonSerializer();
@@ -99,6 +136,10 @@ builder.Services.AddFluentValidationAutoValidation();
 
 //In-memory cache
 builder.Services.AddMemoryCache();
+
+// Health check: endpoint interrogato dalla piattaforma di hosting dopo ogni deploy.
+// Se non risponde, il deploy viene marcato come fallito e resta online la versione precedente.
+builder.Services.AddHealthChecks();
 
 var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
 
@@ -167,6 +208,9 @@ app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+// Endpoint pubblico e senza autenticazione: deve poter rispondere anche a chi non ha un token.
+app.MapHealthChecks("/health");
 
 app.MapControllers();
 
