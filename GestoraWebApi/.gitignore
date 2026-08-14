@@ -6,7 +6,7 @@
 # Tracker maintenance scripts (one-off PowerShell scripts)
 *.ps1
 
-appsettings.Development.json
+
 
 # dotenv files
 .env
