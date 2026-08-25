@@ -2,53 +2,81 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 13/08/2026
-Ultima cosa fatta: FASE 1 del piano di rilascio (fix backend) completata in 3 blocchi committati
-separatamente su dev (non ancora pushati — push a cura di Fabio):
-1. FIX-004 (A/B/C) + CACHE-001 in FasciaOrariaService: guard di sovrapposizione condiviso su
-   AddAsync/UpdateAsync/UpdateStatoAsync, esteso anche alle fasce disattivate; TimeSpan.TryParse
-   ora valida l'esito; invalidazione cache fasce_giorno_{n} su tutte le scritture. Aggiunto il
-   pacchetto MockQueryable.Moq (7.0.3, compatibile net9.0) ai test per mockare IQueryable con
-   supporto async EF Core. 8 nuovi test.
-2. Verifica pattern cache su ZonaService (ok) e PostazioneService: trovato e corretto un buco
-   identico a CACHE-001 in AssociaPostazioneAZonaAsync (non invalidava PostazioniAttive).
-3. FIX-001: PostazioneService.UpdateAsync(PostazioneUpdateDTO) non validava l'esistenza della
-   zona (AddAsync sì) — aggiunta la stessa validazione. NAMING-001: PrenotazioneDTO1.cs rinominato
-   in PrenotazioneCreateDTO.cs.
-Tutti i test verdi (28/28). 5 commit pushati su dev da Fabio. Completato anche SEC-001: Fabio ha
-eseguito `dotnet user-secrets init` + `set` (guidato passo passo, connection string + JWT Secret
-migrati fuori da appsettings.Development.json), verificato con build/avvio/login. Committato
-`UserSecretsId` nel csproj. Creato `Utilities.txt` in root progetto con percorso dello store
-(`%APPDATA%\Microsoft\UserSecrets\aa9f6e84-1217-48e1-9783-b07f152f7874\secrets.json`) e comandi
-per leggere/modificare i secrets in futuro. BACKEND_FIX_TODO.md aggiornato: tutti i fix di Fase 1
-ora in "Fix completate", resta solo AUDIT-001 (decisione architetturale aperta, rimandata post-v1.0).
-FASE 1 completamente chiusa.
-Durante la Fase 2 è emerso un bug reale (non pianificato): l'utente super.admin@email.com
-(Admin+Staff+Cliente) risultava sempre "Non sei autorizzato" — il frontend assumeva role come
-stringa singola, ma con più ruoli il JWT lo serializza come array. Deviazione dal piano per
-risolverlo: (1) verificati con Fabio riga per riga tutti gli [Authorize(Roles=...)] reali sui
-controller, ridefinito il perimetro RBAC di Staff (lettura completa, scrittura limitata a
-crea/modifica/conferma/completa/annulla prenotazioni, tolto delete) e Cliente (tolti
-update-prenotazione/annulla-prenotazione — serve prima una regola di cutoff temporale, tracciata
-come RBAC-002 in BACKEND_FIX_TODO.md); (2) fix frontend: AuthUser.role → roles: string[],
-normalizeRoles() in AuthContext, ProtectedRoute/AppLayout/PrenotazionePage/LoginPage aggiornati
-a .includes() su array. Verificato con tsc, eslint, e login reale in browser (Playwright) su
-super.admin. Su richiesta di Fabio, rimossa dal blocco "Come affiancarmi" la guida passo-passo
-obbligatoria — ora implemento direttamente, spiegando solo se serve.
-FASE 2 completata: dotnet test verde (28/28) + verifica manuale via Swagger/curl con token Admin
-reale su tutti i fix di sessione — FIX-004 A/B/C (riattivazione con sovrapposizione bloccata,
-creazione sovrapposta a fascia disattivata bloccata, orario non valido → 400), CACHE-001
-(fasce-per-giorno riflette subito le scritture, verificato con test prima/dopo), FIX-001 (zona
-inesistente su update postazione → 400 con messaggio chiaro), CORS (preflight OK per
-localhost:5173). Dati di test creati durante la verifica ripuliti dal DB locale.
-Decisione presa con Fabio (13/08/2026): il debito tecnico rimasto (RBAC-002 — regola di cutoff
-self-service Cliente; AUDIT-001 — tracciabilità utente; NAMING-001-residuo — file controller
-disallineato) NON blocca il rilascio. Spostati in "Backlog post-v1.0" in BACKEND_FIX_TODO.md,
-da affrontare dopo il deploy — nessuno dei tre tocca il percorso di produzione, e continuare a
-rincorrere rifiniture rischiava di far slittare indefinitamente la Fase 3 (come già successo
-oggi passando da "verifica Fase 2" a una ridefinizione RBAC completa).
-Prossima cosa: FASE 3 del piano di rilascio — deploy backend su Railway. Vedi PIANO_RILASCIO.md
-sezione "FASE 3" per la checklist (env vars, migration, seed-admin).
+Ultima sessione: 14/08/2026
+Ultima cosa fatta: **FASE 3 COMPLETATA — backend online su Railway.**
+
+URL produzione backend: `https://gestora-project-production.up.railway.app`
+Progetto Railway: `romantic-enthusiasm` (environment `production`), contiene DUE servizi:
+`Postgres` e il servizio .NET collegato al repo GitHub `Gestora-Project`, branch `main`.
+
+### Causa del blocco della sessione precedente (risolta)
+
+La variabile `ConnectionStrings__DefaultConnection` non si risolveva perché **database e
+applicazione erano stati creati in due progetti Railway distinti**. I riferimenti tra variabili
+(`${{Postgres.PGHOST}}`) funzionano solo tra servizi dello **stesso progetto** — per questo
+`Postgres` non compariva nell'autocomplete. Nessun problema di sintassi né di permessi.
+Soluzione: ricreato il servizio .NET dentro il progetto del database; il progetto orfano è stato
+eliminato. Regola da ricordare: **su Railway un progetto = un'applicazione con tutti i suoi
+servizi**, non un servizio per progetto.
+
+### Modifiche al codice di questa sessione (commit `4801060`, mergiato su main via PR)
+
+Tutte in `GestoraWebApi/Program.cs` salvo dove indicato:
+1. **Fail-fast sulla configurazione**: se `ConnectionStrings:DefaultConnection` o
+   `JwtSettings:Secret` mancano, l'avvio si ferma con un messaggio esplicito (prima l'errore
+   emergeva come `The ConnectionString property has not been initialized` dentro `RoleSeeder`,
+   illeggibile). Incluso il controllo di lunghezza minima 256 bit del segreto JWT.
+2. **Connection resiliency** (`EnableRetryOnFailure`, 5 tentativi / 10s): la rete privata tra
+   container non è raggiungibile nei primi secondi dopo l'avvio. Verificato che nel progetto non
+   ci sono transazioni esplicite (`BeginTransaction`), quindi l'opzione è sicura.
+3. **Endpoint `/health`** (`AddHealthChecks` + `MapHealthChecks`, nessun pacchetto aggiuntivo),
+   impostato come Healthcheck Path su Railway: un deploy rotto ora risulta fallito invece di
+   andare in crash loop silenzioso.
+4. **Serilog**: sink su file spostato in `appsettings.Development.json`; in produzione solo
+   console (il filesystem del container è effimero, Railway raccoglie lo stdout).
+5. `appsettings.Development.json` **rimosso da `.gitignore` e versionato** — non contiene più
+   segreti (sono negli User Secrets dal 13/08) ed è configurazione per ambiente. Attenzione: la
+   configurazione .NET sovrascrive gli array **per posizione**, quindi il sink Console va
+   riconfermato all'indice 0 in quel file o si perde.
+
+### Configurazione Railway del servizio .NET (per riferimento)
+
+- Source: repo `Gestora-Project` (NON `GestoraWebApi`, repo vecchio/obsoleto), branch `main`,
+  Root Directory `GestoraWebApi`
+- Build: Custom Build Command `dotnet publish GestoraWebApi.csproj -c Release -o out`
+  (il default builda l'intera solution, test inclusi, e fallisce)
+- Deploy: Healthcheck Path `/health`
+- Variabili: `ConnectionStrings__DefaultConnection` (composta con riferimenti
+  `${{Postgres.PGHOST}}` / `PGPORT` / `PGDATABASE` / `PGUSER` / `PGPASSWORD`, creati con
+  l'autocomplete del campo — incollati da fuori NON si attivano), `JwtSettings__Secret`,
+  `AllowedOrigins__0=http://localhost:5173` (URL Vercel da aggiungere in Fase 6),
+  `PORT=8080`, `ASPNETCORE_URLS=http://0.0.0.0:${{PORT}}`
+
+### Verifiche eseguite in produzione (14/08/2026)
+
+- build Railway ok, `[1/1] Healthcheck succeeded`
+- `GET /health` da internet → 200 `Healthy`
+- `GET /api/Zona/get-all-zone` senza token → 401 (autenticazione attiva)
+- primo Admin creato con `POST /api/AuthenticationUser/seed-admin` (endpoint autobloccante)
+- login in produzione → token JWT valido (373 caratteri)
+- chiamata autenticata al DB → risposta dal service (404 su lista vuota, vedi FIX-007)
+
+> Nota: la rotta base dei controller è `/api/[nome classe controller]`, quindi gli endpoint di
+> autenticazione stanno sotto `/api/AuthenticationUser/...`, non `/api/Auth/...` come scritto in
+> vecchia documentazione.
+
+### Trovato durante la verifica: FIX-007 (registrato in BACKEND_FIX_TODO.md)
+
+Sei endpoint in `ZonaController`, `PostazioneController` e `PrenotazioneController` restituiscono
+404 invece di `200 []` su lista vuota — stesso anti-pattern già corretto con FIX-003 sulle sole
+fasce orarie. Si manifesta **sempre su un DB di produzione appena creato**. Da valutare in Fase 5:
+il frontend potrebbe mostrare errori dove dovrebbe mostrare uno stato vuoto.
+
+### Prossimo passo: FASE 4 — verifica backend in produzione
+
+Con il token Admin: `GET /api/Zona/get-all-zone`, `GET /api/FasceOrarie/fasce-attive`,
+`GET /api/Dashboard/giornaliera?data=`, controllo dei log Railway. Poi FASE 5 (frontend contro
+l'URL Railway) — è lì che va deciso cosa fare di FIX-007.
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO
