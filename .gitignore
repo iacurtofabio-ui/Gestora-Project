@@ -8,3 +8,5 @@ graphify-out/
 
 # Playwright MCP - snapshot temporanei da test manuali in browser
 .playwright-mcp/
+
+.vs/
