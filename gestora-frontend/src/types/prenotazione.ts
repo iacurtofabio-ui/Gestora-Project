@@ -29,3 +29,12 @@ export const STATI_PRENOTAZIONE = {
     COMPLETATA: 'Completata',
     ANNULLATA: 'Annullata',
 } as const
+
+// Etichette leggibili: "InCorso" indica una prenotazione confermata, non necessariamente
+// nella fascia oraria in corso ora - il nome nel DB/enum resta invariato per non toccare il backend.
+export const STATO_LABELS: Record<string, string> = {
+    [STATI_PRENOTAZIONE.ATTIVA]: 'Attiva',
+    [STATI_PRENOTAZIONE.IN_CORSO]: 'Confermata',
+    [STATI_PRENOTAZIONE.COMPLETATA]: 'Completata',
+    [STATI_PRENOTAZIONE.ANNULLATA]: 'Annullata',
+}

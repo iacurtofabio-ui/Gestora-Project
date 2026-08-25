@@ -14,6 +14,13 @@ export function useFasceOrarie() {
     })
 }
 
+export function useAllFasceOrarie() {
+    return useQuery<FasciaOrariaDTO[]>({
+        queryKey: ['fasce-orarie', 'all'],
+        queryFn: () => apiClient.get('/FasceOrarie/get-all-fasce').then(r => r.data),
+    })
+}
+
 export function useCreaFasciaOraria() {
     const queryClient = useQueryClient()
     return useMutation({

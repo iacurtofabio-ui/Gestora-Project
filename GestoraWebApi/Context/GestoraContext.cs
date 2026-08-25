@@ -121,7 +121,8 @@ namespace GestoraWebApi.Context
                     
 
                 entity.HasIndex(p => new { p.UserId, p.DataPrenotazione })
-                      .IsUnique()//nessun record può avere la stessa combinazione di UserId e DataPrenotazione
+                      .IsUnique()//nessun record può avere la stessa combinazione di UserId e DataPrenotazione, escluse le annullate
+                      .HasFilter("\"Stato\" <> 'Annullata'")
                       .HasDatabaseName("UX_Prenotazione_User_DataPrenotazione");//nome dell'indice
 
             });
