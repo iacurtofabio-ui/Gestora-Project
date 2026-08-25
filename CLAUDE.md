@@ -2,8 +2,32 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 14/08/2026
-Ultima cosa fatta: **FASE 3 COMPLETATA — backend online su Railway.**
+Ultima sessione: 25/08/2026
+Ultima cosa fatta: **FASE 4 COMPLETATA — backend verificato in produzione.**
+
+Checklist Fase 4 eseguita con token Admin reale via Postman:
+- `GET /api/Zona/get-all-zone` → 404 "Nessuna zona trovata" (comportamento noto, vedi FIX-007)
+- `GET /api/FasceOrarie/fasce-attive` → 200 `[]` (conferma che FIX-003 tiene anche in produzione)
+- `GET /api/Dashboard/giornaliera?data=2026-08-25` → 200 con tutti i contatori a zero (l'aggregato
+  non soffre dell'anti-pattern di FIX-007)
+- Log Railway del servizio .NET puliti, nessuna eccezione durante le chiamate di verifica
+
+Nessun fix applicato in questa sessione: FIX-007 resta aperto, da decidere in Fase 5 se e come
+sistemarlo prima di collegare il frontend (vedi `BACKEND_FIX_TODO.md`).
+
+Prima di partire con la Fase 4 è stato anche riallineato il repo, rimasto disallineato dalla
+sessione del 14/08: `dev` era avanti di 2 commit non ancora mergiati su `main` (chiusura Fase 3),
+e la cartella `.vs/` di Visual Studio non era esclusa dal tracking (`.gitignore` aveva la riga
+scritta come commento `# .vs/` invece che come regola attiva — corretto in `.vs/`). Mergiati
+`dev` → `main` (PR #3) e poi `main` → `dev`, così i due branch sono di nuovo allineati.
+
+Prossimo passo: **FASE 5 — fix/verifica frontend contro l'URL Railway**. È qui che va deciso
+cosa fare di FIX-007 (il frontend gestisce già le liste vuote come errore o come stato vuoto?).
+
+---
+
+### Storico — Fase 3 (14/08/2026, per riferimento)
+**FASE 3 COMPLETATA — backend online su Railway.**
 
 URL produzione backend: `https://gestora-project-production.up.railway.app`
 Progetto Railway: `romantic-enthusiasm` (environment `production`), contiene DUE servizi:
