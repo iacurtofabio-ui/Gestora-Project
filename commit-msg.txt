@@ -1,0 +1,21 @@
+docs: chiude la FASE 3 del piano di rilascio (backend online su Railway)
+
+- CLAUDE.md: riscritto il blocco STATO SESSIONE con l'esito del deploy, l'URL di
+  produzione, la configurazione Railway completa e la causa reale del blocco
+  (database e app erano in due progetti Railway distinti: i riferimenti tra
+  variabili valgono solo tra servizi dello stesso progetto)
+- PIANO_RILASCIO.md: FASE 3 da "IN CORSO / bloccata" a completata, con le
+  verifiche eseguite in produzione
+- GestoraWebApi/CLAUDE.md: documentati l'endpoint /health, il fail-fast di
+  configurazione, la connection resiliency e la politica dei log per ambiente.
+  Corretta la rotta base degli endpoint di autenticazione: e' /api/AuthenticationUser,
+  non /api/Auth
+- BACKEND_FIX_TODO.md: nuovo FIX-007 — sei endpoint di Zona/Postazione/Prenotazione
+  restituiscono 404 invece di 200 [] su lista vuota (stesso anti-pattern di FIX-003,
+  corretto all'epoca solo sulle fasce orarie). Trovato verificando il deploy su un
+  database di produzione vuoto, da valutare in Fase 5
+- TrackAttivita_Gestora.xlsx: aggiornati Dashboard, Appunti e Step (blocco sessione
+  14/08 + 2 decisioni architetturali), Roadmap, Piano di Sviluppo, Fix e Bug.
+  Foglio Controllers: aggiunto /health, censiti get-all-fasce, update-stato fasce e
+  get-mie-prenotazioni (mai registrati), allineati i ruoli di update/annulla/delete
+  prenotazione al perimetro RBAC del 13/08

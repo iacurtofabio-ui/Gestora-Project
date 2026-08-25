@@ -19,8 +19,23 @@
   Swagger/curl con token Admin reale su tutti i fix: FIX-004 A/B/C, CACHE-001, FIX-001, CORS —
   tutti confermati. Durante questa fase è emerso e risolto un bug frontend non pianificato
   (gestione ruoli multipli, vedi `gestora-frontend/CLAUDE.md`).
-- **FASE 3 — Deploy backend su Railway: DA FARE.** Prossimo passo.
-- **FASE 4-8: DA FARE**, in attesa del completamento di Fase 3.
+- **FASE 3 — Deploy backend su Railway: ✅ COMPLETATA (14/08/2026).**
+  Backend online su `https://gestora-project-production.up.railway.app`.
+  PostgreSQL provisionato, migration EF Core + script Quartz applicati, servizio .NET collegato al
+  repo GitHub `Gestora-Project` (branch `main`, Root Directory `GestoraWebApi`, Custom Build Command
+  `dotnet publish GestoraWebApi.csproj -c Release -o out` — necessario perché il default builda
+  anche `GestoraWebApi.Tests`, mai restorato, e fallisce). `main` allineato a `dev`.
+  **Causa del blocco del 14/08 mattina**: database e applicazione erano in due *progetti* Railway
+  distinti; i riferimenti tra variabili (`${{Postgres.PGHOST}}`) funzionano solo tra servizi dello
+  stesso progetto. Risolto ricreando il servizio .NET nel progetto del database ed eliminando quello
+  orfano. In più, non pianificato in origine: irrigidimenti di avvio in `Program.cs` (fail-fast sulla
+  configurazione, connection resiliency Npgsql, endpoint `/health` usato come Healthcheck Path
+  Railway) e log su console-only in produzione. Dettaglio in `CLAUDE.md`, blocco "STATO SESSIONE".
+  Verificato in produzione: `/health` 200, 401 senza token, primo Admin creato via `seed-admin`,
+  login con token JWT valido.
+  **Trovato durante la verifica**: FIX-007 (404 invece di `200 []` su lista vuota in sei endpoint di
+  Zona/Postazione/Prenotazione) — registrato in `BACKEND_FIX_TODO.md`, da valutare in Fase 5.
+- **FASE 4-8: DA FARE.** Prossimo passo: Fase 4, verifica del backend in produzione.
 - **Decisione 13/08/2026**: il debito tecnico residuo (RBAC-002, AUDIT-001, NAMING-001-residuo —
   dettaglio in `BACKEND_FIX_TODO.md`, sezione "Backlog post-v1.0") non blocca la Fase 3 né le
   successive. Si affronta dopo il rilascio v1.0.0, per non far slittare il deploy inseguendo

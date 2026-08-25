@@ -31,7 +31,8 @@
       "Bash(git mv *)",
       "Bash(git check-ignore *)",
       "Bash(python3 -c ' *)",
-      "PowerShell(graphify query *)"
+      "PowerShell(graphify query *)",
+      "Bash(openssl rand *)"
     ]
   }
 }
