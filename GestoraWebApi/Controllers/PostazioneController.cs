@@ -54,9 +54,6 @@ namespace GestoraWebApi.Controllers
         {
             var postazioni = await _postazioneService.GetPostazioniAttiveAsync();
 
-            if (postazioni == null || !postazioni.Any())
-                return NotFound(new { Message = "Nessuna postazione attiva trovata." });
-
             return Ok(postazioni);
         }
 
@@ -67,9 +64,6 @@ namespace GestoraWebApi.Controllers
         {
             var postazioni = await _postazioneService.GetPostazioniDisponibiliAsync();
 
-            if (postazioni == null || !postazioni.Any())
-                return NotFound(new { Message = "Nessuna postazione disponibile trovata." });
-
             return Ok(postazioni);
         }
 
@@ -79,9 +73,6 @@ namespace GestoraWebApi.Controllers
         public async Task<IActionResult> GetPostazioniPerZonaAsync(long zonaId)
         {
             var postazioni = await _postazioneService.GetPostazioniPerZonaAsync(zonaId);
-
-            if (postazioni == null || !postazioni.Any())
-                return NotFound(new { Message = $"Nessuna postazione trovata per la zona {zonaId}." });
 
             return Ok(postazioni);
         }

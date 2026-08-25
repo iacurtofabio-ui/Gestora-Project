@@ -66,9 +66,6 @@ namespace GestoraWebApi.Controllers
         {
             var zoneAttive = await _zonaService.GetAllZoneAttiveAsync();
 
-            if (zoneAttive == null || !zoneAttive.Any())
-                return NotFound(new { message = "Nessuna zona attiva trovata." });
-
             return Ok(zoneAttive);
         }
 
@@ -79,13 +76,10 @@ namespace GestoraWebApi.Controllers
         {
             var zone = await _zonaService.GetAllZoneAsync();
 
-            if (zone == null || !zone.Any())
-                return NotFound(new { message = "Nessuna zona trovata." });
-
             return Ok(zone);
         }
 
-        /// <summary>Verifica se una zona è assegnata ad almeno una postazione. Usato prima di eliminarla. Solo Admin e Staff.</summary>
+        /// <summary>Verifica se una zona ï¿½ assegnata ad almeno una postazione. Usato prima di eliminarla. Solo Admin e Staff.</summary>
         [Authorize(Roles = Roles.AdminOrStaff)]
         [HttpGet("is-zona-usata")]
         public async Task<IActionResult> VerificaZonaUsataAsync(long id)

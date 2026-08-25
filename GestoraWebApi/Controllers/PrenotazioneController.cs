@@ -68,9 +68,6 @@ namespace GestoraWebApi.Controllers
         {
             var prenotazioni = await _prenotazioniService.GetPrenotazioniByDataAsync(data);
 
-            if (prenotazioni == null || !prenotazioni.Any())
-                return NotFound(new { message = $"Nessuna prenotazione trovata per la data {data}." });
-
             return Ok(prenotazioni);
         }
 
