@@ -33,7 +33,9 @@
       "Bash(python3 -c ' *)",
       "PowerShell(graphify query *)",
       "Bash(openssl rand *)",
-      "Bash(powershell -NoProfile -Command \"Get-ChildItem -Filter 'TrackAttivit*.xlsx' | Select-Object Name, FullName\")"
+      "Bash(powershell -NoProfile -Command \"Get-ChildItem -Filter 'TrackAttivit*.xlsx' | Select-Object Name, FullName\")",
+      "PowerShell($xl = New-Object -ComObject Excel.Application; $xl.Visible=$false; $wb=$xl.Workbooks.Open\\(\"C:\\\\Users\\\\Carlo Taranto\\\\Progetti_Tech\\\\Personali\\\\Gestora\\\\TrackAttività_Gestora.xlsx\",0,$true\\); $ws=$wb.Sheets\\(\"Appunti e Step\"\\); $ur=$ws.UsedRange; $rows=$ur.Rows.Count; $cols=$ur.Columns.Count; Write-Output \"ROWS=$rows COLS=$cols\"; for\\($r=1;$r -le [Math]::Min\\($rows,60\\);$r++\\){ $line=@\\(\\); for\\($c=1;$c -le $cols;$c++\\){ $v=$ws.Cells\\($r,$c\\).Text; if\\($v\\){$line+=$v} }; if\\($line.Count -gt 0\\){ Write-Output \\(\"[$r] \" + \\($line -join \" | \"\\)\\) } }; $wb.Close\\($false\\); $xl.Quit\\(\\))",
+      "PowerShell($xl = New-Object -ComObject Excel.Application; $xl.Visible=$false; $wb=$xl.Workbooks.Open\\(\"C:\\\\Users\\\\Carlo Taranto\\\\Progetti_Tech\\\\Personali\\\\Gestora\\\\TrackAttività_Gestora.xlsx\",0,$true\\); foreach\\($s in $wb.Sheets\\){ Write-Output $s.Name }; $wb.Close\\($false\\); $xl.Quit\\(\\))"
     ]
   }
 }
