@@ -32,7 +32,8 @@
       "Bash(git check-ignore *)",
       "Bash(python3 -c ' *)",
       "PowerShell(graphify query *)",
-      "Bash(openssl rand *)"
+      "Bash(openssl rand *)",
+      "Bash(powershell -NoProfile -Command \"Get-ChildItem -Filter 'TrackAttivit*.xlsx' | Select-Object Name, FullName\")"
     ]
   }
 }

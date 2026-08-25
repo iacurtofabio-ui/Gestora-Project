@@ -35,7 +35,16 @@
   login con token JWT valido.
   **Trovato durante la verifica**: FIX-007 (404 invece di `200 []` su lista vuota in sei endpoint di
   Zona/Postazione/Prenotazione) — registrato in `BACKEND_FIX_TODO.md`, da valutare in Fase 5.
-- **FASE 4-8: DA FARE.** Prossimo passo: Fase 4, verifica del backend in produzione.
+- **FASE 4 — Verifica backend in produzione: ✅ COMPLETATA (25/08/2026).**
+  Checklist eseguita con token Admin reale via Postman: `GET /api/Zona/get-all-zone` → 404
+  (comportamento noto, FIX-007), `GET /api/FasceOrarie/fasce-attive` → 200 `[]` (FIX-003 tiene
+  in produzione), `GET /api/Dashboard/giornaliera` → 200 con contatori a zero. Log Railway del
+  servizio .NET puliti, nessuna eccezione. Nessun fix di codice applicato in questa fase.
+  Prima di iniziare, riallineato il repo: `dev` era avanti di 2 commit non mergiati su `main`
+  (chiusura Fase 3) e il `.gitignore` non escludeva davvero `.vs/` (riga scritta come commento).
+  Sistemato con merge `dev` → `main` (PR #3) e `main` → `dev`.
+- **FASE 5-8: DA FARE.** Prossimo passo: Fase 5, fix/verifica frontend contro l'URL Railway — è
+  lì che va deciso cosa fare di FIX-007.
 - **Decisione 13/08/2026**: il debito tecnico residuo (RBAC-002, AUDIT-001, NAMING-001-residuo —
   dettaglio in `BACKEND_FIX_TODO.md`, sezione "Backlog post-v1.0") non blocca la Fase 3 né le
   successive. Si affronta dopo il rilascio v1.0.0, per non far slittare il deploy inseguendo
