@@ -24,35 +24,6 @@ Ogni fix ha:
 > (RBAC-002, AUDIT-001) sono ora nella sezione "Backlog post-v1.0" in fondo al file — deciso con
 > Fabio il 13/08/2026 di non bloccare il rilascio (Fase 3+) per chiuderli prima.
 
-### FIX-007 — 404 invece di 200 [] su liste vuote in Zona, Postazione e Prenotazione 🔵 APERTO
-
-**Trovato:** 14/08/2026, durante la verifica del backend appena deployato su Railway.
-
-**Problema:**
-È lo stesso identico anti-pattern già corretto con FIX-003 sulle Fasce Orarie, ma la correzione
-non era stata estesa agli altri controller. Sei endpoint restituiscono `404 NotFound` quando la
-lista risultante è vuota. Una lista vuota è un risultato **valido**: la risposta corretta è
-`200 OK` con `[]`. Il 404 significa "la risorsa non esiste" e costringe il client a trattare
-un caso normale come un errore.
-
-**Quando si verifica:**
-Su qualsiasi database senza dati — quindi **sempre, su un ambiente di produzione appena creato**.
-Rilevato in produzione chiamando `get-all-zone` con token Admin valido su DB vuoto.
-
-**Impatto atteso sulla Fase 5** (verifica frontend contro Railway): il frontend riceverà 404 al
-posto di liste vuote finché non vengono inseriti dati, e potrebbe mostrare errori dove dovrebbe
-mostrare uno stato vuoto. Da valutare in quella fase se il frontend gestisce già il caso.
-
-**Cosa fare:**
-Rimuovere il blocco `if (... == null || !....Any()) return NotFound(...)` e restituire
-sempre `Ok(lista)`. Il 404 resta corretto per il recupero di una **singola** entità per id.
-
-**File da modificare:**
-- `Controllers/ZonaController.cs` — `get-zone-attive` (riga ~69), `get-all-zone` (riga ~82)
-- `Controllers/PostazioneController.cs` — `get-postazioni-attive` (riga ~57),
-  `get-postazioni-disponibili` (riga ~70), `get-postazioni-per-zona` (riga ~83)
-- `Controllers/PrenotazioneController.cs` — `get-prenotazioni-by-data` (riga ~71)
-
 ---
 
 ### CORS-001 — CORS hardcoded su localhost ⚠️ CRITICO — blocca produzione
@@ -239,6 +210,12 @@ cosmetico, zero rischio funzionale — rimandabile senza costi.
 
 ## Fix completate
 
+- **FIX-007** — Rimosso `NotFound` su lista vuota in `ZonaController` (`get-zone-attive`,
+  `get-all-zone`), `PostazioneController` (`get-postazioni-attive`, `get-postazioni-disponibili`,
+  `get-postazioni-per-zona`), `PrenotazioneController` (`get-prenotazioni-by-data`) — stesso
+  pattern di FIX-003 esteso ai controller rimasti. `dotnet test` 28/28 verdi, verificato in
+  produzione: ZonePage/PostazionePage/PrenotazionePage mostrano tabella vuota invece di
+  "Errore nel caricamento". ✅ (sessione 25/08/2026)
 - **CORS-001** — CORS configurabile da appsettings/env var ✅ (sessione 18/06/2026)
 - **FIX-003** — FasceOrarie restituisce 200 [] su lista vuota ✅ (sessione 18/06/2026)
 - **FIX-006** — Endpoint get-mie-prenotazioni per Cliente ✅ (sessione 18/06/2026)

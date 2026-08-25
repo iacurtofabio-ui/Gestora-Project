@@ -8,13 +8,13 @@ import {
 } from '@/hooks/usePrenotazioni'
 import PrenotazioneModal from '@/components/PrenotazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { STATI_PRENOTAZIONE } from '@/types/prenotazione'
+import { STATI_PRENOTAZIONE, STATO_LABELS } from '@/types/prenotazione'
 import { useAuth } from '@/hooks/useAuth'
 
 const OPZIONI_STATO = [
     { value: '', label: 'Tutti gli stati' },
     { value: STATI_PRENOTAZIONE.ATTIVA, label: 'Attiva' },
-    { value: STATI_PRENOTAZIONE.IN_CORSO, label: 'In Corso' },
+    { value: STATI_PRENOTAZIONE.IN_CORSO, label: 'Confermata' },
     { value: STATI_PRENOTAZIONE.COMPLETATA, label: 'Completata' },
     { value: STATI_PRENOTAZIONE.ANNULLATA, label: 'Annullata' },
 ]
@@ -99,7 +99,7 @@ export default function PrenotazionePage() {
                             <td className="p-3">{p.nomeUtente}</td>
                             <td className="p-3">{p.oraInizio} - {p.oraFine}</td>
                             <td className="p-3">{p.numeroCoperti}</td>
-                            <td className="p-3">{p.stato}</td>
+                            <td className="p-3">{p.stato ? STATO_LABELS[p.stato] ?? p.stato : '—'}</td>
                             <td className="p-3">
                                 {p.postazioni.map((pos) => (
                                     <span key={pos.numero} className="text-xs bg-gray-100 px-2 py-1 rounded mr-1">

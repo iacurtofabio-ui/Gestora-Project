@@ -102,7 +102,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             catch (DbUpdateException ex) when (
                 ex.InnerException?.Message.Contains("UX_Prenotazione_User_DataPrenotazione") == true)
             {
-                throw new InvalidOperationException("Hai già una prenotazione per questo giorno.");
+                throw new InvalidOperationException("Hai già una prenotazione attiva per questo giorno. Annullala prima di crearne una nuova, oppure modificala.");
             }
         }
 
@@ -173,7 +173,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             catch (DbUpdateException ex) when (
                 ex.InnerException?.Message.Contains("UX_Prenotazione_User_DataPrenotazione") == true)
             {
-                throw new InvalidOperationException("Hai già una prenotazione per questo giorno.");
+                throw new InvalidOperationException("Hai già una prenotazione attiva per questo giorno. Annullala prima di crearne una nuova, oppure modificala.");
             }
         }
 

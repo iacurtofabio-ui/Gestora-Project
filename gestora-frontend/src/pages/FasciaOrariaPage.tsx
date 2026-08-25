@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FasciaOrariaDTO } from '@/types/fasciaOraria';
-import { useFasceOrarie, useDeleteFasciaOraria } from "@/hooks/useFasceOrarie";
+import { useAllFasceOrarie, useDeleteFasciaOraria } from "@/hooks/useFasceOrarie";
 import FasciaOrariaModal from '@/components/FasciaOrariaModal'
 import ConfirmDialog from "@/components/ConfirmDialog";
 
@@ -8,7 +8,7 @@ const GIORNI = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Ve
 
 export default function FasciaOrariaPage() {
     // --- hook dati ---
-    const { data, isLoading, isError } = useFasceOrarie()
+    const { data, isLoading, isError } = useAllFasceOrarie()
     const deleteFasciaOraria = useDeleteFasciaOraria()
     const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
 
