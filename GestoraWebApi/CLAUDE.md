@@ -33,6 +33,14 @@ vedi NAMING-001).
 Formato date: `yyyy-MM-dd`. Header auth: `Authorization: Bearer {token}`.
 Formato errori: `{ statusCode, message, errors: [{field, error}] }`.
 
+⚠️ La rotta base è `api/[nome della classe controller]`. Per l'autenticazione la classe è
+`AuthenticationUserController`, quindi gli endpoint stanno sotto **`/api/AuthenticationUser/...`**
+(es. `/api/AuthenticationUser/login`), non `/api/Auth/...`.
+
+Fuori dai controller: **`GET /health`** — health check pubblico e senza autenticazione, registrato
+in `Program.cs`. È il Healthcheck Path configurato su Railway: se non risponde, il deploy viene
+marcato come fallito e resta online la versione precedente.
+
 Auth: `POST register`, `POST login`, `POST seed-admin` (si autoblocca dopo il primo Admin),
 `POST assign-role`, `DELETE remove-role`, `GET get-users`, `GET get-user/{id}`,
 `PUT update-user/{id}`, `DELETE delete-user/{id}`, `POST reset-password/{id}`.
@@ -86,6 +94,19 @@ array se ne ha più di uno — il frontend deve normalizzare sempre a array, ved
   derivate (es. `FascePerGiorno+giorno`), non solo quella base. `FasciaOrariaService` e
   `PostazioneService` lo fanno correttamente (CACHE-001 risolto 13/08/2026); se si aggiungono
   nuove chiavi derivate altrove, verificare lo stesso pattern.
+- Avvio: `Program.cs` valida la configurazione **prima** di registrare i servizi (fail-fast) — se
+  `ConnectionStrings:DefaultConnection` o `JwtSettings:Secret` mancano, o se il segreto è più corto
+  di 32 caratteri (256 bit, minimo per HMAC-SHA256), l'app si ferma con un messaggio esplicito.
+  Non rimuovere quei controlli: senza, un errore di configurazione emerge molto più tardi come
+  eccezione opaca del driver.
+- Connessione DB: `EnableRetryOnFailure` attivo (5 tentativi / 10s) perché la rete privata tra
+  container non è raggiungibile nei primi secondi. Attenzione se in futuro si introducono
+  transazioni esplicite (`BeginTransaction`): con una strategia di retry vanno eseguite dentro
+  `CreateExecutionStrategy().ExecuteAsync(...)`. Oggi nel progetto non ce ne sono.
+- Log: in produzione **solo console** (`appsettings.json`) — il filesystem del container è effimero
+  e la piattaforma raccoglie lo stdout. Il sink su file resta in `appsettings.Development.json`,
+  che ora è **versionato** (non contiene segreti). Nota: la configurazione .NET sovrascrive gli
+  array **per posizione**, quindi in quel file il sink Console va riconfermato all'indice 0.
 - Segreti: connection string e JWT Secret di sviluppo vivono in **User Secrets**
   (`dotnet user-secrets`, non in `appsettings.Development.json` che ora contiene solo
   placeholder vuoti — SEC-001 risolto 13/08/2026). Percorso dello store e comandi in
