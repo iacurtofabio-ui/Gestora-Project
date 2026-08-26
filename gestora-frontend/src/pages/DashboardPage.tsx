@@ -20,6 +20,8 @@ export default function DashboardPage() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
+      <h2 className="text-lg font-semibold text-gray-700 mb-3">Oggi</h2>
+
       {/* KPI giornalieri — 4 card separate */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg p-4 border">
@@ -70,6 +72,8 @@ export default function DashboardPage() {
           </tbody>
         </table>
       </div>
+
+      <h2 className="text-lg font-semibold text-gray-700 mb-3 mt-8">Questa settimana</h2>
 
       {/* KPI settimanali */}
       <div className="grid grid-cols-2 gap-4 mb-6">

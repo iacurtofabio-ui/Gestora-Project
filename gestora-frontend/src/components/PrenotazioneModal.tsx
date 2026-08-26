@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useFasceOrarie } from '@/hooks/useFasceOrarie'
+import { useFascePerGiorno } from '@/hooks/useFasceOrarie'
 import { useZone } from '@/hooks/useZone'
 import { useCreaPrenotazione } from '@/hooks/usePrenotazioni'
 import { useAuth } from '@/hooks/useAuth'
@@ -26,11 +26,10 @@ type Props = {
 export default function PrenotazioneModal({ isOpen, onClose }: Props) {
     const { user } = useAuth()
     const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
-    const fasceOrarie = useFasceOrarie()
     const zone = useZone()
     const creaPrenotazione = useCreaPrenotazione()
 
-    const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormValues>({
+    const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
             dataPrenotazione: '',
@@ -42,9 +41,19 @@ export default function PrenotazioneModal({ isOpen, onClose }: Props) {
         },
     })
 
+    const dataPrenotazione = watch('dataPrenotazione')
+    const giornoSettimana = dataPrenotazione
+        ? new Date(`${dataPrenotazione}T00:00:00Z`).getUTCDay()
+        : undefined
+    const fasceOrarie = useFascePerGiorno(giornoSettimana)
+
     useEffect(() => {
         if (!isOpen) reset()
     }, [isOpen, reset])
+
+    useEffect(() => {
+        setValue('fasciaOrariaId', undefined as unknown as number)
+    }, [giornoSettimana, setValue])
 
     const onSubmit = (values: FormValues) => {
         creaPrenotazione.mutate(
@@ -76,12 +85,21 @@ export default function PrenotazioneModal({ isOpen, onClose }: Props) {
 
                     <div>
                         <label className="text-sm font-medium">Fascia Oraria</label>
-                        <select {...register('fasciaOrariaId', { valueAsNumber: true })} className="border rounded px-3 py-2 w-full text-sm">
-                            <option value="">-- Seleziona --</option>
+                        <select
+                            {...register('fasciaOrariaId', { valueAsNumber: true })}
+                            className="border rounded px-3 py-2 w-full text-sm"
+                            disabled={giornoSettimana === undefined}
+                        >
+                            <option value="">
+                                {giornoSettimana === undefined ? '-- Seleziona prima una data --' : '-- Seleziona --'}
+                            </option>
                             {fasceOrarie.data?.map((f) => (
                                 <option key={f.id} value={f.id}>{f.orarioInizio} - {f.orarioFine}</option>
                             ))}
                         </select>
+                        {giornoSettimana !== undefined && fasceOrarie.data?.length === 0 && (
+                            <p className="text-gray-400 text-xs mt-1">Nessuna fascia oraria attiva per questo giorno.</p>
+                        )}
                         {errors.fasciaOrariaId && <p className="text-red-500 text-xs mt-1">{errors.fasciaOrariaId.message}</p>}
                     </div>
 
