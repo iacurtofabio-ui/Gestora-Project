@@ -3,10 +3,13 @@ import type { FasciaOrariaDTO } from '@/types/fasciaOraria';
 import { useAllFasceOrarie, useDeleteFasciaOraria } from "@/hooks/useFasceOrarie";
 import FasciaOrariaModal from '@/components/FasciaOrariaModal'
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { useAuth } from '@/hooks/useAuth'
 
 const GIORNI = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
 
 export default function FasciaOrariaPage() {
+    const { user } = useAuth()
+    const isAdmin = user?.roles.includes('Admin')
     // --- hook dati ---
     const { data, isLoading, isError } = useAllFasceOrarie()
     const deleteFasciaOraria = useDeleteFasciaOraria()
@@ -25,12 +28,14 @@ export default function FasciaOrariaPage() {
             {/* HEADER */}
             <div className="flex justify-between items-center p-4 border-b">
                 <h2 className="text-sm font-semibold text-gray-700">Fasce Orarie</h2>
-                <button
-                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                    onClick={() => { setFasciaSelezionata(undefined); setIsModalOpen(true) }}
-                >
-                    + Aggiungi
-                </button>
+                {isAdmin && (
+                    <button
+                        className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                        onClick={() => { setFasciaSelezionata(undefined); setIsModalOpen(true) }}
+                    >
+                        + Aggiungi
+                    </button>
+                )}
             </div>
 
             {/* TABELLA */}
@@ -42,7 +47,7 @@ export default function FasciaOrariaPage() {
                         <th className="text-left p-3">Giorno Settimana</th>
                         <th className="text-left p-3">Max Prenotazioni</th>
                         <th className="text-left p-3">Attiva</th>
-                        <th className="text-left p-3">Azioni</th>
+                        {isAdmin && <th className="text-left p-3">Azioni</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -54,20 +59,22 @@ export default function FasciaOrariaPage() {
                             <td className="p-3">{fasciaOraria.maxPrenotazioni}</td>
                             <td className="p-3">{fasciaOraria.attiva ? 'Sì' : 'No'}</td>
 
-                            <td className="p-3 flex gap-2">
-                                <button
-                                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                                    onClick={() => { setFasciaSelezionata(fasciaOraria); setIsModalOpen(true) }}
-                                >
-                                    Modifica
-                                </button>
-                                <button
-                                    className="text-red-500 hover:underline text-sm"
-                                    onClick={() => setIdDaEliminare(fasciaOraria.id)}
-                                >
-                                    Elimina
-                                </button>
-                            </td>
+                            {isAdmin && (
+                                <td className="p-3 flex gap-2">
+                                    <button
+                                        className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                                        onClick={() => { setFasciaSelezionata(fasciaOraria); setIsModalOpen(true) }}
+                                    >
+                                        Modifica
+                                    </button>
+                                    <button
+                                        className="text-red-500 hover:underline text-sm"
+                                        onClick={() => setIdDaEliminare(fasciaOraria.id)}
+                                    >
+                                        Elimina
+                                    </button>
+                                </td>
+                            )}
                         </tr>
                     ))}
                 </tbody>

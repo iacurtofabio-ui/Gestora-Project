@@ -10,6 +10,7 @@ namespace GestoraWebApi.Services.Prenotazioni.DTOs
 
         // Utente
         public string? NomeUtente { get; set; }
+        public string? NomeCliente { get; set; }
 
         // Fascia Oraria
         public string? OraInizio { get; set; }

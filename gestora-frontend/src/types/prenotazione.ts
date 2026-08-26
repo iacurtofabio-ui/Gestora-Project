@@ -10,6 +10,7 @@ export type PrenotazioneDTO = {
     note: string | null
     stato: string | null
     nomeUtente: string | null
+    nomeCliente: string | null
     oraInizio: string | null
     oraFine: string | null
     postazioni: PostazioneAssegnataDTO[]
@@ -21,6 +22,7 @@ export type PrenotazioneCreateDTO = {
     note: string | null
     fasciaOrariaId: number
     zonaId: number | null
+    nomeCliente: string | null
 }
 
 export const STATI_PRENOTAZIONE = {

@@ -4,6 +4,7 @@ import apiClient from '@/lib/axios'
 import { toast } from 'sonner'
 import type { PrenotazioneDTO, PrenotazioneCreateDTO } from '@/types/prenotazione'
 import type { ApiErrorResponse } from '@/types/apiError'
+import { useAuth } from '@/hooks/useAuth'
 
 type PrenotazioniParams = {
     data?: string
@@ -21,12 +22,19 @@ type PrenotazioniPaginatedResponse = {
 }
 
 export function usePrenotazioni(params: PrenotazioniParams = {}) {
+    const { user } = useAuth()
+    const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
+
     return useQuery<PrenotazioneDTO[]>({
-        queryKey: ['prenotazioni', params],
+        queryKey: ['prenotazioni', isStaff, params],
         queryFn: () =>
-            apiClient
-                .get<PrenotazioniPaginatedResponse>('/Prenotazione/get-all-prenotazioni', { params })
-                .then(r => r.data.items),
+            isStaff
+                ? apiClient
+                    .get<PrenotazioniPaginatedResponse>('/Prenotazione/get-all-prenotazioni', { params })
+                    .then(r => r.data.items)
+                : apiClient
+                    .get<PrenotazioneDTO[]>('/Prenotazione/get-mie-prenotazioni')
+                    .then(r => r.data),
     })
 }
 

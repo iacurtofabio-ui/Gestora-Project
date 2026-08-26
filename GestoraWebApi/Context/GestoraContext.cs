@@ -109,6 +109,10 @@ namespace GestoraWebApi.Context
                 entity.Property(p => p.Note)
                     .HasColumnName("Note");
 
+                entity.Property(p => p.NomeCliente)
+                    .HasColumnName("NomeCliente")
+                    .HasMaxLength(200);
+
                 entity.HasOne(p => p.User)
                     .WithMany(u => u.Prenotazioni)
                     .HasForeignKey(p => p.UserId)
@@ -118,12 +122,12 @@ namespace GestoraWebApi.Context
                 entity.HasOne(p => p.FasciaOraria)
                     .WithMany(f => f.Prenotazioni)
                     .HasForeignKey(p => p.FasciaOrariaId);
-                    
 
-                entity.HasIndex(p => new { p.UserId, p.DataPrenotazione })
-                      .IsUnique()//nessun record può avere la stessa combinazione di UserId e DataPrenotazione, escluse le annullate
-                      .HasFilter("\"Stato\" <> 'Annullata'")
-                      .HasDatabaseName("UX_Prenotazione_User_DataPrenotazione");//nome dell'indice
+                // Vincolo "una prenotazione attiva al giorno" rimosso dal DB: Staff/Admin creano
+                // prenotazioni per conto di clienti diversi sotto il proprio UserId, quindi un
+                // indice univoco su (UserId, Data) li bloccherebbe. Il vincolo ora vive solo in
+                // PrenotazioniService, applicato esclusivamente al self-service Cliente
+                // (GuardUnaPrenotazioneAlGiornoAsync).
 
             });
 

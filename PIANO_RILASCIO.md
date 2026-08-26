@@ -43,8 +43,16 @@
   Prima di iniziare, riallineato il repo: `dev` era avanti di 2 commit non mergiati su `main`
   (chiusura Fase 3) e il `.gitignore` non escludeva davvero `.vs/` (riga scritta come commento).
   Sistemato con merge `dev` → `main` (PR #3) e `main` → `dev`.
-- **FASE 5-8: DA FARE.** Prossimo passo: Fase 5, fix/verifica frontend contro l'URL Railway — è
-  lì che va deciso cosa fare di FIX-007.
+- **FASE 5 — Verifica e fix frontend: IN CORSO (avviata 25/08/2026).**
+  `.env.local` puntato su Railway. Deciso di chiudere FIX-007 lato backend (stesso pattern di
+  FIX-003), non lato frontend — vedi `BACKEND_FIX_TODO.md`. Checklist di test manuale eseguita
+  fino al blocco Admin CRUD (Zone, Postazioni, Fasce Orarie, Prenotazioni Admin/Staff); trovati e
+  risolti in sessione tre problemi non pianificati: FIX-008 (fasce disattivate irraggiungibili in
+  UI), UI-001 (etichetta "In Corso" fraintesa), FIX-009 (vincolo una-prenotazione-al-giorno non
+  escludeva le annullate — richiesta una migration EF Core, applicata a mano su Railway via
+  tunnel Railway CLI + `psql`, verificata). Restano da testare: ruolo Staff, ruolo Cliente,
+  sicurezza/sessione (route protette, logout su token scaduto, assenza errori CORS in console).
+- **FASE 6-8: DA FARE.**
 - **Decisione 13/08/2026**: il debito tecnico residuo (RBAC-002, AUDIT-001, NAMING-001-residuo —
   dettaglio in `BACKEND_FIX_TODO.md`, sezione "Backlog post-v1.0") non blocca la Fase 3 né le
   successive. Si affronta dopo il rilascio v1.0.0, per non far slittare il deploy inseguendo

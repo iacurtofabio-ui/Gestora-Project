@@ -1,4 +1,5 @@
 using AutoMapper;
+using GestoraWebApi.Auth;
 using GestoraWebApi.Common;
 using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
@@ -75,6 +76,9 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             await ValidatePrenotazioneAsync(dto);
 
+            if (IsSelfServiceCliente())
+                await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione);
+
             var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto);
 
             var prenotazione = new Prenotazione
@@ -83,6 +87,8 @@ namespace GestoraWebApi.Services.Prenotazioni
                 DataPrenotazione = (DateOnly)dto.DataPrenotazione,
                 NumeroCoperti = dto.NumeroCoperti,
                 FasciaOrariaId = dto.FasciaOrariaId,
+                NomeCliente = dto.NomeCliente,
+                Note = dto.Note,
                 Stato = StatoPrenotazione.Attiva,
             };
 
@@ -94,16 +100,8 @@ namespace GestoraWebApi.Services.Prenotazioni
                 })
                 .ToList();
 
-            try
-            {
-                await _prenotazioniRepository.AddAsync(prenotazione);
-                await _logActivity.LogAsync(userId, $"Creata prenotazione per data {dto.DataPrenotazione:yyyy-MM-dd}, {dto.NumeroCoperti} coperti", GetIpAddress());
-            }
-            catch (DbUpdateException ex) when (
-                ex.InnerException?.Message.Contains("UX_Prenotazione_User_DataPrenotazione") == true)
-            {
-                throw new InvalidOperationException("Hai già una prenotazione attiva per questo giorno. Annullala prima di crearne una nuova, oppure modificala.");
-            }
+            await _prenotazioniRepository.AddAsync(prenotazione);
+            await _logActivity.LogAsync(userId, $"Creata prenotazione per data {dto.DataPrenotazione:yyyy-MM-dd}, {dto.NumeroCoperti} coperti", GetIpAddress());
         }
 
         public async Task DeleteAsync(long id)
@@ -148,11 +146,15 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             await ValidatePrenotazioneAsync(dto, prenotazione.Id);
 
+            if (IsSelfServiceCliente() && dto.DataPrenotazione != prenotazione.DataPrenotazione)
+                await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione, excludePrenotazioneId: prenotazione.Id);
+
             var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto, prenotazione.Id);
 
             prenotazione.DataPrenotazione = (DateOnly)dto.DataPrenotazione;
             prenotazione.NumeroCoperti = dto.NumeroCoperti;
             prenotazione.FasciaOrariaId = dto.FasciaOrariaId;
+            prenotazione.NomeCliente = dto.NomeCliente;
             prenotazione.Note = dto.Note;
 
             if (prenotazione.PrenotazioniPostazioni != null && prenotazione.PrenotazioniPostazioni.Any())
@@ -166,15 +168,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                 })
                 .ToList();
 
-            try
-            {
-                await _prenotazioniRepository.UpdateAsync(prenotazione);
-            }
-            catch (DbUpdateException ex) when (
-                ex.InnerException?.Message.Contains("UX_Prenotazione_User_DataPrenotazione") == true)
-            {
-                throw new InvalidOperationException("Hai già una prenotazione attiva per questo giorno. Annullala prima di crearne una nuova, oppure modificala.");
-            }
+            await _prenotazioniRepository.UpdateAsync(prenotazione);
         }
 
         public async Task ConfermaPrenotazioneAsync(long id)
@@ -347,6 +341,28 @@ namespace GestoraWebApi.Services.Prenotazioni
         private string GetAuthenticatedUserId()
             => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
                ?? throw new UnauthorizedAccessException("Utente non autenticato.");
+
+        // Il vincolo "una prenotazione attiva al giorno" ha senso solo per il self-service:
+        // Staff/Admin creano prenotazioni per conto di clienti diversi (es. telefonate) sotto
+        // il proprio UserId, quindi per loro il vincolo non deve valere.
+        private bool IsSelfServiceCliente()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user != null && !user.IsInRole(Roles.Admin) && !user.IsInRole(Roles.Staff);
+        }
+
+        private async Task GuardUnaPrenotazioneAlGiornoAsync(string userId, DateOnly data, long? excludePrenotazioneId = null)
+        {
+            bool esisteGiaAttiva = await _prenotazioniRepository.GetAllQueryableAsync()
+                .AnyAsync(p =>
+                    p.UserId == userId &&
+                    p.DataPrenotazione == data &&
+                    p.Stato != StatoPrenotazione.Annullata &&
+                    (!excludePrenotazioneId.HasValue || p.Id != excludePrenotazioneId.Value));
+
+            if (esisteGiaAttiva)
+                throw new InvalidOperationException("Hai già una prenotazione attiva per questo giorno. Annullala prima di crearne una nuova, oppure modificala.");
+        }
 
         private string? GetIpAddress()
             => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
