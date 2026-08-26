@@ -68,10 +68,7 @@ namespace GestoraWebApi.Repositories.Postazioni
         public async Task<List<Postazione>> GetPostazioniPerZonaAsync(long zonaId)
         {
             return await _dbSet
-                   .Where(p => p.ZonaId == zonaId
-                               && p.Attiva
-                               && !p.PrenotazioniPostazioni.Any())
-                   .Include(p => p.PrenotazioniPostazioni)
+                   .Where(p => p.ZonaId == zonaId && p.Attiva)
                    .OrderBy(p => p.Numero)
                    .ToListAsync();
         }
