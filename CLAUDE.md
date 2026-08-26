@@ -3,7 +3,41 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 25/08/2026
-Ultima cosa fatta: **FASE 4 COMPLETATA — backend verificato in produzione.**
+Ultima cosa fatta: **FASE 5 IN CORSO — test manuale frontend contro Railway.**
+
+`.env.local` del frontend punta a `https://gestora-project-production.up.railway.app/api`.
+Checklist di test (login Admin, CRUD Zone/Postazioni/FasceOrarie, Prenotazioni Admin/Staff)
+eseguita fino al blocco B compreso — vedi `PIANO_RILASCIO.md` §STATO AGGIORNATO per il dettaglio.
+Restano da testare: ruolo Staff, ruolo Cliente, sicurezza/sessione (route protette per ruolo,
+logout automatico su token scaduto, assenza errori CORS in console).
+
+Tre problemi trovati e risolti in sessione (non pianificati, dettaglio in `BACKEND_FIX_TODO.md`
+sezione "Fix completate"):
+- **FIX-007** (chiuso in sessione precedente, ma deploy completato solo qui): 404 su liste vuote
+  in Zona/Postazione/Prenotazione — fix backend, PR `dev`→`main`, redeploy Railway verificato.
+- **FIX-008**: pagina Admin Fasce Orarie non mostrava le fasce disattivate (hook sbagliato,
+  `fasce-attive` invece di `get-all-fasce`) — impossibile riattivarle, e il guard anti-sovrapposizione
+  (FIX-004) le considerava comunque esistenti: utente bloccato. Fix solo frontend, nuovo hook
+  `useAllFasceOrarie()` dedicato alla pagina Admin.
+- **FIX-009**: vincolo "una prenotazione al giorno" bloccava anche dopo un annullamento (indice
+  univoco non escludeva `Stato = Annullata`). Serviva una **migration EF Core** — applicata sul
+  DB Postgres di produzione a mano via `psql`, raggiunto tramite tunnel privato **Railway CLI**
+  (`railway connect Postgres`), nessuna esposizione pubblica del DB. Verificata con `\d
+  "Prenotazioni"` e test end-to-end.
+- **UI-001** (cosmetico): etichetta di stato prenotazione "In Corso" rinominata in "Confermata"
+  in UI (enum/DB invariati) — fraintesa come "l'orario è in corso ora".
+
+⚠️ **Nota di processo**: durante la sessione le modifiche sono state fatte per errore a working-tree
+su branch `main` invece di `dev` (poi corretto con `git checkout dev` prima del commit, nessuna
+perdita). Controllare sempre `git status`/branch corrente a inizio sessione prima di modificare file.
+
+Prossimo passo: completare la checklist Fase 5 (Staff, Cliente, sicurezza/sessione — vedi
+`PIANO_RILASCIO.md` §5), poi Fase 6 (deploy Vercel).
+
+---
+
+### Storico — Fase 4 (25/08/2026, per riferimento)
+**FASE 4 COMPLETATA — backend verificato in produzione.**
 
 Checklist Fase 4 eseguita con token Admin reale via Postman:
 - `GET /api/Zona/get-all-zone` → 404 "Nessuna zona trovata" (comportamento noto, vedi FIX-007)

@@ -4,8 +4,11 @@ import { useState } from 'react'
 import type { PostazioneDTO } from '@/types/postazione'
 import PostazioneModal from '@/components/PostazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function PostazionePage() {
+    const { user } = useAuth()
+    const isAdmin = user?.roles.includes('Admin')
     const zone = useZone()
     const [zonaSelezionataId, setZonaSelezionataId] = useState<number | undefined>(undefined)
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -33,9 +36,11 @@ export default function PostazionePage() {
                             <option key={zona.id} value={zona.id}>{zona.nome}</option>
                         ))}
                     </select>
-                    <button className="bg-blue-500 text-white px-3 py-1 rounded text-sm" onClick={() => { setPostazioneSelezionata(undefined); setIsModalOpen(true) }}>
-                        + Aggiungi
-                    </button>
+                    {isAdmin && (
+                        <button className="bg-blue-500 text-white px-3 py-1 rounded text-sm" onClick={() => { setPostazioneSelezionata(undefined); setIsModalOpen(true) }}>
+                            + Aggiungi
+                        </button>
+                    )}
                 </div>
             </div>
             {zonaSelezionataId && (
@@ -51,7 +56,7 @@ export default function PostazionePage() {
                         <th className="text-left p-3">Numero</th>
                         <th className="text-left p-3">Capienza</th>
                         <th className="text-left p-3">Attiva</th>
-                        <th className="text-left p-3">Azioni</th>
+                        {isAdmin && <th className="text-left p-3">Azioni</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -60,16 +65,18 @@ export default function PostazionePage() {
                             <td className="p-3">{postazione.numero}</td>
                             <td className="p-3">{postazione.capienzaMassima}</td>
                             <td className="p-3">{postazione.attiva ? 'Sì' : 'No'}</td>
-                            <td className="p-3 flex gap-2">
-                                <button
-                                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                                    onClick={() => { setPostazioneSelezionata(postazione); setIsModalOpen(true) }}                                >
-                                    Modifica
-                                </button>
-                                <button className="text-red-500 hover:underline text-sm" onClick={() => setIdDaEliminare(postazione.id)}>
-                                    Elimina
-                                </button>
-                            </td>
+                            {isAdmin && (
+                                <td className="p-3 flex gap-2">
+                                    <button
+                                        className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                                        onClick={() => { setPostazioneSelezionata(postazione); setIsModalOpen(true) }}                                >
+                                        Modifica
+                                    </button>
+                                    <button className="text-red-500 hover:underline text-sm" onClick={() => setIdDaEliminare(postazione.id)}>
+                                        Elimina
+                                    </button>
+                                </td>
+                            )}
                         </tr>
                     ))}
                 </tbody>

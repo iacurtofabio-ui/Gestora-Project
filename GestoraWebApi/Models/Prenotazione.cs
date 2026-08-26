@@ -10,6 +10,11 @@ namespace GestoraWebApi.Models
         public StatoPrenotazione Stato { get; set; } = StatoPrenotazione.Attiva;
         public string? Note { get; set; }
 
+        // Valorizzato solo quando la prenotazione è creata da Staff/Admin per conto di un
+        // cliente senza account (es. telefonata) — la prenotazione resta comunque legata
+        // a UserId di chi l'ha creata, questo campo serve solo a identificare chi si presenta.
+        public string? NomeCliente { get; set; }
+
         
         public string UserId { get; set; }
         public virtual ApplicationUser User { get; set; }

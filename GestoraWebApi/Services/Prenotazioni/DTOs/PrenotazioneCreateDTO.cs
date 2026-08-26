@@ -7,5 +7,6 @@
         public string? Note { get; set; }
         public long FasciaOrariaId { get; set; }
         public long? ZonaId { get; set; } = null;
+        public string? NomeCliente { get; set; }
     }
 }

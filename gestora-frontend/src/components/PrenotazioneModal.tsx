@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { useFasceOrarie } from '@/hooks/useFasceOrarie'
 import { useZone } from '@/hooks/useZone'
 import { useCreaPrenotazione } from '@/hooks/usePrenotazioni'
+import { useAuth } from '@/hooks/useAuth'
 
 const schema = z.object({
     dataPrenotazione: z.string().min(1, 'Data obbligatoria'),
@@ -12,6 +13,7 @@ const schema = z.object({
     zonaId: z.number().nullable().optional(),
     numeroCoperti: z.number().min(1, 'Almeno 1 coperto'),
     note: z.string().optional(),
+    nomeCliente: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -22,6 +24,8 @@ type Props = {
 }
 
 export default function PrenotazioneModal({ isOpen, onClose }: Props) {
+    const { user } = useAuth()
+    const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
     const fasceOrarie = useFasceOrarie()
     const zone = useZone()
     const creaPrenotazione = useCreaPrenotazione()
@@ -34,6 +38,7 @@ export default function PrenotazioneModal({ isOpen, onClose }: Props) {
             zonaId: null,
             numeroCoperti: undefined,
             note: '',
+            nomeCliente: '',
         },
     })
 
@@ -49,6 +54,7 @@ export default function PrenotazioneModal({ isOpen, onClose }: Props) {
                 zonaId: values.zonaId ?? null,
                 numeroCoperti: values.numeroCoperti,
                 note: values.note ?? null,
+                nomeCliente: isStaff ? (values.nomeCliente || null) : null,
             },
             { onSuccess: onClose }
         )
@@ -91,6 +97,18 @@ export default function PrenotazioneModal({ isOpen, onClose }: Props) {
                             ))}
                         </select>
                     </div>
+
+                    {isStaff && (
+                        <div>
+                            <label className="text-sm font-medium">Nome cliente (facoltativo)</label>
+                            <input
+                                type="text"
+                                placeholder="Es. prenotazione presa telefonicamente"
+                                {...register('nomeCliente')}
+                                className="border rounded px-3 py-2 w-full text-sm"
+                            />
+                        </div>
+                    )}
 
                     <div>
                         <label className="text-sm font-medium">Numero Coperti</label>

@@ -132,6 +132,34 @@ se Cliente → restituisce solo le proprie; se Admin/Staff → restituisce tutte
 
 ---
 
+### GAP-001 — Nessuna UI per creare un nuovo utente (gap frontend, non backend)
+
+**Problema:**
+Il backend espone `POST /api/AuthenticationUser/register` (pubblico, assegna sempre ruolo
+Cliente) ma **nessuna pagina del frontend lo richiama**: `LoginPage.tsx` non ha un link/route di
+registrazione, e il pannello Admin Utenti (`AdminUtentiPage.tsx` + `useAdminUtenti.ts`) espone
+solo `useUtenti`, `useUpdateUser`, `useDeleteUser`, `useAssignRole`, `useRemoveRole`,
+`useResetPassword` — nessun `useCreateUser`. In produzione, senza passare da Postman/Swagger,
+non esiste modo di far nascere un nuovo utente (Cliente o Staff) nel sistema.
+
+**Quando si verifica:**
+Emerso in Fase 5 testando il pannello Admin Utenti su un DB di produzione con solo l'Admin
+seedato: nessun Cliente/Staff da usare per i test 17-18 (assegna/rimuovi ruolo, reset password).
+
+**Cosa fare (da decidere prima del rilascio v1.0, non è solo cosmetico):**
+- Pagina pubblica `/register` che chiama `POST register` (assegna sempre Cliente) — per i
+  clienti che si auto-registrano, oppure
+- Bottone "Crea utente" nel pannello Admin (Admin/Staff creano account per conto del cliente),
+  oppure entrambi.
+Decisione rimandata a fine Fase 5 per non bloccare il test in corso — nel frattempo gli utenti
+di test per Fase 5 sono stati creati a mano via Postman chiamando `register` direttamente.
+
+**File da modificare (quando si implementa):**
+- `gestora-frontend/src/pages/LoginPage.tsx` o nuova `RegisterPage.tsx` + route in `router/index.tsx`
+- `gestora-frontend/src/pages/AdminUtentiPage.tsx` + nuovo hook `useCreateUser` in `useAdminUtenti.ts`
+
+---
+
 ## Backlog post-v1.0 (non bloccante per il rilascio)
 
 > Deciso con Fabio il 13/08/2026: questi punti sono debito tecnico legittimo, ma nessuno dei tre
@@ -210,6 +238,26 @@ cosmetico, zero rischio funzionale — rimandabile senza costi.
 
 ## Fix completate
 
+- **FIX-009** — Vincolo "una prenotazione al giorno" bloccava anche dopo un annullamento: indice
+  univoco `UX_Prenotazione_User_DataPrenotazione` su `(UserId, DataPrenotazione)` non escludeva lo
+  stato `Annullata`. Aggiunto filtro `WHERE "Stato" <> 'Annullata'` (migration
+  `FilterIndicePrenotazioneEscludeAnnullata`), messaggio d'errore reso esplicito ("prenotazione
+  **attiva**"). Applicata a mano via `psql` sul DB Railway (tunnel privato via Railway CLI,
+  nessuna esposizione pubblica del DB), verificata con `\d "Prenotazioni"` e test end-to-end.
+  ✅ (sessione 25/08/2026)
+- **UI-001** — Etichetta di stato prenotazione "In Corso" fraintesa: indica una prenotazione
+  confermata (`InCorso` a DB), non che l'orario prenotato sia in corso ora — un utente ha
+  scambiato l'errore "Non è possibile completare: non ancora terminata" per un bug legato al
+  filtro. Rinominata solo l'etichetta UI in "Confermata" (`STATO_LABELS` in
+  `types/prenotazione.ts`), enum/DB invariati. ✅ (sessione 25/08/2026)
+- **FIX-008** — Pagina Admin Fasce Orarie usava l'hook `useFasceOrarie()` (endpoint
+  `fasce-attive`) anche per la propria lista di gestione: una fascia disattivata spariva dalla
+  tabella e non era più raggiungibile per riattivarla, mentre il guard anti-sovrapposizione
+  (FIX-004) la considerava comunque esistente — utente bloccato. Aggiunto hook dedicato
+  `useAllFasceOrarie()` (endpoint `get-all-fasce`, già esistente lato backend da FIX-002) usato
+  solo da `FasciaOrariaPage`; l'hook condiviso con `PrenotazioneModal` resta su `fasce-attive`
+  per non esporre fasce disattivate in fase di prenotazione. Nessuna modifica al backend.
+  ✅ (sessione 25/08/2026)
 - **FIX-007** — Rimosso `NotFound` su lista vuota in `ZonaController` (`get-zone-attive`,
   `get-all-zone`), `PostazioneController` (`get-postazioni-attive`, `get-postazioni-disponibili`,
   `get-postazioni-per-zona`), `PrenotazioneController` (`get-prenotazioni-by-data`) — stesso

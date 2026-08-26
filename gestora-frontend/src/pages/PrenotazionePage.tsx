@@ -55,21 +55,25 @@ export default function PrenotazionePage() {
             <div className="flex justify-between items-center p-4 border-b gap-4">
                 <h2 className="text-sm font-semibold text-gray-700">Prenotazioni</h2>
                 <div className="flex gap-3 items-center">
-                    <input
-                        type="date"
-                        className="border rounded px-3 py-1 text-sm"
-                        value={filtroData}
-                        onChange={(e) => setFiltroData(e.target.value)}
-                    />
-                    <select
-                        className="border rounded px-3 py-1 text-sm"
-                        value={filtroStato}
-                        onChange={(e) => setFiltroStato(e.target.value)}
-                    >
-                        {OPZIONI_STATO.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                    </select>
+                    {isStaff && (
+                        <>
+                            <input
+                                type="date"
+                                className="border rounded px-3 py-1 text-sm"
+                                value={filtroData}
+                                onChange={(e) => setFiltroData(e.target.value)}
+                            />
+                            <select
+                                className="border rounded px-3 py-1 text-sm"
+                                value={filtroStato}
+                                onChange={(e) => setFiltroStato(e.target.value)}
+                            >
+                                {OPZIONI_STATO.map((o) => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                ))}
+                            </select>
+                        </>
+                    )}
                     <button
                         className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
                         onClick={() => setIsModalOpen(true)}
@@ -96,7 +100,7 @@ export default function PrenotazionePage() {
                     {prenotazioni.data?.map((p) => (
                         <tr key={p.id} className="border-b">
                             <td className="p-3">{p.dataPrenotazione}</td>
-                            <td className="p-3">{p.nomeUtente}</td>
+                            <td className="p-3">{p.nomeCliente ?? p.nomeUtente}</td>
                             <td className="p-3">{p.oraInizio} - {p.oraFine}</td>
                             <td className="p-3">{p.numeroCoperti}</td>
                             <td className="p-3">{p.stato ? STATO_LABELS[p.stato] ?? p.stato : '—'}</td>
