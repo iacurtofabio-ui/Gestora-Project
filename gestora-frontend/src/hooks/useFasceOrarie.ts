@@ -21,6 +21,14 @@ export function useAllFasceOrarie() {
     })
 }
 
+export function useFascePerGiorno(giorno: number | undefined) {
+    return useQuery<FasciaOrariaDTO[]>({
+        queryKey: ['fasce-orarie', 'per-giorno', giorno],
+        queryFn: () => apiClient.get(`/FasceOrarie/fasce-per-giorno?giorno=${giorno}`).then(r => r.data),
+        enabled: giorno !== undefined,
+    })
+}
+
 export function useCreaFasciaOraria() {
     const queryClient = useQueryClient()
     return useMutation({
