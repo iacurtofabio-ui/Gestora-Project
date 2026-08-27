@@ -43,20 +43,32 @@
   Prima di iniziare, riallineato il repo: `dev` era avanti di 2 commit non mergiati su `main`
   (chiusura Fase 3) e il `.gitignore` non escludeva davvero `.vs/` (riga scritta come commento).
   Sistemato con merge `dev` → `main` (PR #3) e `main` → `dev`.
-- **FASE 5 — Verifica e fix frontend: IN CORSO (avviata 25/08/2026).**
+- **FASE 5 — Verifica e fix frontend: ✅ COMPLETATA (26-27/08/2026).**
   `.env.local` puntato su Railway. Deciso di chiudere FIX-007 lato backend (stesso pattern di
-  FIX-003), non lato frontend — vedi `BACKEND_FIX_TODO.md`. Checklist di test manuale eseguita
-  fino al blocco Admin CRUD (Zone, Postazioni, Fasce Orarie, Prenotazioni Admin/Staff); trovati e
-  risolti in sessione tre problemi non pianificati: FIX-008 (fasce disattivate irraggiungibili in
-  UI), UI-001 (etichetta "In Corso" fraintesa), FIX-009 (vincolo una-prenotazione-al-giorno non
-  escludeva le annullate — richiesta una migration EF Core, applicata a mano su Railway via
-  tunnel Railway CLI + `psql`, verificata). Restano da testare: ruolo Staff, ruolo Cliente,
-  sicurezza/sessione (route protette, logout su token scaduto, assenza errori CORS in console).
-- **FASE 6-8: DA FARE.**
-- **Decisione 13/08/2026**: il debito tecnico residuo (RBAC-002, AUDIT-001, NAMING-001-residuo —
-  dettaglio in `BACKEND_FIX_TODO.md`, sezione "Backlog post-v1.0") non blocca la Fase 3 né le
-  successive. Si affronta dopo il rilascio v1.0.0, per non far slittare il deploy inseguendo
-  rifiniture non bloccanti.
+  FIX-003), non lato frontend — vedi `BACKEND_FIX_TODO.md`. Completata l'intera checklist di
+  test manuale (Admin, Staff, Cliente, sicurezza/sessione). Risolti i 5 bug della checklist di
+  Fabio (`Fix Fase 5.txt`) più 3 problemi non pianificati emersi in sessione: FIX-008 (fasce
+  disattivate irraggiungibili in UI), UI-001 (etichetta "In Corso" fraintesa), FIX-009 (vincolo
+  una-prenotazione-al-giorno non escludeva le annullate — richiesta una migration EF Core,
+  applicata a mano su Railway via tunnel Railway CLI + `psql`, verificata). Chiuso anche tutto il
+  backlog rimasto in sospeso da sessioni precedenti: GAP-001 (UI creazione utenti), RBAC-002
+  (cutoff 2h per annullo/modifica self-service Cliente), AUDIT-001 (log attività esteso),
+  NAMING-001-residuo (rinomina controller), DEAD-CODE-001 (filtro postazioni disponibili) —
+  nessun backlog residuo prima della Fase 6. `dotnet test` 31/31 verdi.
+- **FASE 6 — Deploy frontend su Vercel: ✅ COMPLETATA (27/08/2026).**
+  Root directory `gestora-frontend`, `VITE_API_URL` verso Railway. Frontend online su
+  `https://gestora-project-xi.vercel.app`. CORS aggiornato su Railway (`AllowedOrigins__1`),
+  verificato con preflight OPTIONS.
+- **FASE 7 — Testing integrato su produzione: ✅ COMPLETATA (27/08/2026).**
+  Testati i flussi Admin/Staff/Cliente in ambiente reale (Vercel + Railway + PostgreSQL). Trovati
+  e risolti 2 bug: 404 di Vercel su refresh/navigazione diretta e su login fallito (mancava
+  `vercel.json` con rewrite SPA, e l'interceptor Axios faceva redirect a pagina intera su
+  qualunque 401 invece che solo su sessione scaduta), pulsante Annulla mancante per il Cliente
+  su Prenotazioni (mai aggiornato dopo la riapertura di RBAC-002).
+- **FASE 8: PROSSIMO PASSO.**
+- **Decisione 13/08/2026** (superata il 27/08/2026): il debito tecnico residuo (RBAC-002,
+  AUDIT-001, NAMING-001-residuo) era stato spostato in "Backlog post-v1.0" per non bloccare il
+  deploy — tutti e tre chiusi comunque prima della Fase 6, vedi sopra.
 
 ---
 

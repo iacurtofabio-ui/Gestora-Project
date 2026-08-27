@@ -2,37 +2,58 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 25/08/2026
-Ultima cosa fatta: **FASE 5 IN CORSO — test manuale frontend contro Railway.**
+Ultima sessione: 27/08/2026
+Ultima cosa fatta: **FASE 7 COMPLETATA — testing integrato in produzione (Vercel + Railway +
+PostgreSQL). Prossimo passo: FASE 8 (Rilascio).**
 
-`.env.local` del frontend punta a `https://gestora-project-production.up.railway.app/api`.
-Checklist di test (login Admin, CRUD Zone/Postazioni/FasceOrarie, Prenotazioni Admin/Staff)
-eseguita fino al blocco B compreso — vedi `PIANO_RILASCIO.md` §STATO AGGIORNATO per il dettaglio.
-Restano da testare: ruolo Staff, ruolo Cliente, sicurezza/sessione (route protette per ruolo,
-logout automatico su token scaduto, assenza errori CORS in console).
+URL produzione: backend `https://gestora-project-production.up.railway.app`, frontend
+`https://gestora-project-xi.vercel.app`. CORS allineato (`AllowedOrigins__1` su Railway con
+l'URL Vercel, verificato con preflight OPTIONS).
 
-Tre problemi trovati e risolti in sessione (non pianificati, dettaglio in `BACKEND_FIX_TODO.md`
-sezione "Fix completate"):
-- **FIX-007** (chiuso in sessione precedente, ma deploy completato solo qui): 404 su liste vuote
-  in Zona/Postazione/Prenotazione — fix backend, PR `dev`→`main`, redeploy Railway verificato.
-- **FIX-008**: pagina Admin Fasce Orarie non mostrava le fasce disattivate (hook sbagliato,
-  `fasce-attive` invece di `get-all-fasce`) — impossibile riattivarle, e il guard anti-sovrapposizione
-  (FIX-004) le considerava comunque esistenti: utente bloccato. Fix solo frontend, nuovo hook
-  `useAllFasceOrarie()` dedicato alla pagina Admin.
-- **FIX-009**: vincolo "una prenotazione al giorno" bloccava anche dopo un annullamento (indice
-  univoco non escludeva `Stato = Annullata`). Serviva una **migration EF Core** — applicata sul
-  DB Postgres di produzione a mano via `psql`, raggiunto tramite tunnel privato **Railway CLI**
-  (`railway connect Postgres`), nessuna esposizione pubblica del DB. Verificata con `\d
-  "Prenotazioni"` e test end-to-end.
-- **UI-001** (cosmetico): etichetta di stato prenotazione "In Corso" rinominata in "Confermata"
-  in UI (enum/DB invariati) — fraintesa come "l'orario è in corso ora".
+Nessun backlog residuo prima del rilascio v1.0: chiusi tutti i punti sospesi dalla Fase 5
+(GAP-001, RBAC-002, AUDIT-001, NAMING-001-residuo, DEAD-CODE-001, dettaglio in
+`BACKEND_FIX_TODO.md` sezione "Fix completate") e tutti i bug emersi nel testing integrato di
+Fase 7:
+- **404 Vercel su refresh e su login fallito**: mancava `vercel.json` con rewrite verso
+  `index.html` (Vercel non sa che le route sono gestite da React Router lato client). In più,
+  l'interceptor Axios faceva redirect a pagina intera su *qualunque* 401, incluso quello di un
+  login con password sbagliata — ora solo se la richiesta aveva un token allegato (sessione
+  scaduta).
+- **Pulsante Annulla mancante per il Cliente**: era condizionato a `isStaff`, mai aggiornato
+  dopo la riapertura di RBAC-002 al Cliente (cutoff 2h) — rimossa la condizione.
 
-⚠️ **Nota di processo**: durante la sessione le modifiche sono state fatte per errore a working-tree
-su branch `main` invece di `dev` (poi corretto con `git checkout dev` prima del commit, nessuna
-perdita). Controllare sempre `git status`/branch corrente a inizio sessione prima di modificare file.
+dotnet test 31/31 verdi, `npm run build`/`tsc --noEmit` puliti.
 
-Prossimo passo: completare la checklist Fase 5 (Staff, Cliente, sicurezza/sessione — vedi
-`PIANO_RILASCIO.md` §5), poi Fase 6 (deploy Vercel).
+Prossimo passo — **Fase 8 (Rilascio)**: aggiornare questo file con gli URL definitivi (fatto in
+questo aggiornamento), commit finale con tag `v1.0.0`, documentare le credenziali Admin iniziali
+in luogo sicuro (non nel repo), aggiornare il tracker con gli stati finali (fatto).
+
+---
+
+### Storico — Fase 5-6-7 (26-27/08/2026, per riferimento)
+
+**Fase 5** (26-27/08): risolti i 5 bug della checklist manuale di Fabio (`Fix Fase 5.txt`) — 403
+del Cliente su prenotazioni (endpoint sbagliato), pulsanti Staff visibili su Zone/Postazioni/Fasce
+quando non dovevano, vincolo "una prenotazione al giorno" che bloccava Staff/Admin su prenotazioni
+per conto cliente (richiesta una **migration EF Core**, applicata a mano su Railway via
+`railway connect Postgres` + `psql`, stesso procedimento di FIX-009), campo `NomeCliente`
+aggiunto. Poi chiuso il backlog rimasto in sospeso da sessioni precedenti: GAP-001 (UI creazione
+utenti — pagina pubblica `/register` + bottone Admin), RBAC-002 (cutoff 2h per annullo/modifica
+self-service Cliente, non applicato ad Admin/Staff), AUDIT-001 (log attività esteso a
+Zone/Postazioni/Fasce), NAMING-001-residuo (rinominato `FasciaOrariaController.cs`), DEAD-CODE-001
+(filtro postazioni disponibili). Emersi altri 2 bug durante la ri-verifica: filtro
+`GetPostazioniPerZonaAsync` troppo restrittivo, Fasce Orarie non filtrate per giorno in creazione
+prenotazione — entrambi corretti.
+
+**Fase 6** (27/08): deploy frontend su Vercel (root directory `gestora-frontend`,
+`VITE_API_URL` verso Railway), CORS aggiornato su Railway con l'URL Vercel.
+
+**Fase 7** (27/08): testing integrato completo sui 3 ruoli in produzione. 2 bug emersi e risolti
+(vedi sopra, "404 Vercel" e "pulsante Annulla Cliente").
+
+⚠️ **Nota di processo (dalla Fase 5)**: durante una sessione precedente le modifiche erano state
+fatte per errore a working-tree su branch `main` invece di `dev` (poi corretto, nessuna perdita).
+Controllare sempre `git status`/branch corrente a inizio sessione prima di modificare file.
 
 ---
 
@@ -138,14 +159,14 @@ l'URL Railway) — è lì che va deciso cosa fare di FIX-007.
 
 ### Iter di progetto — SEQUENZA OBBLIGATORIA (aggiornata post SA Assessment)
 1. ~~Completare il frontend~~ ✅ FATTO
-2. Fix backend (vedi `BACKEND_FIX_TODO.md` e `PIANO_RILASCIO.md`)
-3. Test backend (dotnet test + verifica manuale Swagger)
-4. Deploy backend su Railway
-5. Verifica backend in produzione
-6. Fix/verifica frontend contro Railway URL
-7. Deploy frontend su Vercel
-8. Testing integrato su produzione
-9. Rilascio v1.0.0
+2. ~~Fix backend~~ ✅ FATTO (vedi `BACKEND_FIX_TODO.md` e `PIANO_RILASCIO.md`)
+3. ~~Test backend (dotnet test + verifica manuale Swagger)~~ ✅ FATTO (31/31 test verdi)
+4. ~~Deploy backend su Railway~~ ✅ FATTO
+5. ~~Verifica backend in produzione~~ ✅ FATTO
+6. ~~Fix/verifica frontend contro Railway URL~~ ✅ FATTO
+7. ~~Deploy frontend su Vercel~~ ✅ FATTO (`https://gestora-project-xi.vercel.app`)
+8. ~~Testing integrato su produzione~~ ✅ FATTO
+9. Rilascio v1.0.0 ← **prossimo passo**
 
 ### File fix backend — LEGGERE AD OGNI SESSIONE
 Ogni problema backend trovato va registrato in:
@@ -168,7 +189,7 @@ Il progetto è stato inizializzato con React 19 (non 18 come da piano). Non è u
 10. ~~CRUD Zone, Postazioni, Fasce Orarie (Admin)~~ ✅ FATTO
 11. ~~Gestione Prenotazioni (Staff + Cliente)~~ ✅ FATTO
 12. ~~Pannello Admin utenti (consuma endpoint Auth)~~ ✅ FATTO
-13. Deploy su Vercel
+13. ~~Deploy su Vercel~~ ✅ FATTO
 
 
 ---
