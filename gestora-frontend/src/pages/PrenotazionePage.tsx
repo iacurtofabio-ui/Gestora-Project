@@ -128,7 +128,10 @@ export default function PrenotazionePage() {
                                         Completa
                                     </button>
                                 )}
-                                {isStaff && (p.stato === STATI_PRENOTAZIONE.ATTIVA || p.stato === STATI_PRENOTAZIONE.IN_CORSO) &&
+                                {/* RBAC-002: il Cliente può annullare una propria prenotazione (la lista che
+                                    vede è già filtrata solo sulle sue), entro il cutoff verificato dal backend —
+                                    l'errore oltre soglia arriva come toast dalla mutation. */}
+                                {(p.stato === STATI_PRENOTAZIONE.ATTIVA || p.stato === STATI_PRENOTAZIONE.IN_CORSO) &&
                                     (
                                         <button
                                             className="text-red-500 hover:underline text-sm"
