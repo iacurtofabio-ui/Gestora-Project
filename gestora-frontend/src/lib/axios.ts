@@ -15,7 +15,11 @@
   apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-      if (error.response?.status === 401) {
+      // Il redirect automatico serve per la sessione scaduta (token presente ma rifiutato),
+      // non per un 401 su una richiesta anonima come il login stesso: altrimenti una password
+      // sbagliata provoca un reload a pagina intera invece di mostrare l'errore nel form.
+      const hadToken = Boolean(error.config?.headers?.Authorization)
+      if (error.response?.status === 401 && hadToken) {
         localStorage.removeItem('token')
         window.location.href = '/login'
       }
