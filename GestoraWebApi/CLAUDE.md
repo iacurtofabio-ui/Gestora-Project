@@ -26,9 +26,9 @@ Pattern: Controller → Service → Repository (layered).
 ## Endpoint — riferimento reale
 
 ⚠️ Il controller si chiama `FasceOrarieController` — la route base è `/api/FasceOrarie/`,
-**non** `/api/FasciaOraria/` come riportato in vecchia documentazione. Nota: il file che lo
-contiene è ancora `Controllers/FasciaOrariaController.cs` (disallineamento nome file/classe,
-vedi NAMING-001).
+**non** `/api/FasciaOraria/` come riportato in vecchia documentazione. Il file è
+`Controllers/FasceOrarieController.cs` (rinominato per allinearsi alla classe, NAMING-001-residuo
+risolto il 27/08/2026).
 
 Formato date: `yyyy-MM-dd`. Header auth: `Authorization: Bearer {token}`.
 Formato errori: `{ statusCode, message, errors: [{field, error}] }`.
@@ -61,11 +61,15 @@ FasceOrarie: `GET fasce-attive`, `GET get-all-fasce` (Admin+Staff), `GET fasce-p
 Prenotazione: `POST crea-prenotazione`, `POST check-disponibilita` (pubblico, no auth),
 `GET get-prenotazione?id=`, `GET get-all-prenotazioni` (filtri opzionali via
 `PrenotazioniQueryParams`, paginato), `GET get-mie-prenotazioni` (solo Cliente, filtra su
-UserId dal JWT), `GET get-prenotazioni-by-data?data=`, `PUT update-prenotazione` (Admin+Staff,
-tolto Cliente — vedi RBAC-001/RBAC-002), `DELETE delete-prenotazione` (solo Admin),
-`PATCH conferma-prenotazione?id=` (Admin+Staff), `PATCH completa-prenotazione?id=` (Admin+Staff),
-`PATCH annulla-prenotazione?id=` (Admin+Staff, tolto Cliente — vedi RBAC-002 in
-BACKEND_FIX_TODO.md per la regola di cutoff da progettare prima di riaprirlo al Cliente).
+UserId dal JWT), `GET get-prenotazioni-by-data?data=`, `PUT update-prenotazione`,
+`DELETE delete-prenotazione` (solo Admin), `PATCH conferma-prenotazione?id=` (Admin+Staff),
+`PATCH completa-prenotazione?id=` (Admin+Staff), `PATCH annulla-prenotazione?id=`.
+
+`update-prenotazione` e `annulla-prenotazione` sono di nuovo aperte al Cliente (RBAC-002
+risolto il 27/08/2026): Admin/Staff senza limiti, il Cliente solo sulla propria prenotazione e
+solo fino a 2 ore prima dell'orario prenotato (`PrenotazioniService.GuardCutoffAsync`, costante
+`CutoffOreClienteSelfService`); oltre la soglia l'azione è bloccata del tutto (409, nessuna
+approvazione Staff) — deve contattare il locale.
 
 ## RBAC — perimetro ruoli (allineato 13/08/2026, vedi `Auth/Roles.cs`)
 
@@ -75,15 +79,23 @@ BACKEND_FIX_TODO.md per la regola di cutoff da progettare prima di riaprirlo al 
   annulla — **non** elimina (`delete-prenotazione` solo Admin) e **non** scrive su
   Zone/Postazioni/FasceOrarie (resta solo Admin).
 - **Cliente**: crea-prenotazione + lettura propria (`get-mie-prenotazioni`) e di supporto alla
-  prenotazione (zone/postazioni/fasce attive). **Non** può modificare o annullare le proprie
-  prenotazioni self-service (tolto il 13/08/2026, RBAC-002) — richiede intervento Staff/Admin
-  finché non viene progettata una regola di cutoff temporale.
+  prenotazione (zone/postazioni/fasce attive). Può modificare/annullare una propria prenotazione
+  solo fino a 2 ore prima dell'orario prenotato (RBAC-002 risolto il 27/08/2026, vedi sezione
+  Endpoint sopra) — oltre la soglia deve passare da Staff/Admin.
 
 Un utente **può avere più ruoli contemporaneamente** (many-to-many `UserRoles`) — è un caso
 d'uso legittimo, non un'anomalia (es. account che gestisce il locale ma prenota anche per sé
 come Cliente). Il JWT serializza il claim `role` come stringa se l'utente ha un solo ruolo, come
 array se ne ha più di uno — il frontend deve normalizzare sempre a array, vedi
 `gestora-frontend/CLAUDE.md`.
+
+## Audit trail (AUDIT-001 risolto 27/08/2026)
+
+`ILogActivityService`/`Logging` (tabella dedicata) registra userId/azione/IP. Era già usato in
+`AuthenticationUserController`; esteso a tutte le scritture di `ZonaService`, `PostazioneService`,
+`FasciaOrariaService` (oltre a `PrenotazioniService`, che lo aveva già). Ogni service ha il
+proprio `IHttpContextAccessor` + helper privati `GetAuthenticatedUserId()`/`GetIpAddress()` —
+pattern copiato da `PrenotazioniService`, non centralizzato in un middleware.
 
 ## Note tecniche da tenere a mente
 
@@ -116,7 +128,7 @@ array se ne ha più di uno — il frontend deve normalizzare sempre a array, ved
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, pattern Arrange/Act/Assert. Un file per service
 (`FasciaOrariaServiceTe.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
-`PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`). 28 test totali. Eseguire con `dotnet test`
+`PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`). 31 test totali. Eseguire con `dotnet test`
 dalla cartella `GestoraWebApi/`. Nessun test su controller o su `AuthenticationUserController` —
 la logica di auth non è ancora estratta in un service dedicato. Per mockare `IQueryable<T>`
 restituito dai repository (necessario per testare query EF Core come `AnyAsync`/`FirstOrDefaultAsync`

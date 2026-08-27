@@ -3,12 +3,15 @@ using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Services.FasciaOrarie;
 using GestoraWebApi.Services.FasciaOrarie.DTOs;
+using GestoraWebApi.Services.LogActivity;
 using MockQueryable.Moq;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -19,6 +22,8 @@ namespace GestoraWebApi.Tests.Services
         private readonly Mock<IFasciaOrariaRepository> _repoMock;
         private readonly Mock<IMapper> _mapperMock;
         private readonly IMemoryCache _cache;
+        private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
+        private readonly Mock<ILogActivityService> _logActivityMock;
         private readonly FasciaOrariaService _service;
 
         public FasciaOrariaServiceTests()
@@ -26,8 +31,14 @@ namespace GestoraWebApi.Tests.Services
             _repoMock = new Mock<IFasciaOrariaRepository>();
             _mapperMock = new Mock<IMapper>();
             _cache = new MemoryCache(new MemoryCacheOptions());
+            _httpContextAccessorMock = new Mock<IHttpContextAccessor>();
+            _httpContextAccessorMock.Setup(a => a.HttpContext).Returns(new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, "test-user-id") }))
+            });
+            _logActivityMock = new Mock<ILogActivityService>();
             _service = new FasciaOrariaService(_repoMock.Object,
-            _mapperMock.Object, _cache);
+            _mapperMock.Object, _cache, _httpContextAccessorMock.Object, _logActivityMock.Object);
         }
 
         [Fact]

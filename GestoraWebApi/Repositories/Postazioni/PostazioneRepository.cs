@@ -57,10 +57,11 @@ namespace GestoraWebApi.Repositories.Postazioni
 
         public async Task<List<Postazione>> GetPostazioniDisponibiliAsync()
         {
+            // DEAD-CODE-001: rimosso lo stesso filtro "mai prenotata" già corretto su
+            // GetPostazioniPerZonaAsync — escludeva una postazione se aveva mai avuto una
+            // prenotazione, invece di verificare la disponibilità per data/fascia specifica.
             return await _dbSet
                     .Where(p => p.Attiva)
-                    .Include(p => p.PrenotazioniPostazioni)
-                    .Where(p => !p.PrenotazioniPostazioni.Any())
                     .OrderBy(p => p.Numero)
                     .ToListAsync();
         }

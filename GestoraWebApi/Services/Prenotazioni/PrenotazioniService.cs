@@ -144,6 +144,9 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
                 throw new UnauthorizedAccessException("Non hai i permessi per modificare questa prenotazione.");
 
+            if (IsSelfServiceCliente())
+                GuardCutoffAsync(prenotazione);
+
             await ValidatePrenotazioneAsync(dto, prenotazione.Id);
 
             if (IsSelfServiceCliente() && dto.DataPrenotazione != prenotazione.DataPrenotazione)
@@ -220,6 +223,15 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             if (prenotazione.Stato == StatoPrenotazione.Completata)
                 throw new InvalidOperationException("Non è possibile annullare una prenotazione già completata.");
+
+            if (IsSelfServiceCliente())
+            {
+                var userId = GetAuthenticatedUserId();
+                if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
+                    throw new UnauthorizedAccessException("Non hai i permessi per annullare questa prenotazione.");
+
+                GuardCutoffAsync(prenotazione);
+            }
 
             prenotazione.Stato = StatoPrenotazione.Annullata;
             await _prenotazioniRepository.UpdateAsync(prenotazione);
@@ -349,6 +361,27 @@ namespace GestoraWebApi.Services.Prenotazioni
         {
             var user = _httpContextAccessor.HttpContext?.User;
             return user != null && !user.IsInRole(Roles.Admin) && !user.IsInRole(Roles.Staff);
+        }
+
+        // RBAC-002: il Cliente può modificare/annullare una propria prenotazione self-service
+        // solo fino a CutoffOreClienteSelfService ore prima dell'inizio della fascia prenotata.
+        // Oltre la soglia l'azione è bloccata del tutto (nessuna approvazione Staff): deve
+        // contattare il locale. Il vincolo non si applica ad Admin/Staff (IsSelfServiceCliente
+        // è già false per loro, non serve un controllo separato qui).
+        private const int CutoffOreClienteSelfService = 2;
+
+        private void GuardCutoffAsync(Prenotazione prenotazione)
+        {
+            if (prenotazione.FasciaOraria == null)
+                throw new InvalidOperationException("La fascia oraria associata alla prenotazione non è disponibile.");
+
+            var inizioPrenotazione = prenotazione.DataPrenotazione.ToDateTime(prenotazione.FasciaOraria.OrarioInizio);
+            var limiteModifica = inizioPrenotazione.AddHours(-CutoffOreClienteSelfService);
+
+            if (GetNowInRome() > limiteModifica)
+                throw new InvalidOperationException(
+                    $"Non è più possibile modificare o annullare autonomamente questa prenotazione: mancano meno di " +
+                    $"{CutoffOreClienteSelfService} ore dall'orario prenotato. Contatta il locale per assistenza.");
         }
 
         private async Task GuardUnaPrenotazioneAlGiornoAsync(string userId, DateOnly data, long? excludePrenotazioneId = null)

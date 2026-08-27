@@ -78,10 +78,19 @@ FluentValidation), 2) fallback su `message`, 3) fallback su testo statico di def
 | Postazioni | postazione.ts | usePostazioni.ts | PostazioneModal.tsx | PostazionePage.tsx |
 | FasceOrarie | fasciaOraria.ts | useFasceOrarie.ts | FasciaOrariaModal.tsx | FasciaOrariaPage.tsx |
 | Prenotazioni | prenotazione.ts | usePrenotazioni.ts | PrenotazioneModal.tsx | PrenotazionePage.tsx |
-| AdminUtenti | utente.ts | useAdminUtenti.ts | EditUserModal + GestisciRuoliModal + ResetPasswordModal | AdminUtentiPage.tsx |
+| AdminUtenti | utente.ts | useAdminUtenti.ts | EditUserModal + GestisciRuoliModal + ResetPasswordModal + CreateUserModal | AdminUtentiPage.tsx |
 
 Nuovi moduli CRUD devono seguire esattamente questa struttura — non introdurre varianti senza
 motivarle qui.
+
+### Nota GAP-001 — creazione utenti (non un CRUD standard)
+
+Il backend non ha un endpoint "crea utente con ruolo": `POST register` è pubblico e assegna
+sempre `Cliente`. `useCreateUser` (in `useAdminUtenti.ts`) compone tre chiamate esistenti:
+`register` → `get-users` (per recuperare l'id appena creato, l'endpoint register non lo
+restituisce) → `assign-role`/`remove-role` se l'Admin ha scelto un ruolo diverso da Cliente.
+Pagina pubblica `/register` (`RegisterPage.tsx`, linkata da `LoginPage.tsx`) chiama `register`
+direttamente, senza passare da `useCreateUser`.
 
 ## Config
 

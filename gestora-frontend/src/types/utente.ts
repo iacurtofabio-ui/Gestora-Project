@@ -19,5 +19,12 @@ export type ResetPasswordDTO = {
   newPassword: string
 }
 
+export type CreateUserFormDTO = {
+  username: string
+  email: string
+  password: string
+  role: RuoloDisponibile
+}
+
 export const RUOLI_DISPONIBILI = ['Admin', 'Staff', 'Cliente'] as const
 export type RuoloDisponibile = typeof RUOLI_DISPONIBILI[number]

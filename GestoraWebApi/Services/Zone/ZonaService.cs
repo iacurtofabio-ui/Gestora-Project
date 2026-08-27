@@ -1,7 +1,9 @@
 ﻿using AutoMapper;
 using GestoraWebApi.Common;
+using GestoraWebApi.Extensions;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Zone;
+using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Zone.DTOs;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -12,16 +14,22 @@ namespace GestoraWebApi.Services.Zone
         private readonly IZonaRepository _zonaRepository;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogActivityService _logActivity;
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
         public ZonaService(IZonaRepository zonaRepository,
                             IMapper mapper,
-                            IMemoryCache cache)
+                            IMemoryCache cache,
+                            IHttpContextAccessor httpContextAccessor,
+                            ILogActivityService logActivity)
         {
             _zonaRepository = zonaRepository;
             _mapper = mapper;
             _cache = cache;
+            _httpContextAccessor = httpContextAccessor;
+            _logActivity = logActivity;
         }
 
         public async Task AddAsync(ZonaDTO entity)
@@ -36,6 +44,7 @@ namespace GestoraWebApi.Services.Zone
             await _zonaRepository.AddAsync(zona);
 
             InvalidateZoneCache();
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata zona '{zona.Nome}'", GetIpAddress());
         }
 
         public async Task DeleteAsync(long zonaId)
@@ -55,6 +64,7 @@ namespace GestoraWebApi.Services.Zone
             await _zonaRepository.DeleteAsync(zona);
 
             InvalidateZoneCache();
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata zona '{zona.Nome}' (ID {zonaId})", GetIpAddress());
         }
 
         public async Task<List<ZonaDTO>> GetAllZoneAsync()
@@ -117,6 +127,7 @@ namespace GestoraWebApi.Services.Zone
             await _zonaRepository.UpdateAsync(existingZona);
 
             InvalidateZoneCache();
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata zona '{existingZona.Nome}' (ID {existingZona.Id})", GetIpAddress());
         }
 
         public async Task UpdateStatoZonaAsync(long zonaId, bool attiva)
@@ -129,6 +140,8 @@ namespace GestoraWebApi.Services.Zone
             await _zonaRepository.UpdateStatoZonaAsync(zonaId, attiva);
 
             InvalidateZoneCache();
+            await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                $"Zona '{zona.Nome}' (ID {zonaId}) impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
         }
 
         private void InvalidateZoneCache()
@@ -136,5 +149,12 @@ namespace GestoraWebApi.Services.Zone
             _cache.Remove(CacheKeys.ZoneAll);
             _cache.Remove(CacheKeys.ZoneAttive);
         }
+
+        private string GetAuthenticatedUserId()
+            => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
+               ?? throw new UnauthorizedAccessException("Utente non autenticato.");
+
+        private string? GetIpAddress()
+            => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
     }
 }

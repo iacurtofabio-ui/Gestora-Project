@@ -85,8 +85,9 @@ namespace GestoraWebApi.Controllers
             return Ok(prenotazioni);
         }
 
-        /// <summary>Aggiorna i dati di una prenotazione esistente. Solo se in stato Attiva. Solo Admin e Staff.</summary>
-        [Authorize(Roles = Roles.AdminOrStaff)]
+        /// <summary>Aggiorna i dati di una prenotazione esistente. Solo se in stato Attiva. Admin/Staff senza
+        /// limiti; il Cliente solo sulla propria prenotazione e fino a 2 ore prima dell'orario (RBAC-002).</summary>
+        [Authorize(Roles = Roles.AdminOrStaffOrCliente)]
         [HttpPut("update-prenotazione")]
         public async Task<IActionResult> UpdatePrenotazione(long id, [FromBody] PrenotazioneCreateDTO dto)
         {
@@ -137,9 +138,9 @@ namespace GestoraWebApi.Controllers
             return Ok(new { message = "Prenotazione completata con successo." });
         }
 
-        /// <summary>Annulla una prenotazione. Non annullabile se già Completata. Solo Admin e Staff — l'annullamento
-        /// self-service per il Cliente richiede prima una regola di cutoff temporale, vedi BACKEND_FIX_TODO.md.</summary>
-        [Authorize(Roles = Roles.AdminOrStaff)]
+        /// <summary>Annulla una prenotazione. Non annullabile se già Completata. Admin/Staff senza limiti;
+        /// il Cliente solo sulla propria prenotazione e fino a 2 ore prima dell'orario (RBAC-002).</summary>
+        [Authorize(Roles = Roles.AdminOrStaffOrCliente)]
         [HttpPatch("annulla-prenotazione")]
         public async Task<IActionResult> AnnullaPrenotazione(long id)
         {

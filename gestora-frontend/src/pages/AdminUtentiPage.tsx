@@ -7,6 +7,7 @@ import type { UserDTO } from '@/types/utente'
 import EditUserModal from '@/components/EditUserModal'
 import GestisciRuoliModal from '@/components/GestisciRuoliModal'
 import ResetPasswordModal from '@/components/ResetPasswordModal'
+import CreateUserModal from '@/components/CreateUserModal'
 
 export default function AdminUtentiPage() {
   const { user } = useAuth()
@@ -15,14 +16,17 @@ export default function AdminUtentiPage() {
 
   const [idDaEliminare, setIdDaEliminare] = useState<string | undefined>(undefined)
   const [utenteSelezionato, setUtenteSelezionato] = useState<UserDTO | undefined>(undefined)
-  const [modalAperto, setModalAperto] = useState<'edit' | 'ruoli' | 'password' | undefined>(undefined)
+  const [modalAperto, setModalAperto] = useState<'edit' | 'ruoli' | 'password' | 'crea' | undefined>(undefined)
 
   if (utenti.isLoading) return <div className="p-6">Caricamento...</div>
   if (utenti.isError) return <div className="p-6 text-red-500">Errore nel caricamento utenti</div>
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Gestione Utenti</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Gestione Utenti</h1>
+        <Button onClick={() => setModalAperto('crea')}>+ Crea utente</Button>
+      </div>
 
       <table className="w-full text-sm border-collapse">
         <thead>
@@ -82,6 +86,10 @@ export default function AdminUtentiPage() {
       <ResetPasswordModal
         utente={utenteSelezionato}
         open={modalAperto === 'password'}
+        onClose={() => setModalAperto(undefined)}
+      />
+      <CreateUserModal
+        open={modalAperto === 'crea'}
         onClose={() => setModalAperto(undefined)}
       />
     </div>
