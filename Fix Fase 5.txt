@@ -28,12 +28,21 @@ Prenotazioni:
 Punti in sospeso (segnalati in sessioni precedenti, backlog non ancora chiuso):
 
 6. Non esiste nessuna UI per creare un nuovo utente: il backend ha l'endpoint di registrazione ma non è richiamato da nessuna pagina del frontend (né una pagina di registrazione pubblica né un bottone "Crea utente" nel pannello Admin). In produzione l'unico modo per creare un cliente/staff è passare da Postman.
+   -- FIX applicato (27/08/2026): entrambe le opzioni implementate (decisione Fabio). Pagina pubblica /register (linkata dal Login) per l'auto-registrazione Cliente. Bottone "+ Crea utente" nel pannello Admin (compone register + assign-role/remove-role, dato che il backend non ha un endpoint dedicato "crea con ruolo").
 
 7. Il Cliente non può modificare né annullare da solo le proprie prenotazioni (tolto il 13/08/2026) — va progettata una regola di cutoff (es. annullabile solo fino a N ore prima dell'orario) prima di riaprire la funzione.
+   -- FIX applicato (27/08/2026): cutoff di 2 ore prima dell'orario prenotato (decisione Fabio). Oltre la soglia l'azione è bloccata del tutto, nessuna approvazione Staff. Il vincolo vale solo per il ruolo Cliente in self-service, non per Admin/Staff. update-prenotazione e annulla-prenotazione riaperte al Cliente.
 
 8. Nessuna azione (creazione/modifica/eliminazione di zone, postazioni, fasce, prenotazioni) registra quale utente l'ha effettuata.
+   -- FIX applicato (27/08/2026): esteso il servizio di log attività (già usato per login/registrazione) a Zone, Postazioni, Fasce Orarie — stesso pattern già presente su Prenotazioni. Nessuna nuova tabella, riuso di infrastruttura esistente.
 
 9. Il file Controllers/FasciaOrariaController.cs contiene la classe FasceOrarieController — nome del file disallineato dal nome della classe, da rinominare.
+   -- FIX applicato (27/08/2026): file rinominato in FasceOrarieController.cs con git mv. Zero impatto sulla route (deriva dal nome della classe, invariata).
+
+10. (nuovo, trovato mentre si chiudevano i punti sopra) GetPostazioniDisponibiliAsync aveva lo stesso filtro troppo restrittivo già corretto sulle postazioni per zona (punto 5), ma su un endpoint non ancora collegato al frontend — quindi innocuo, corretto comunque in via preventiva.
+   -- FIX applicato (27/08/2026): rimosso lo stesso filtro "mai prenotata" da GetPostazioniDisponibiliAsync.
+
+Tutti i punti di Fase 5 sono chiusi — dotnet test 31/31 verdi, nessun backlog residuo prima della Fase 6.
 
 
 

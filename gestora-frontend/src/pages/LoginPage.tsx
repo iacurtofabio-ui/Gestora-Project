@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
   import { z } from 'zod'
   import { zodResolver } from '@hookform/resolvers/zod'
-  import { useNavigate } from 'react-router-dom'
+  import { useNavigate, Link } from 'react-router-dom'
   import { useAuth } from '@/hooks/useAuth'
   import apiClient from '@/lib/axios'
   import { Button } from '@/components/ui/button'
@@ -66,6 +66,9 @@ import { useForm } from 'react-hook-form'
               {isSubmitting ? 'Accesso...' : 'Accedi'}
             </Button>
           </form>
+          <p className="text-sm text-gray-500 mt-4 text-center">
+            Non hai un account? <Link to="/register" className="underline">Registrati</Link>
+          </p>
         </div>
       </div>
     )

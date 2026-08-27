@@ -1,10 +1,13 @@
 using AutoMapper;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Zone;
+using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Zone;
 using GestoraWebApi.Services.Zone.DTOs;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
+using System.Security.Claims;
 
 namespace GestoraWebApi.Tests.Services;
 
@@ -13,6 +16,8 @@ public class ZonaServiceTests
     private readonly Mock<IZonaRepository> _repoMock;
     private readonly Mock<IMapper> _mapperMock;
     private readonly IMemoryCache _cache;
+    private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
+    private readonly Mock<ILogActivityService> _logActivityMock;
     private readonly ZonaService _service;
 
     public ZonaServiceTests()
@@ -20,7 +25,14 @@ public class ZonaServiceTests
         _repoMock    = new Mock<IZonaRepository>();
         _mapperMock  = new Mock<IMapper>();
         _cache       = new MemoryCache(new MemoryCacheOptions());
-        _service     = new ZonaService(_repoMock.Object, _mapperMock.Object, _cache);
+        _httpContextAccessorMock = new Mock<IHttpContextAccessor>();
+        _httpContextAccessorMock.Setup(a => a.HttpContext).Returns(new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, "test-user-id") }))
+        });
+        _logActivityMock = new Mock<ILogActivityService>();
+        _service     = new ZonaService(_repoMock.Object, _mapperMock.Object, _cache,
+                                        _httpContextAccessorMock.Object, _logActivityMock.Object);
     }
 
     [Fact]

@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
 using GestoraWebApi.Common;
 using GestoraWebApi.Enums;
+using GestoraWebApi.Extensions;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Repositories.Prenotazioni;
 using GestoraWebApi.Services.FasciaOrarie.DTOs;
+using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Postazioni.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -16,14 +18,19 @@ namespace GestoraWebApi.Services.FasciaOrarie
         private readonly IFasciaOrariaRepository _fasciaRepository;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogActivityService _logActivity;
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
-        public FasciaOrariaService(IFasciaOrariaRepository fasciaRepository, IMapper mapper, IMemoryCache cache)
+        public FasciaOrariaService(IFasciaOrariaRepository fasciaRepository, IMapper mapper, IMemoryCache cache,
+                                    IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity)
         {
             _fasciaRepository = fasciaRepository;
             _mapper = mapper;
             _cache = cache;
+            _httpContextAccessor = httpContextAccessor;
+            _logActivity = logActivity;
         }
         public async Task AddAsync(FasciaOrariaDTO dto)
         {
@@ -46,6 +53,8 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             _cache.Remove(CacheKeys.FasceAttive);
             _cache.Remove(CacheKeys.FascePerGiorno + (int)dto.GiornoSettimana);
+            await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                $"Creata fascia oraria {dto.OrarioInizio}-{dto.OrarioFine} ({dto.GiornoSettimana})", GetIpAddress());
         }
 
         /// <summary>
@@ -124,6 +133,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             await _fasciaRepository.DeleteAsync(fascia);
 
             _cache.Remove(CacheKeys.FasceAttive);
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata fascia oraria ID {fasciaId}", GetIpAddress());
         }
 
         public async Task<FasciaOraria> GetByIdAsync(long id)
@@ -240,6 +250,8 @@ namespace GestoraWebApi.Services.FasciaOrarie
             {
                 _cache.Remove(CacheKeys.FascePerGiorno + (int)dto.GiornoSettimana);
             }
+
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata fascia oraria ID {dto.Id}", GetIpAddress());
         }
 
         Task<FasciaOrariaDTO> IService<FasciaOrariaDTO>.GetByIdAsync(long id)
@@ -284,6 +296,15 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             _cache.Remove(CacheKeys.FasceAttive);
             _cache.Remove(CacheKeys.FascePerGiorno + (int)fascia.GiornoSettimana);
+            await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                $"Fascia oraria ID {id} impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
         }
+
+        private string GetAuthenticatedUserId()
+            => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
+               ?? throw new UnauthorizedAccessException("Utente non autenticato.");
+
+        private string? GetIpAddress()
+            => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
     }
 }

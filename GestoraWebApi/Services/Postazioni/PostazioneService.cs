@@ -1,9 +1,11 @@
 ﻿using AutoMapper;
 using GestoraWebApi.Common;
 using GestoraWebApi.Enums;
+using GestoraWebApi.Extensions;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Zone;
+using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Postazioni.DTOs;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -18,17 +20,22 @@ namespace GestoraWebApi.Services.Postazioni
         private readonly IZonaRepository _zonaRepository;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogActivityService _logActivity;
 
         // Valori consentiti per la capienza massima
         private static readonly int[] CapienzaConsentita = { 2, 4, 8 };
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
-        public PostazioneService(IPostazioneRepository postazioneRepository, IMapper mapper, IZonaRepository zonaRepository, IMemoryCache cache)
+        public PostazioneService(IPostazioneRepository postazioneRepository, IMapper mapper, IZonaRepository zonaRepository,
+                                  IMemoryCache cache, IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity)
         {
             _postazioneRepository = postazioneRepository;
             _zonaRepository = zonaRepository;
             _mapper = mapper;
             _cache = cache;
+            _httpContextAccessor = httpContextAccessor;
+            _logActivity = logActivity;
         }
         public async Task AddAsync(PostazioneDTO dto)
         {
@@ -38,6 +45,7 @@ namespace GestoraWebApi.Services.Postazioni
             await _postazioneRepository.AddAsync(postazione);
 
             _cache.Remove(CacheKeys.PostazioniAttive);
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata postazione numero {postazione.Numero}", GetIpAddress());
         }
 
         public async Task DeleteAsync(long postazioneId)
@@ -53,6 +61,7 @@ namespace GestoraWebApi.Services.Postazioni
             await _postazioneRepository.DeleteAsync(postazione);
 
             _cache.Remove(CacheKeys.PostazioniAttive);
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata postazione numero {postazione.Numero} (ID {postazioneId})", GetIpAddress());
         }
 
         public async Task<Postazione> GetByIdAsync(long id)
@@ -137,6 +146,7 @@ namespace GestoraWebApi.Services.Postazioni
             await _postazioneRepository.UpdateAsync(postazione);
 
             _cache.Remove(CacheKeys.PostazioniAttive);
+            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata postazione numero {postazione.Numero} (ID {postazione.Id})", GetIpAddress());
         }
 
         public async Task<List<PostazioneDTO>> GetPostazioniAttiveAsync()
@@ -234,6 +244,15 @@ namespace GestoraWebApi.Services.Postazioni
             await _postazioneRepository.UpdateAsync(postazione);
 
             _cache.Remove(CacheKeys.PostazioniAttive);
+            await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                $"Postazione numero {postazione.Numero} (ID {postazioneId}) associata alla zona ID {zonaId}", GetIpAddress());
         }
+
+        private string GetAuthenticatedUserId()
+            => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
+               ?? throw new UnauthorizedAccessException("Utente non autenticato.");
+
+        private string? GetIpAddress()
+            => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
     }
 }
