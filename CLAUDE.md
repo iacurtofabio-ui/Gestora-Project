@@ -2,8 +2,39 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 27/08/2026
-Ultima cosa fatta: **🎉 FASE 8 COMPLETATA — RILASCIO v1.0.0.** Tag `v1.0.0` creato e pushato su
+Ultima sessione: 28/08/2026
+Ultima cosa fatta: **revisione end-to-end del progetto e roadmap di chiusura v1.**
+**FASE 0 DELLA ROADMAP CHIUSA.** Alla prossima sessione si riprende dalla **FASE 1**.
+
+### Riprendere da qui — leggere in quest'ordine
+
+1. **`ROADMAP_REVISIONE.md`** — il documento operativo da seguire. Contiene 12 fasi in ordine,
+   con separazione esplicita fra task a carico di Fabio (🧑) e task a carico di Claude (🤖), e in
+   testa le **9 decisioni di prodotto già prese il 28/08**: non riaprirle, sono vincolanti.
+2. **`REVISIONE_END_TO_END.md`** — la revisione completa da cui nasce la roadmap: valutazione,
+   feedback sulla logica applicativa e ~90 segnalazioni su tre fasce di priorità.
+
+⚠️ **Attenzione**: `BACKEND_FIX_TODO.md` dichiara "nessun backlog residuo". **Non è più vero.**
+Lo era prima della revisione del 28/08; da quel momento il backlog reale è
+`REVISIONE_END_TO_END.md` e l'ordine di lavorazione è `ROADMAP_REVISIONE.md`.
+
+### Prossimo passo — FASE 1 (fondamenta di deploy)
+
+A carico di Claude: portare la configurazione di build/deploy nel repository (oggi vive solo nel
+pannello Railway), far verificare al health check anche il database, aggiungere un avviso
+all'avvio quando il DB non è allineato al codice, correggere la migration `StatoAsEnum` vuota,
+allineare i pacchetti disallineati.
+A carico di Fabio: su Railway togliere il comando di build personalizzato, e verificare il
+rilascio.
+
+> Nota sulle migration: per decisione del 28/08 **restano manuali**. Claude prepara la migration,
+> Fabio la applica. Riguarda le Fasi 2 e 3.
+
+---
+
+### Storico — Rilascio v1.0.0 (27/08/2026)
+
+**FASE 8 COMPLETATA — RILASCIO v1.0.0.** Tag `v1.0.0` creato e pushato su
 `main` (commit `6430cc8`). Progetto in produzione, nessun backlog bloccante residuo.
 
 URL produzione: backend `https://gestora-project-production.up.railway.app`, frontend

@@ -28,6 +28,11 @@ Queste scelte sono già state fatte e valgono per tutto il percorso.
 6. **Primo amministratore**: creato da una schermata di primo avvio, non più da un endpoint
    pubblico.
 7. **Creazione automatica delle postazioni**: rinviata al backlog v2.0.
+8. **Chi comanda sulla disponibilità**: il tetto della fascia. Si possono creare quanti tavoli si
+   vuole, ma è `MaxCoperti` a dire quando la fascia è esaurita. I tavoli servono solo ad assegnare
+   fisicamente il posto, non a definire la capienza. Nessun blocco di coerenza fra i due numeri.
+9. **Riepilogo sala**: la pagina Postazioni mostra in cima il quadro d'insieme — tavoli attivi,
+   posti totali e, per ogni fascia, se i tavoli coprono il tetto dichiarato. È solo informativo.
 
 ---
 
@@ -106,7 +111,13 @@ tavoli. Per ogni intervento scrivo prima il test che dimostra il problema, poi l
   un'etichetta chiara nel form (oggi il campo non ne ha nessuna)
 - Far usare alla verifica di disponibilità la stessa logica dell'assegnazione: oggi sono due
   algoritmi diversi che possono dare risposte opposte
+- Basare i posti residui sul tetto della fascia e non sulla somma dei tavoli: è il tetto a
+  decidere quando la fascia è esaurita
 - Escludere zone e tavoli disattivati dalla verifica di disponibilità
+- Dare un messaggio chiaro quando il tetto non è esaurito ma i tavoli liberi non bastano: oggi
+  l'utente legge "non ci sono postazioni libere" mentre l'app dice che c'è ancora disponibilità
+- Aggiungere in cima alla pagina Postazioni il riepilogo della sala: tavoli attivi, posti totali e
+  copertura del tetto per ogni fascia
 - Registrare nel log attività anche la modifica di una prenotazione, oggi l'unica azione non
   tracciata
 - Un solo orologio per tutto il progetto: niente più mix di orario locale, UTC e ora italiana

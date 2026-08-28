@@ -18,6 +18,12 @@ Ogni fix ha:
 
 ## Fix da fare
 
+> ⚠️ **Nota 28/08/2026 — questo file non è più il backlog di riferimento.**
+> La revisione end-to-end del 28/08 ha riaperto il backlog: vedi `REVISIONE_END_TO_END.md` per
+> l'elenco delle segnalazioni (Alta/Media/Bassa) e `ROADMAP_REVISIONE.md` per l'ordine di
+> lavorazione. Le note "nessun backlog residuo" qui sotto valgono solo fino al 27/08/2026.
+> Questo file va riallineato in Fase 11 della roadmap.
+
 > Nota 13/08/2026: le sezioni sotto (CORS-001, FIX-003, FIX-002, FIX-005, FIX-006) descrivono
 > problemi risolti da tempo — la scrittura originale resta come riferimento storico, lo stato
 > reale è nell'elenco "Fix completate" più sotto.
