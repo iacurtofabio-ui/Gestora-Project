@@ -92,7 +92,17 @@ restituisce) → `assign-role`/`remove-role` se l'Admin ha scelto un ruolo diver
 Pagina pubblica `/register` (`RegisterPage.tsx`, linkata da `LoginPage.tsx`) chiama `register`
 direttamente, senza passare da `useCreateUser`.
 
-## Config
+## Config — due ambienti separati, non uno che cambia
 
-`.env.local` → `VITE_API_URL` punta all'API locale (`https://localhost:7175/api` in sviluppo,
-URL Railway in produzione dopo il deploy).
+`.env.local` (non versionato) → `VITE_API_URL`, letto **solo** da Vite in locale (`npm run dev`).
+Da tenere stabilmente su `http://localhost:5099/api` — è l'ambiente di sviluppo, permanente, non
+un valore da alternare per un test estemporaneo. Richiede il backend locale attivo
+(`dotnet run` in `GestoraWebApi/`, porta fissata in `Properties/launchSettings.json`).
+
+La produzione (`gestora-project-xi.vercel.app`) **non legge mai `.env.local`**: usa la propria
+`VITE_API_URL` impostata nella dashboard Vercel, puntata a Railway — indipendente e sempre
+raggiungibile, a prescindere da cosa gira in locale. Modificare `.env.local` in locale non ha
+alcun effetto sulla build di produzione.
+
+Attenzione: con questa config, aprire `localhost:5173` mostra sempre i dati del DB locale, non
+quelli di produzione — comportamento voluto, non un errore (27/08/2026).

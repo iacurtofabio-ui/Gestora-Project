@@ -41,6 +41,12 @@ Fuori dai controller: **`GET /health`** — health check pubblico e senza autent
 in `Program.cs`. È il Healthcheck Path configurato su Railway: se non risponde, il deploy viene
 marcato come fallito e resta online la versione precedente.
 
+`JobsController` (`POST trigger/{jobName}`, solo Admin) — forza l'esecuzione immediata di un job
+Quartz già registrato (`PrenotazioniJob`, `PrenotazioniCleanupJob`), senza aspettare il cron.
+Utile per verificare un flusso automatizzato a comando o per rieseguirlo manualmente in caso di
+necessità operativa. Aggiunto il 27/08/2026, presente solo in locale — valutare se portarlo anche
+in produzione.
+
 Auth: `POST register`, `POST login`, `POST seed-admin` (si autoblocca dopo il primo Admin),
 `POST assign-role`, `DELETE remove-role`, `GET get-users`, `GET get-user/{id}`,
 `PUT update-user/{id}`, `DELETE delete-user/{id}`, `POST reset-password/{id}`.
@@ -97,11 +103,32 @@ array se ne ha più di uno — il frontend deve normalizzare sempre a array, ved
 proprio `IHttpContextAccessor` + helper privati `GetAuthenticatedUserId()`/`GetIpAddress()` —
 pattern copiato da `PrenotazioniService`, non centralizzato in un middleware.
 
+## Flussi automatizzati (Quartz.NET)
+
+Due job in `Background/`, registrati in `Program.cs` con persistenza su Postgres (`QRTZ_*`):
+- **`PrenotazioniJob`** (cron `0 00 2 * * ?`, ogni notte alle 2:00) — completa automaticamente le
+  prenotazioni `InCorso` la cui fascia oraria è già passata.
+- **`PrenotazioniCleanupJob`** (cron `0 30 2 * * ?`, ogni notte alle 2:30, 30 min dopo il primo di
+  proposito) — elimina fisicamente (hard delete) le prenotazioni `Completata` con data ≤ oggi−6
+  mesi.
+
+Entrambi verificati manualmente il 27/08/2026 tramite `JobsController` (vedi sopra) invece che
+aspettando il cron/il cutoff reale — pattern da riusare per testare qualunque job futuro senza
+attese.
+
+Nessun test unitario copre oggi `AutomaticCompletPrenotazioniAsync`/`AutomaticDeletePrenotazioniAsync`.
+
 ## Note tecniche da tenere a mente
 
 - HTTPS: Railway termina HTTPS a livello proxy → `UseHttpsRedirection` resta commentato in
   `Program.cs`, non riattivarlo in produzione.
 - CORS: origin letti da `AllowedOrigins` in appsettings/env var, mai hardcoded.
+- Enum su DB: **non tutti gli enum sono mappati allo stesso modo** (`Context/GestoraContext.cs`).
+  `Prenotazione.Stato` è salvato come **stringa** (`.HasConversion<string>()`, es. `'Completata'`
+  in colonna), mentre `FasciaOraria.GiornoSettimana` è salvato come **intero**
+  (`.HasConversion<int>()`). Attenzione se si scrive SQL a mano (query dirette, seed, fix
+  manuali su Railway): usare il valore giusto per la colonna giusta, non assumere che tutti gli
+  enum del progetto seguano la stessa convenzione.
 - Cache: chiavi in `Common/CacheKeys.cs` — attenzione a invalidare **tutte** le chiavi
   derivate (es. `FascePerGiorno+giorno`), non solo quella base. `FasciaOrariaService` e
   `PostazioneService` lo fanno correttamente (CACHE-001 risolto 13/08/2026); se si aggiungono

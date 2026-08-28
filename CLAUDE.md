@@ -3,30 +3,52 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 27/08/2026
-Ultima cosa fatta: **FASE 7 COMPLETATA — testing integrato in produzione (Vercel + Railway +
-PostgreSQL). Prossimo passo: FASE 8 (Rilascio).**
+Ultima cosa fatta: **🎉 FASE 8 COMPLETATA — RILASCIO v1.0.0.** Tag `v1.0.0` creato e pushato su
+`main` (commit `6430cc8`). Progetto in produzione, nessun backlog bloccante residuo.
 
 URL produzione: backend `https://gestora-project-production.up.railway.app`, frontend
 `https://gestora-project-xi.vercel.app`. CORS allineato (`AllowedOrigins__1` su Railway con
 l'URL Vercel, verificato con preflight OPTIONS).
 
+Credenziali Admin iniziali: salvate da Fabio in password manager, fuori dal repo (non
+documentate qui per policy di sicurezza del progetto).
+
 Nessun backlog residuo prima del rilascio v1.0: chiusi tutti i punti sospesi dalla Fase 5
 (GAP-001, RBAC-002, AUDIT-001, NAMING-001-residuo, DEAD-CODE-001, dettaglio in
 `BACKEND_FIX_TODO.md` sezione "Fix completate") e tutti i bug emersi nel testing integrato di
-Fase 7:
-- **404 Vercel su refresh e su login fallito**: mancava `vercel.json` con rewrite verso
-  `index.html` (Vercel non sa che le route sono gestite da React Router lato client). In più,
-  l'interceptor Axios faceva redirect a pagina intera su *qualunque* 401, incluso quello di un
-  login con password sbagliata — ora solo se la richiesta aveva un token allegato (sessione
-  scaduta).
-- **Pulsante Annulla mancante per il Cliente**: era condizionato a `isStaff`, mai aggiornato
-  dopo la riapertura di RBAC-002 al Cliente (cutoff 2h) — rimossa la condizione.
+Fase 7 (404 Vercel su refresh/login fallito, pulsante Annulla mancante per il Cliente — vedi
+storico sotto per il dettaglio).
 
 dotnet test 31/31 verdi, `npm run build`/`tsc --noEmit` puliti.
 
-Prossimo passo — **Fase 8 (Rilascio)**: aggiornare questo file con gli URL definitivi (fatto in
-questo aggiornamento), commit finale con tag `v1.0.0`, documentare le credenziali Admin iniziali
-in luogo sicuro (non nel repo), aggiornare il tracker con gli stati finali (fatto).
+Backlog non bloccante per dopo v1.0: `AppuntiFix.txt` (nuovo, sostituisce `Fix Fase 5.txt`) —
+note d'uso quotidiano di Fabio su Gestora, es. "possibile miglioramento della lettura dei log"
+(oggi solo via Railway → Deployments → View Logs, nessuna UI applicativa sull'audit trail
+`Logging`).
+
+### Verifica flussi automatizzati Quartz (27/08/2026)
+
+Due job schedulati (`GestoraWebApi/Background/`, dettaglio in `GestoraWebApi/CLAUDE.md`):
+- **`PrenotazioniCleanupJob`** (02:30, elimina prenotazioni `Completata` più vecchie di 6 mesi):
+  **✅ verificato oggi** forzandolo a comando in locale (nuovo endpoint `POST
+  /api/Jobs/trigger/{jobName}`, solo Admin) su una prenotazione di test con data falsificata a
+  mano nel DB — cancellazione confermata da log e da verifica successiva (404 sull'id).
+- **`PrenotazioniJob`** (02:00, completa automaticamente le prenotazioni `InCorso` scadute):
+  **⏳ in verifica** — lasciato girare naturalmente stanotte su 2 prenotazioni reali in stato
+  "in corso" con data odierna; controllare domattina che siano passate a "Completata".
+
+Durante il test emerso un ambiente di sviluppo locale finalmente allineato: `localhost:5173`
+(frontend, `.env.local` → `http://localhost:5099/api`) + `localhost:5099` (backend locale) + DB
+Postgres locale, **separato in modo stabile e permanente** dalla produzione (Vercel + Railway +
+DB Railway), non solo per il test di oggi. Il DB locale va tenuto allineato manualmente con
+`dotnet ef database update` dopo ogni nuova migration (era rimasto indietro di una migration,
+mancava la colonna `NomeCliente`).
+
+Prossimo passo: nessun rilascio pianificato — il progetto è in produzione. Domattina confermare
+l'esito di `PrenotazioniJob` sulle 2 prenotazioni di test, poi valutare se portare
+`JobsController` (endpoint di trigger manuale job, oggi solo in locale) anche su Railway.
+Eventuali richieste future vanno prima registrate come nuovo punto in `AppuntiFix.txt` o nel
+tracker.
 
 ---
 
@@ -166,7 +188,7 @@ l'URL Railway) — è lì che va deciso cosa fare di FIX-007.
 6. ~~Fix/verifica frontend contro Railway URL~~ ✅ FATTO
 7. ~~Deploy frontend su Vercel~~ ✅ FATTO (`https://gestora-project-xi.vercel.app`)
 8. ~~Testing integrato su produzione~~ ✅ FATTO
-9. Rilascio v1.0.0 ← **prossimo passo**
+9. ~~Rilascio v1.0.0~~ ✅ FATTO (27/08/2026, tag `v1.0.0` su `main`)
 
 ### File fix backend — LEGGERE AD OGNI SESSIONE
 Ogni problema backend trovato va registrato in:

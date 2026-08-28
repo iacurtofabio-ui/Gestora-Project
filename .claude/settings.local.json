@@ -35,7 +35,11 @@
       "Bash(openssl rand *)",
       "Bash(powershell -NoProfile -Command \"Get-ChildItem -Filter 'TrackAttivit*.xlsx' | Select-Object Name, FullName\")",
       "PowerShell($xl = New-Object -ComObject Excel.Application; $xl.Visible=$false; $wb=$xl.Workbooks.Open\\(\"C:\\\\Users\\\\Carlo Taranto\\\\Progetti_Tech\\\\Personali\\\\Gestora\\\\TrackAttività_Gestora.xlsx\",0,$true\\); $ws=$wb.Sheets\\(\"Appunti e Step\"\\); $ur=$ws.UsedRange; $rows=$ur.Rows.Count; $cols=$ur.Columns.Count; Write-Output \"ROWS=$rows COLS=$cols\"; for\\($r=1;$r -le [Math]::Min\\($rows,60\\);$r++\\){ $line=@\\(\\); for\\($c=1;$c -le $cols;$c++\\){ $v=$ws.Cells\\($r,$c\\).Text; if\\($v\\){$line+=$v} }; if\\($line.Count -gt 0\\){ Write-Output \\(\"[$r] \" + \\($line -join \" | \"\\)\\) } }; $wb.Close\\($false\\); $xl.Quit\\(\\))",
-      "PowerShell($xl = New-Object -ComObject Excel.Application; $xl.Visible=$false; $wb=$xl.Workbooks.Open\\(\"C:\\\\Users\\\\Carlo Taranto\\\\Progetti_Tech\\\\Personali\\\\Gestora\\\\TrackAttività_Gestora.xlsx\",0,$true\\); foreach\\($s in $wb.Sheets\\){ Write-Output $s.Name }; $wb.Close\\($false\\); $xl.Quit\\(\\))"
+      "PowerShell($xl = New-Object -ComObject Excel.Application; $xl.Visible=$false; $wb=$xl.Workbooks.Open\\(\"C:\\\\Users\\\\Carlo Taranto\\\\Progetti_Tech\\\\Personali\\\\Gestora\\\\TrackAttività_Gestora.xlsx\",0,$true\\); foreach\\($s in $wb.Sheets\\){ Write-Output $s.Name }; $wb.Close\\($false\\); $xl.Quit\\(\\))",
+      "Bash(mkdir *)",
+      "PowerShell(powershell -File \"C:\\\\Users\\\\CARLOT~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Carlo-Taranto-Progetti-Tech-Personali-Gestora\\\\fa563673-391b-42e3-ac07-af2f7aa46b8b\\\\scratchpad\\\\inspect_tracker.ps1\")",
+      "PowerShell(powershell -File \"C:\\\\Users\\\\CARLOT~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Carlo-Taranto-Progetti-Tech-Personali-Gestora\\\\fa563673-391b-42e3-ac07-af2f7aa46b8b\\\\scratchpad\\\\list_sheets.ps1\")",
+      "PowerShell(powershell -File \"C:\\\\Users\\\\CARLOT~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Carlo-Taranto-Progetti-Tech-Personali-Gestora\\\\fa563673-391b-42e3-ac07-af2f7aa46b8b\\\\scratchpad\\\\update_tracker.ps1\")"
     ]
   }
 }

@@ -65,7 +65,10 @@
   `vercel.json` con rewrite SPA, e l'interceptor Axios faceva redirect a pagina intera su
   qualunque 401 invece che solo su sessione scaduta), pulsante Annulla mancante per il Cliente
   su Prenotazioni (mai aggiornato dopo la riapertura di RBAC-002).
-- **FASE 8: PROSSIMO PASSO.**
+- **FASE 8 — Rilascio: ✅ COMPLETATA (27/08/2026).** Commit finale mergiato su `main`, tag
+  annotato `v1.0.0` creato e pushato su GitHub (commit `6430cc8`). Credenziali Admin iniziali
+  salvate da Fabio in password manager, fuori dal repo. **Progetto in produzione — v1.0.0
+  rilasciata.**
 - **Decisione 13/08/2026** (superata il 27/08/2026): il debito tecnico residuo (RBAC-002,
   AUDIT-001, NAMING-001-residuo) era stato spostato in "Backlog post-v1.0" per non bloccare il
   deploy — tutti e tre chiusi comunque prima della Fase 6, vedi sopra.
