@@ -1,0 +1,7 @@
+bin/
+obj/
+GestoraWebApi.Tests/bin/
+GestoraWebApi.Tests/obj/
+Logs/
+.vs/
+*.user
