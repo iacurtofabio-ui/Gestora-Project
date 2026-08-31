@@ -28,6 +28,9 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using GestoraWebApi.Services.Dashboard;
 using GestoraWebApi.Infrastructure.Middleware;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 
 
@@ -139,7 +142,29 @@ builder.Services.AddMemoryCache();
 
 // Health check: endpoint interrogato dalla piattaforma di hosting dopo ogni deploy.
 // Se non risponde, il deploy viene marcato come fallito e resta online la versione precedente.
-builder.Services.AddHealthChecks();
+// AddDbContextCheck verifica anche che il database sia raggiungibile: senza, un deploy con DB
+// giù o rete privata non ancora pronta risultava comunque "Healthy" (il check controllava solo
+// che il processo rispondesse, non che potesse fare il suo lavoro).
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<GestoraContext>("database");
+
+// Rate limiting sul login: senza, un brute force sulla password non ha alcun freno lato server
+// (il lockout di Identity, configurato in AddJwtAuthentication, blocca l'account dopo N
+// tentativi falliti; questo limita anche il volume di richieste per IP, indipendentemente
+// dall'account preso di mira).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("LoginPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 
 var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
 
@@ -192,6 +217,33 @@ using (var scope = app.Services.CreateScope())
     await RoleSeeder.SeedAsync(roleManager);
 }
 
+// Avviso esplicito se il database non è allineato al codice. Le migration restano applicate a
+// mano (decisione di progetto), quindi questo non blocca l'avvio: serve solo a non scoprire il
+// disallineamento dal primo errore su un endpoint qualsiasi, che sarebbe molto meno leggibile.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<GestoraContext>();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+        if (pending.Count > 0)
+        {
+            startupLogger.LogWarning(
+                "ATTENZIONE: il database ha {Count} migration non applicate: {Migrations}. " +
+                "Il codice si aspetta uno schema più recente di quello presente — applicare con " +
+                "'dotnet ef database update' prima di considerare l'ambiente allineato.",
+                pending.Count, string.Join(", ", pending));
+        }
+    }
+    catch (Exception ex)
+    {
+        // Non deve mai impedire l'avvio: se il controllo stesso fallisce (es. DB
+        // temporaneamente irraggiungibile), meglio un avviso in log che un crash.
+        startupLogger.LogWarning(ex, "Impossibile verificare l'allineamento delle migration all'avvio.");
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -208,6 +260,8 @@ app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 
 app.UseAuthorization();
+
+app.UseRateLimiter();
 
 // Endpoint pubblico e senza autenticazione: deve poter rispondere anche a chi non ha un token.
 app.MapHealthChecks("/health");

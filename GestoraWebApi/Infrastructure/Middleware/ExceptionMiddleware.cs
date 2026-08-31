@@ -61,10 +61,15 @@ namespace GestoraWebApi.Infrastructure.Middleware
                     .ToList();
             }
 
+            // Per le eccezioni non gestite (500) il messaggio non va esposto al client: può
+            // contenere dettagli interni del driver (es. Npgsql) o della query. Per le eccezioni
+            // tipizzate (404/400/409/401) il messaggio è invece scritto apposta dal service per
+            // l'utente, va restituito così com'è.
+            var isUnhandled = statusCode == (int)HttpStatusCode.InternalServerError;
             var response = new ErrorDetails
             {
                 StatusCode = statusCode,
-                Message = exception.Message,
+                Message = isUnhandled ? "Si è verificato un errore interno del server." : exception.Message,
                 Errors = errors,
                 Details = _env.IsDevelopment() ? exception.StackTrace : null
             };

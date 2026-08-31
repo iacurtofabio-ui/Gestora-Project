@@ -167,123 +167,126 @@ In ordine di rapporto valore/sforzo, tutte coerenti con il dominio già modellat
 
 ## 3. Segnalazioni
 
+> Numerate `REV-001`…`REV-097` il 31/08/2026 per tracciabilità con `ROADMAP_REVISIONE.md` — non
+> esistevano ID nella versione originale del 28/08.
+
 ### Priorità ALTA
 
 **Logica applicativa**
-- `check-disponibilita` restituisce sempre disponibilità piena: `NumeroPosti` mai valorizzato — `DisponibilitaService.cs:35` vs `PrenotazioniService.cs:95-101`, `:166-172`
-- Admin/Staff non possono modificare prenotazioni altrui: controllo ownership incondizionato — `PrenotazioniService.cs:144-145`
-- Race condition sulla doppia prenotazione: nessun indice unique dopo `20260826133929`, nessuna transazione, nessun lock — `PrenotazioniService.cs:73-105`, `GestoraContext.cs:139`
-- Vincolo "una prenotazione al giorno" ridotto a TOCTOU dopo la rimozione dell'indice — `PrenotazioniService.cs:387-398`
-- `MaxPrenotazioni` con tre semantiche diverse — `PrenotazioniService.cs:427`, `DisponibilitaService.cs:49`, `Dashboardservice.cs:90`
-- `UpdateAsync` prenotazione senza audit log: unica mutazione che non logga — `PrenotazioniService.cs:131-175`
+- **REV-001** — `check-disponibilita` restituisce sempre disponibilità piena: `NumeroPosti` mai valorizzato — `DisponibilitaService.cs:35` vs `PrenotazioniService.cs:95-101`, `:166-172`
+- **REV-002** — Admin/Staff non possono modificare prenotazioni altrui: controllo ownership incondizionato — `PrenotazioniService.cs:144-145`
+- **REV-003** — Race condition sulla doppia prenotazione: nessun indice unique dopo `20260826133929`, nessuna transazione, nessun lock — `PrenotazioniService.cs:73-105`, `GestoraContext.cs:139`
+- **REV-004** — Vincolo "una prenotazione al giorno" ridotto a TOCTOU dopo la rimozione dell'indice — `PrenotazioniService.cs:387-398`
+- **REV-005** — `MaxPrenotazioni` con tre semantiche diverse — `PrenotazioniService.cs:427`, `DisponibilitaService.cs:49`, `Dashboardservice.cs:90`
+- **REV-006** — `UpdateAsync` prenotazione senza audit log: unica mutazione che non logga — `PrenotazioniService.cs:131-175`
 
 **Backend**
-- `POST seed-admin` pubblico in produzione: su DB vuoto il primo che arriva diventa Admin — `AuthenticationUserController.cs:93`
-- Nessun lockout Identity e nessun rate limiting su `/login`: brute force senza freni — `AuthenticationExtensions.cs:18-20`, `Program.cs`
-- `exception.Message` restituito al client anche sulle 500: leak di messaggi Npgsql — `ExceptionMiddleware.cs:67`
-- Secondo costruttore pubblico con 8 campi `object1..object7` mai assegnati: se il DI lo seleziona il service parte con tutte le dipendenze null — `PrenotazioniService.cs:31-38`, `:61-71`
-- Deploy non versionato: nessun Dockerfile, nessun `railway.json`, configurazione solo nella UI Railway
-- Nessun `Database.Migrate()` allo startup e `/health` senza check sul DB: un deploy con schema disallineato risulta "Healthy" — `Program.cs:142`, `:213`
-- Password policy aggirabile: `AdminResetPasswordDTO` senza validator accetta 6 caratteri alfanumerici — `AuthenticationUserController.cs:268-276`
+- **REV-007** — `POST seed-admin` pubblico in produzione: su DB vuoto il primo che arriva diventa Admin — `AuthenticationUserController.cs:93`
+- **REV-008** — Nessun lockout Identity e nessun rate limiting su `/login`: brute force senza freni — `AuthenticationExtensions.cs:18-20`, `Program.cs`
+- **REV-009** — `exception.Message` restituito al client anche sulle 500: leak di messaggi Npgsql — `ExceptionMiddleware.cs:67`
+- **REV-010** — Secondo costruttore pubblico con 8 campi `object1..object7` mai assegnati: se il DI lo seleziona il service parte con tutte le dipendenze null — `PrenotazioniService.cs:31-38`, `:61-71`
+- **REV-011** — Deploy non versionato: nessun Dockerfile, nessun `railway.json`, configurazione solo nella UI Railway
+- **REV-012** — Nessun `Database.Migrate()` allo startup e `/health` senza check sul DB: un deploy con schema disallineato risulta "Healthy" — `Program.cs:142`, `:213`
+- **REV-013** — Password policy aggirabile: `AdminResetPasswordDTO` senza validator accetta 6 caratteri alfanumerici — `AuthenticationUserController.cs:268-276`
 
 **Frontend**
-- Schermata bianca irreversibile con token malformato in localStorage: `JSON.parse(atob(...))` senza try/catch nell'initializer — `AuthContext.tsx:13`
-- Select "Zona" non collegato al form (`setValue` senza `register`/`value`): dopo `reset()` il DOM mostra la vecchia zona mentre il form invia `null` — `PrenotazioneModal.tsx:108-116`
-- Dashboard con la data sbagliata tra mezzanotte e le 2 (`toISOString()` in UTC) — `DashboardPage.tsx:7-8`, `:12`
-- Nessun fail-fast su `VITE_API_URL` mancante: `baseURL: undefined` manda tutte le chiamate sull'origin Vercel — `lib/axios.ts:4`
+- **REV-014** — Schermata bianca irreversibile con token malformato in localStorage: `JSON.parse(atob(...))` senza try/catch nell'initializer — `AuthContext.tsx:13`
+- **REV-015** — Select "Zona" non collegato al form (`setValue` senza `register`/`value`): dopo `reset()` il DOM mostra la vecchia zona mentre il form invia `null` — `PrenotazioneModal.tsx:108-116`
+- **REV-016** — Dashboard con la data sbagliata tra mezzanotte e le 2 (`toISOString()` in UTC) — `DashboardPage.tsx:7-8`, `:12`
+- **REV-017** — Nessun fail-fast su `VITE_API_URL` mancante: `baseURL: undefined` manda tutte le chiamate sull'origin Vercel — `lib/axios.ts:4`
 
 ### Priorità MEDIA
 
 **Backend**
-- Cache `FascePerGiorno` non invalidata su delete: fascia cancellata servita per 30 minuti — `FasciaOrariaService.cs:135`
-- `Page` non validato in `PrenotazioniQueryParams`: `?page=0` produce `Skip(-20)` — `PrenotazioniQueryParams.cs:9`
-- Ordinamento paginazione non deterministico (solo `DataPrenotazione`): righe duplicate o mancanti tra pagine — `PrenotazioniService.cs:278`
-- N+1 su `GetUsers` (`GetRolesAsync` per utente, senza paginazione) — `AuthenticationUserController.cs:175-188`
-- N+1 nei due job Quartz: una query e una `SaveChanges` per riga — `PrenotazioniService.cs:325-327`, `:345`
-- `Include(PrenotazioniPostazioni)` senza filtro nel percorso caldo dell'assegnazione, dato mai usato — `PostazioneRepository.cs:33`
-- `DisponibilitaService` ignora `Postazione.Attiva` e `Zona.Attiva` — `DisponibilitaService.cs:25`
-- `UnauthorizedAccessException` mappata su 401 invece di 403: fa scattare il logout automatico del frontend — `ExceptionMiddleware.cs:43`
-- `InvalidOperationException → 409` troppo ampia: cattura anche errori interni di EF Core — `ExceptionMiddleware.cs:47`
-- `CheckDisponibilitaDTO` senza validator sull'unico endpoint pubblico
-- Quartz persistente ma non in cluster mode: con più repliche ogni job gira due volte — `Program.cs:100-110`
-- Manca `UseForwardedHeaders`: l'audit trail registra l'IP del proxy, non del client — `PrenotazioniService.cs:400`
-- 5 `NotImplementedException` per soddisfare `IRepository<T>`/`IService<T>` — `ZonaRepository.cs:90`, `FasciaOrariaService.cs:259`, `PostazioneService.cs:94`, `:99`
-- 404 su collezione vuota ancora presente (FIX-007 dichiarato chiuso) — `PrenotazioniService.cs:253-254`, `PrenotazioneController.cs:162-163`
-- Audit log fuori transazione: due `SaveChanges` separati, se il log fallisce la scrittura resta — `PrenotazioniService.cs:103-104`
-- `NomeCliente` scrivibile anche dal Cliente, mentre è documentato come campo Staff/Admin — `PrenotazioniService.cs:90`
-- Un Cliente non può leggere il dettaglio della propria prenotazione (`get-prenotazione` è Admin/Staff) — `PrenotazioneController.cs:43`, `:75`
-- Migration `20260311090312_StatoAsEnum` con `Up()`/`Down()` vuoti, committata in produzione
-- `Microsoft.EntityFrameworkCore.Tools 10.0.0` con stack EF 9.0.9; `Serilog.Sinks.Seq` referenziato e mai configurato — `GestoraWebApi.csproj:31`, `:43`
-- `Logging` senza indici né `MaxLength`: tabella di audit interrogabile solo in full scan — `GestoraContext.cs:13`
-- `DeleteBehavior.Cascade` su utente→prenotazioni: eliminare un utente cancella lo storico e falsa le statistiche — `GestoraContext.cs:116-119`
-- `PostazioniOccupate` in dashboard non distingue le fasce: un tavolo usato a pranzo risulta occupato tutto il giorno — `Dashboardservice.cs:55-61`, `:108`
+- **REV-018** — Cache `FascePerGiorno` non invalidata su delete: fascia cancellata servita per 30 minuti — `FasciaOrariaService.cs:135`
+- **REV-019** — `Page` non validato in `PrenotazioniQueryParams`: `?page=0` produce `Skip(-20)` — `PrenotazioniQueryParams.cs:9`
+- **REV-020** — Ordinamento paginazione non deterministico (solo `DataPrenotazione`): righe duplicate o mancanti tra pagine — `PrenotazioniService.cs:278`
+- **REV-021** — N+1 su `GetUsers` (`GetRolesAsync` per utente, senza paginazione) — `AuthenticationUserController.cs:175-188`
+- **REV-022** — N+1 nei due job Quartz: una query e una `SaveChanges` per riga — `PrenotazioniService.cs:325-327`, `:345`
+- **REV-023** — `Include(PrenotazioniPostazioni)` senza filtro nel percorso caldo dell'assegnazione, dato mai usato — `PostazioneRepository.cs:33`
+- **REV-024** — `DisponibilitaService` ignora `Postazione.Attiva` e `Zona.Attiva` — `DisponibilitaService.cs:25`
+- **REV-025** — `UnauthorizedAccessException` mappata su 401 invece di 403: fa scattare il logout automatico del frontend — `ExceptionMiddleware.cs:43`
+- **REV-026** — `InvalidOperationException → 409` troppo ampia: cattura anche errori interni di EF Core — `ExceptionMiddleware.cs:47`
+- **REV-027** — `CheckDisponibilitaDTO` senza validator sull'unico endpoint pubblico
+- **REV-028** — Quartz persistente ma non in cluster mode: con più repliche ogni job gira due volte — `Program.cs:100-110`
+- **REV-029** — Manca `UseForwardedHeaders`: l'audit trail registra l'IP del proxy, non del client — `PrenotazioniService.cs:400`
+- **REV-030** — 5 `NotImplementedException` per soddisfare `IRepository<T>`/`IService<T>` — `ZonaRepository.cs:90`, `FasciaOrariaService.cs:259`, `PostazioneService.cs:94`, `:99`
+- **REV-031** — 404 su collezione vuota ancora presente (FIX-007 dichiarato chiuso) — `PrenotazioniService.cs:253-254`, `PrenotazioneController.cs:162-163`
+- **REV-032** — Audit log fuori transazione: due `SaveChanges` separati, se il log fallisce la scrittura resta — `PrenotazioniService.cs:103-104`
+- **REV-033** — `NomeCliente` scrivibile anche dal Cliente, mentre è documentato come campo Staff/Admin — `PrenotazioniService.cs:90`
+- **REV-034** — Un Cliente non può leggere il dettaglio della propria prenotazione (`get-prenotazione` è Admin/Staff) — `PrenotazioneController.cs:43`, `:75`
+- **REV-035** — Migration `20260311090312_StatoAsEnum` con `Up()`/`Down()` vuoti, committata in produzione
+- **REV-036** — `Microsoft.EntityFrameworkCore.Tools 10.0.0` con stack EF 9.0.9; `Serilog.Sinks.Seq` referenziato e mai configurato — `GestoraWebApi.csproj:31`, `:43`
+- **REV-037** — `Logging` senza indici né `MaxLength`: tabella di audit interrogabile solo in full scan — `GestoraContext.cs:13`
+- **REV-038** — `DeleteBehavior.Cascade` su utente→prenotazioni: eliminare un utente cancella lo storico e falsa le statistiche — `GestoraContext.cs:116-119`
+- **REV-039** — `PostazioniOccupate` in dashboard non distingue le fasce: un tavolo usato a pranzo risulta occupato tutto il giorno — `Dashboardservice.cs:55-61`, `:108`
 
 **Frontend**
-- `queryClient.clear()` mancante al logout: i dati del primo utente restano in cache dopo il cambio account — `AuthContext.tsx:27-30`
-- Blocco `onError` duplicato 21 volte in 5 hook (~150 LOC eliminabili) — `useZone.ts`, `usePostazioni.ts`, `useFasceOrarie.ts`, `usePrenotazioni.ts`, `useAdminUtenti.ts`
-- Toast doppi su Postazioni: notifica sia nell'hook sia nel modal — `usePostazioni.ts:22`, `:29` vs `PostazioneModal.tsx:57-82`
-- `pageSize: 100` hardcoded senza paginazione UI: oltre 100 prenotazioni i dati spariscono in silenzio — `PrenotazionePage.tsx:34`
-- Bottoni di azione non disabilitati durante la mutation: doppio click uguale doppia chiamata — `PrenotazionePage.tsx:116-129`
-- `ConfirmDialog` non chiudibile con ESC/overlay (`open` senza `onOpenChange`) e con titolo "Conferma eliminazione" hardcoded, riusato per annullare una prenotazione — `ConfirmDialog.tsx:21`, `:24`, `:33`
-- `tsconfig.app.json` senza `"strict": true`
-- Zero test frontend, nessun runner configurato
-- `EditUserModal` e `ResetPasswordModal` senza resolver zod, a differenza di `CreateUserModal` — `EditUserModal.tsx:18`, `ResetPasswordModal.tsx:17`
-- `QueryClient` senza `defaultOptions`: nessun `staleTime`, retry anche sui 403 — `main.tsx:11`
-- Decodifica JWT duplicata in 3 punti, `atob` senza gestione base64url/UTF-8, nessun controllo di `exp` — `AuthContext.tsx:13`, `:21`, `LoginPage.tsx:32`
+- **REV-040** — `queryClient.clear()` mancante al logout: i dati del primo utente restano in cache dopo il cambio account — `AuthContext.tsx:27-30`
+- **REV-041** — Blocco `onError` duplicato 21 volte in 5 hook (~150 LOC eliminabili) — `useZone.ts`, `usePostazioni.ts`, `useFasceOrarie.ts`, `usePrenotazioni.ts`, `useAdminUtenti.ts`
+- **REV-042** — Toast doppi su Postazioni: notifica sia nell'hook sia nel modal — `usePostazioni.ts:22`, `:29` vs `PostazioneModal.tsx:57-82`
+- **REV-043** — `pageSize: 100` hardcoded senza paginazione UI: oltre 100 prenotazioni i dati spariscono in silenzio — `PrenotazionePage.tsx:34`
+- **REV-044** — Bottoni di azione non disabilitati durante la mutation: doppio click uguale doppia chiamata — `PrenotazionePage.tsx:116-129`
+- **REV-045** — `ConfirmDialog` non chiudibile con ESC/overlay (`open` senza `onOpenChange`) e con titolo "Conferma eliminazione" hardcoded, riusato per annullare una prenotazione — `ConfirmDialog.tsx:21`, `:24`, `:33`
+- **REV-046** — `tsconfig.app.json` senza `"strict": true`
+- **REV-047** — Zero test frontend, nessun runner configurato
+- **REV-048** — `EditUserModal` e `ResetPasswordModal` senza resolver zod, a differenza di `CreateUserModal` — `EditUserModal.tsx:18`, `ResetPasswordModal.tsx:17`
+- **REV-049** — `QueryClient` senza `defaultOptions`: nessun `staleTime`, retry anche sui 403 — `main.tsx:11`
+- **REV-050** — Decodifica JWT duplicata in 3 punti, `atob` senza gestione base64url/UTF-8, nessun controllo di `exp` — `AuthContext.tsx:13`, `:21`, `LoginPage.tsx:32`
 
 **Testing**
-- Zero test su `AddAsync`/`UpdateAsync`: l'intero flusso di prenotazione non è coperto
-- I 4 test di assegnazione coprono `TrovaCombinazioniDisponibili`, non `AssegnaPostazioneDisponibileAsync` che decide le assegnazioni reali — `PostazioneAssignmentServiceTests.cs`
-- Zero test su `DisponibilitaService`, `DashboardService`, controller, auth/JWT, RBAC, validator, middleware, job Quartz
-- Nessun test di integrazione (`WebApplicationFactory`), nessun test di concorrenza, nessuna soglia di coverage in CI
+- **REV-051** — Zero test su `AddAsync`/`UpdateAsync`: l'intero flusso di prenotazione non è coperto
+- **REV-052** — I 4 test di assegnazione coprono `TrovaCombinazioniDisponibili`, non `AssegnaPostazioneDisponibileAsync` che decide le assegnazioni reali — `PostazioneAssignmentServiceTests.cs`
+- **REV-053** — Zero test su `DisponibilitaService`, `DashboardService`, controller, auth/JWT, RBAC, validator, middleware, job Quartz
+- **REV-054** — Nessun test di integrazione (`WebApplicationFactory`), nessun test di concorrenza, nessuna soglia di coverage in CI
 
 ### Priorità BASSA
 
 **Backend**
-- Cartelle morte `Services/FasciaOraria/` e `Repositories/FasciaOraria/` (vuote)
-- Quattro forme di naming per lo stesso concetto: `FasciaOrarie` (namespace), `FasciaOrariaService` (classe), `FasceOrarieController` (route), `FasceOrarie` (tabella)
-- `Services/PrenotazioniPostazioni/` contiene solo DTO, nessun service: nome ingannevole
-- Algoritmo greedy duplicato verbatim — `PostazioneAssignmentService.cs:63-80` e `:108-125`
-- `GetAuthenticatedUserId()`/`GetIpAddress()` copiati in 4 service invece che centralizzati
-- Proiezione `FasciaOraria → DTO` ripetuta 4 volte identica — `FasciaOrariaService.cs:153-275`
-- Costanti duplicate: `{2,4,8}` in 3 punti, cache 30 min in 3 punti, retention 6 mesi hardcoded
-- `_mapper` iniettato e mai usato — `FasciaOrariaService.cs:19`; `_itCulture` mai usato — `Dashboardservice.cs:14`
-- `FasciaOrariaMappingProfile` ignora `OrarioInizio`/`OrarioFine`: profilo di fatto inutilizzabile
-- `using` auto-importati e mai ripuliti — `PrenotazioniService.cs:16`, `FasciaOrariaRepository.cs:6`, `PostazioneService.cs:13`
-- `GuardCutoffAsync` è sincrono col suffisso `Async`; `GetAllQueryableAsync` non è async
-- `virtual` sulle navigazioni senza lazy loading abilitato: non fa nulla
-- File di test con nome troncato `FasciaOrariaServiceTe.cs`
-- Email di contatto con typo nel dominio in Swagger — `SwaggerSetup.cs:27`
-- Messaggio 401 generico parla sempre di prenotazioni anche su Dashboard/Zone/Utenti — `AuthenticationExtensions.cs:63`
-- PII: email loggata a ogni tentativo di login, anche fallito — `AuthenticationUserController.cs:65-72`
+- **REV-055** — Cartelle morte `Services/FasciaOraria/` e `Repositories/FasciaOraria/` (vuote)
+- **REV-056** — Quattro forme di naming per lo stesso concetto: `FasciaOrarie` (namespace), `FasciaOrariaService` (classe), `FasceOrarieController` (route), `FasceOrarie` (tabella)
+- **REV-057** — `Services/PrenotazioniPostazioni/` contiene solo DTO, nessun service: nome ingannevole
+- **REV-058** — Algoritmo greedy duplicato verbatim — `PostazioneAssignmentService.cs:63-80` e `:108-125`
+- **REV-059** — `GetAuthenticatedUserId()`/`GetIpAddress()` copiati in 4 service invece che centralizzati
+- **REV-060** — Proiezione `FasciaOraria → DTO` ripetuta 4 volte identica — `FasciaOrariaService.cs:153-275`
+- **REV-061** — Costanti duplicate: `{2,4,8}` in 3 punti, cache 30 min in 3 punti, retention 6 mesi hardcoded
+- **REV-062** — `_mapper` iniettato e mai usato — `FasciaOrariaService.cs:19`; `_itCulture` mai usato — `Dashboardservice.cs:14`
+- **REV-063** — `FasciaOrariaMappingProfile` ignora `OrarioInizio`/`OrarioFine`: profilo di fatto inutilizzabile
+- **REV-064** — `using` auto-importati e mai ripuliti — `PrenotazioniService.cs:16`, `FasciaOrariaRepository.cs:6`, `PostazioneService.cs:13`
+- **REV-065** — `GuardCutoffAsync` è sincrono col suffisso `Async`; `GetAllQueryableAsync` non è async
+- **REV-066** — `virtual` sulle navigazioni senza lazy loading abilitato: non fa nulla
+- **REV-067** — File di test con nome troncato `FasciaOrariaServiceTe.cs`
+- **REV-068** — Email di contatto con typo nel dominio in Swagger — `SwaggerSetup.cs:27`
+- **REV-069** — Messaggio 401 generico parla sempre di prenotazioni anche su Dashboard/Zone/Utenti — `AuthenticationExtensions.cs:63`
+- **REV-070** — PII: email loggata a ogni tentativo di login, anche fallito — `AuthenticationUserController.cs:65-72`
 
 **Frontend**
-- Responsive assente: zero breakpoint nelle pagine, sidebar `w-64` fissa senza menu mobile, 7 tabelle senza `overflow-x-auto`. Su smartphone l'app non è usabile
-- Accessibilità: nessun `htmlFor`/`id` nei form, checkbox con `<span>` al posto di `<label>`, `PrenotazioneModal` è un overlay artigianale senza focus trap né ESC mentre tutti gli altri usano Radix
-- Empty state assenti su Zone, Postazioni, Fasce, Prenotazioni, Utenti: tabella con la sola intestazione. In `/postazioni`, prima di scegliere la zona, sembra un errore
-- Loading a pagina intera in 6 pagine: a ogni refetch la UI sparisce e riappare
-- Stile incoerente: metà app usa `<Button>` shadcn, metà `<button className="bg-blue-500">`, colore fuori dalla palette del tema
-- React Query Devtools importati staticamente: finiscono nel bundle di produzione — `main.tsx:5`, `:18`
-- Codice morto: `App.tsx`, `App.css`, `src/assets/*`, `useUpdateStatoZona`, `useDeletePrenotazione`, `useFasceOrarie`; costante `GIORNI` duplicata
-- Prettier configurato ma non applicato (indentazione a 4 spazi contro `tabWidth: 2` in 3 pagine); nessun hook pre-commit
-- `index.html` con `lang="en"` su app in italiano e title `gestora-frontend`; nessuna favicon né meta description
-- `/unauthorized` è un vicolo cieco: nessun link di ritorno
-- Header senza username/ruolo, sidebar senza stato attivo: non si capisce in che pagina si è
-- URL degli endpoint scritte inline negli hook: nessun punto unico per i path
+- **REV-071** — Responsive assente: zero breakpoint nelle pagine, sidebar `w-64` fissa senza menu mobile, 7 tabelle senza `overflow-x-auto`. Su smartphone l'app non è usabile
+- **REV-072** — Accessibilità: nessun `htmlFor`/`id` nei form, checkbox con `<span>` al posto di `<label>`, `PrenotazioneModal` è un overlay artigianale senza focus trap né ESC mentre tutti gli altri usano Radix
+- **REV-073** — Empty state assenti su Zone, Postazioni, Fasce, Prenotazioni, Utenti: tabella con la sola intestazione. In `/postazioni`, prima di scegliere la zona, sembra un errore
+- **REV-074** — Loading a pagina intera in 6 pagine: a ogni refetch la UI sparisce e riappare
+- **REV-075** — Stile incoerente: metà app usa `<Button>` shadcn, metà `<button className="bg-blue-500">`, colore fuori dalla palette del tema
+- **REV-076** — React Query Devtools importati staticamente: finiscono nel bundle di produzione — `main.tsx:5`, `:18`
+- **REV-077** — Codice morto: `App.tsx`, `App.css`, `src/assets/*`, `useUpdateStatoZona`, `useDeletePrenotazione`, `useFasceOrarie`; costante `GIORNI` duplicata
+- **REV-078** — Prettier configurato ma non applicato (indentazione a 4 spazi contro `tabWidth: 2` in 3 pagine); nessun hook pre-commit
+- **REV-079** — `index.html` con `lang="en"` su app in italiano e title `gestora-frontend`; nessuna favicon né meta description
+- **REV-080** — `/unauthorized` è un vicolo cieco: nessun link di ritorno
+- **REV-081** — Header senza username/ruolo, sidebar senza stato attivo: non si capisce in che pagina si è
+- **REV-082** — URL degli endpoint scritte inline negli hook: nessun punto unico per i path
 
 **Gestione / processo**
-- `BACKEND_FIX_TODO.md` dichiara zero fix aperte mentre FIX-007 è ancora presente in 2 punti
-- Il tracker dà "Completato" a "Reportistica + export CSV/PDF" che non esiste
-- `Guida_Test_Swagger.txt` fermo al 20/03/2026: non copre cutoff 2h, `NomeCliente`, `get-mie-prenotazioni`, dashboard, pannello utenti. È l'unico surrogato di criteri di accettazione ed è disallineato
-- Nessuna matrice requisito→implementazione: i casi d'uso numerati non sono mai richiamati in tracker, fix o commit
-- Nessuna Definition of Done: gli stati sono normati per colore, non per semantica
-- Conteggio test incoerente tra i documenti: 18 / 28 / 31
-- "Clean Architecture + DDD" dichiarato in due documenti e in `PIANO_RILASCIO.md`, ma la struttura reale è layered in un unico progetto
-- Contraddizione mai risolta: "creazione dinamica delle postazioni con i coperti richiesti" contro capienza vincolata a {2,4,8}
-- Modello dati senza diagramma ER (la sezione "Diagramma UML" è un titolo vuoto); `NomeCliente` mai aggiunto al foglio *Modelli*; nessun registro delle migration
-- Concorrenza, fusi orari, prenotazioni a cavallo di mezzanotte, modifica di fasce/postazioni con prenotazioni future: mai trattati a livello di analisi
-- Stato del progetto distribuito su 5 fonti con protocollo di aggiornamento su 6 fogli: è qui che si generano le incoerenze
-- Percorso errato `02_Personali\Gestora` in `CLAUDE.md` e nelle istruzioni globali (reale: `Personali\Gestora`)
-- `CLAUDE.md` §Stack dice ancora "FRONTEND (completato — deploy pendente)" mentre il deploy Vercel è fatto
-- Grafo `graphify-out/` fermo al 14/08: non riflette le Fasi 5-7
-- `JobsController.cs` non committato, presente solo nel working tree
+- **REV-083** — `BACKEND_FIX_TODO.md` dichiara zero fix aperte mentre FIX-007 è ancora presente in 2 punti
+- **REV-084** — Il tracker dà "Completato" a "Reportistica + export CSV/PDF" che non esiste
+- **REV-085** — `Guida_Test_Swagger.txt` fermo al 20/03/2026: non copre cutoff 2h, `NomeCliente`, `get-mie-prenotazioni`, dashboard, pannello utenti. È l'unico surrogato di criteri di accettazione ed è disallineato
+- **REV-086** — Nessuna matrice requisito→implementazione: i casi d'uso numerati non sono mai richiamati in tracker, fix o commit
+- **REV-087** — Nessuna Definition of Done: gli stati sono normati per colore, non per semantica
+- **REV-088** — Conteggio test incoerente tra i documenti: 18 / 28 / 31
+- **REV-089** — "Clean Architecture + DDD" dichiarato in due documenti e in `PIANO_RILASCIO.md`, ma la struttura reale è layered in un unico progetto
+- **REV-090** — Contraddizione mai risolta: "creazione dinamica delle postazioni con i coperti richiesti" contro capienza vincolata a {2,4,8}
+- **REV-091** — Modello dati senza diagramma ER (la sezione "Diagramma UML" è un titolo vuoto); `NomeCliente` mai aggiunto al foglio *Modelli*; nessun registro delle migration
+- **REV-092** — Concorrenza, fusi orari, prenotazioni a cavallo di mezzanotte, modifica di fasce/postazioni con prenotazioni future: mai trattati a livello di analisi
+- **REV-093** — Stato del progetto distribuito su 5 fonti con protocollo di aggiornamento su 6 fogli: è qui che si generano le incoerenze
+- **REV-094** — Percorso errato `02_Personali\Gestora` in `CLAUDE.md` e nelle istruzioni globali (reale: `Personali\Gestora`)
+- **REV-095** — `CLAUDE.md` §Stack dice ancora "FRONTEND (completato — deploy pendente)" mentre il deploy Vercel è fatto
+- **REV-096** — Grafo `graphify-out/` fermo al 14/08: non riflette le Fasi 5-7
+- **REV-097** — `JobsController.cs` non committato, presente solo nel working tree (risolto il 27/08/2026, committato in `3d614b1`)

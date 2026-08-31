@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GestoraWebApi.Controllers
 {
@@ -17,16 +18,19 @@ namespace GestoraWebApi.Controllers
         private readonly IJwtTokenGenerator _tokenGenerator;
         private readonly ILogger<AuthenticationUserController> _logger;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogActivityService _logActivityService;
 
         public AuthenticationUserController(IJwtTokenGenerator tokenGenerator,
                                             ILogger<AuthenticationUserController> logger,
                                             UserManager<ApplicationUser> userManager,
+                                            SignInManager<ApplicationUser> signInManager,
                                             ILogActivityService logActivityService)
         {
             _tokenGenerator = tokenGenerator;
             _logger = logger;
             _userManager = userManager;
+            _signInManager = signInManager;
             _logActivityService = logActivityService;
         }
 
@@ -59,6 +63,7 @@ namespace GestoraWebApi.Controllers
         }
 
         /// <summary>Login — restituisce il token JWT con i ruoli dell'utente</summary>
+        [EnableRateLimiting("LoginPolicy")]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
@@ -66,7 +71,28 @@ namespace GestoraWebApi.Controllers
                 nameof(AuthenticationUserController), nameof(Login), request.Email, DateTime.UtcNow);
 
             var user = await _userManager.FindByEmailAsync(request.Email);
-            if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
+            if (user == null)
+            {
+                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato per {Email} - {Timestamp}",
+                    nameof(AuthenticationUserController), nameof(Login), request.Email, DateTime.UtcNow);
+
+                return Unauthorized("Credenziali non valide.");
+            }
+
+            // CheckPasswordSignInAsync (invece di CheckPasswordAsync) tiene traccia dei
+            // tentativi falliti e applica il lockout configurato in AuthenticationExtensions.
+            var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+
+            if (signInResult.IsLockedOut)
+            {
+                _logger.LogWarning("[{Controller}] - [{Method}]: Account bloccato per troppi tentativi falliti - {Timestamp}",
+                    nameof(AuthenticationUserController), nameof(Login), DateTime.UtcNow);
+
+                return StatusCode(StatusCodes.Status423Locked,
+                    "Account temporaneamente bloccato per troppi tentativi falliti. Riprova più tardi.");
+            }
+
+            if (!signInResult.Succeeded)
             {
                 _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato per {Email} - {Timestamp}",
                     nameof(AuthenticationUserController), nameof(Login), request.Email, DateTime.UtcNow);

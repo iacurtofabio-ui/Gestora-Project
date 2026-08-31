@@ -2,33 +2,45 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 28/08/2026
-Ultima cosa fatta: **revisione end-to-end del progetto e roadmap di chiusura v1.**
-**FASE 0 DELLA ROADMAP CHIUSA.** Alla prossima sessione si riprende dalla **FASE 1**.
+Ultima sessione: 31/08/2026
+Ultima cosa fatta: **revisione architetturale della roadmap (confronto con una seconda sessione,
+3 decisioni prese, documento riscritto con tracciabilità REV-ID) + parte 🤖 della FASE 1
+implementata e verificata.**
+**FASE 0 CHIUSA.** Alla prossima sessione: guidare Fabio nei suoi 2 task Railway di Fase 1, poi
+chiudere la fase e passare alla Fase 2.
 
 ### Riprendere da qui — leggere in quest'ordine
 
-1. **`ROADMAP_REVISIONE.md`** — il documento operativo da seguire. Contiene 12 fasi in ordine,
-   con separazione esplicita fra task a carico di Fabio (🧑) e task a carico di Claude (🤖), e in
-   testa le **9 decisioni di prodotto già prese il 28/08**: non riaprirle, sono vincolanti.
-2. **`REVISIONE_END_TO_END.md`** — la revisione completa da cui nasce la roadmap: valutazione,
-   feedback sulla logica applicativa e ~90 segnalazioni su tre fasce di priorità.
+1. **`ROADMAP_REVISIONE.md`** — il documento operativo da seguire, riscritto il 31/08/2026:
+   Definition of Done, procedura per le migration in produzione, tracciabilità con ID
+   `REV-001`…`REV-097`, Fase 2 già divisa in checkpoint 2a/2b/2c. **10 decisioni di prodotto**
+   vincolanti in testa (le 9 del 28/08 + la 10 del 31/08 su "una prenotazione al giorno" Cliente,
+   rimandata al backlog v2.0): non riaprirle.
+2. **`REVISIONE_END_TO_END.md`** — la revisione completa da cui nasce la roadmap, ora con ID
+   `REV-001`…`REV-097` su ogni segnalazione.
 
 ⚠️ **Attenzione**: `BACKEND_FIX_TODO.md` dichiara "nessun backlog residuo". **Non è più vero.**
 Lo era prima della revisione del 28/08; da quel momento il backlog reale è
 `REVISIONE_END_TO_END.md` e l'ordine di lavorazione è `ROADMAP_REVISIONE.md`.
 
-### Prossimo passo — FASE 1 (fondamenta di deploy)
+### Prossimo passo — chiudere la FASE 1 (fondamenta di deploy)
 
-A carico di Claude: portare la configurazione di build/deploy nel repository (oggi vive solo nel
-pannello Railway), far verificare al health check anche il database, aggiungere un avviso
-all'avvio quando il DB non è allineato al codice, correggere la migration `StatoAsEnum` vuota,
-allineare i pacchetti disallineati.
-A carico di Fabio: su Railway togliere il comando di build personalizzato, e verificare il
-rilascio.
+**Parte 🤖 Claude già fatta e verificata** (`dotnet build` pulito, `dotnet test` 31/31 verdi):
+config di build/deploy portata nel repo (`GestoraWebApi/railway.json`), health check esteso al
+database (`AddDbContextCheck`), avviso in log all'avvio se ci sono migration non applicate,
+migration `StatoAsEnum` documentata come no-op intenzionale, pacchetti allineati (EF Tools
+9.0.9, rimosso `Serilog.Sinks.Seq` mai usato), più 3 fix di sicurezza anticipati dalla Fase 4
+(REV-008 lockout+rate limit login, REV-009 niente più leak di `exception.Message` sulle 500,
+REV-013 policy password anche sul reset Admin).
+
+**Parte 🧑 Fabio, ancora da fare**: su Railway togliere il comando di build personalizzato (ora
+nel repo), verificare che il rilascio vada a buon fine e che `/health` risponda. Va fatto **dopo**
+il merge/deploy della parte Claude, non prima (altrimenti Railway builda con le impostazioni di
+default e il deploy si rompe).
 
 > Nota sulle migration: per decisione del 28/08 **restano manuali**. Claude prepara la migration,
-> Fabio la applica. Riguarda le Fasi 2 e 3.
+> Fabio la applica seguendo la procedura descritta in testa a `ROADMAP_REVISIONE.md`. Riguarda le
+> Fasi 2 e 3.
 
 ---
 

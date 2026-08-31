@@ -18,6 +18,12 @@ namespace GestoraWebApi.Extensions
                 options.Password.RequiredLength = 6;
                 options.Password.RequireNonAlphanumeric = false;
                 options.Password.RequireDigit = true;
+
+                // Lockout: senza questo, CheckPasswordSignInAsync tiene traccia dei tentativi
+                // falliti ma non blocca mai l'account — brute force senza freni sul login.
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<GestoraContext>()
             .AddDefaultTokenProviders();
