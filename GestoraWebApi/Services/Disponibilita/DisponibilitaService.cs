@@ -46,7 +46,7 @@ namespace GestoraWebApi.Services.Disponibilita
             {
                 var prenotazioniFascia = prenotazioni.Where(p => p.FasciaOrariaId == f.Id).ToList();
 
-                if (f.MaxPrenotazioni > 0 && prenotazioniFascia.Count >= f.MaxPrenotazioni)
+                if (f.MaxCoperti > 0 && prenotazioniFascia.Count >= f.MaxCoperti)
                     continue;
 
                 var fasciaDto = new FasciaDisponibilitaDTO

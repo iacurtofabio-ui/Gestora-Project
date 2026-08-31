@@ -3,7 +3,7 @@ export type FasciaOrariaDTO = {
     orarioInizio: string
     orarioFine: string
     giornoSettimana: number
-    maxPrenotazioni: number
+    maxCoperti: number
     attiva: boolean
 }
 
@@ -11,6 +11,6 @@ export type FasciaOrariaFormDTO = {
     orarioInizio: string
     orarioFine: string
     giornoSettimana: number
-    maxPrenotazioni: number
+    maxCoperti: number
     attiva: boolean
 }

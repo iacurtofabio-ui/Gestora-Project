@@ -43,7 +43,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             {
                 Id = dto.Id,
                 GiornoSettimana = dto.GiornoSettimana,
-                MaxPrenotazioni = dto.MaxPrenotazioni,
+                MaxCoperti = dto.MaxCoperti,
                 Attiva = dto.Attiva,
                 OrarioInizio = TimeOnly.FromTimeSpan(orarioInizio),
                 OrarioFine = TimeOnly.FromTimeSpan(orarioFine)
@@ -106,12 +106,12 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             var copertiOccupati = await _fasciaRepository.CountNumeroCopertiFasciaOrariaAsync(fasciaId, data);
 
-            var postiDisponibili = fascia.MaxPrenotazioni - copertiOccupati;
+            var postiDisponibili = fascia.MaxCoperti - copertiOccupati;
 
             return new DisponibilitaFasciaDTO
             {
                 FasciaId = fascia.Id,
-                PostiTotali = fascia.MaxPrenotazioni,
+                PostiTotali = fascia.MaxCoperti,
                 PostiOccupati = copertiOccupati,
                 PostiDisponibili = postiDisponibili < 0 ? 0 : postiDisponibili,
                 Disponibile = postiDisponibili > 0
@@ -154,7 +154,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             {
                 Id = f.Id,
                 GiornoSettimana = f.GiornoSettimana,
-                MaxPrenotazioni = f.MaxPrenotazioni,
+                MaxCoperti = f.MaxCoperti,
                 Attiva = f.Attiva,
                 OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
                 OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
@@ -178,7 +178,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             {
                 Id = f.Id,
                 GiornoSettimana = f.GiornoSettimana,
-                MaxPrenotazioni = f.MaxPrenotazioni,
+                MaxCoperti = f.MaxCoperti,
                 Attiva = f.Attiva,
                 OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
                 OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
@@ -205,7 +205,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
                 //usare _mapper per convertire FasciaOraria con FasciaOrariaDTO
                 Id = fascia.Id,
                 GiornoSettimana = fascia.GiornoSettimana,
-                MaxPrenotazioni = fascia.MaxPrenotazioni,
+                MaxCoperti = fascia.MaxCoperti,
                 Attiva = fascia.Attiva,
                 OrarioInizio = fascia.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
                 OrarioFine = fascia.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
@@ -237,7 +237,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             // Applico le modifiche sull'entità esistente
             existing.GiornoSettimana = dto.GiornoSettimana;
-            existing.MaxPrenotazioni = dto.MaxPrenotazioni;
+            existing.MaxCoperti = dto.MaxCoperti;
             existing.Attiva = dto.Attiva;
             existing.OrarioInizio = TimeOnly.FromTimeSpan(orarioInizio);
             existing.OrarioFine = TimeOnly.FromTimeSpan(orarioFine);
@@ -268,7 +268,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             {
                 Id = f.Id,
                 GiornoSettimana = f.GiornoSettimana,
-                MaxPrenotazioni = f.MaxPrenotazioni,
+                MaxCoperti = f.MaxCoperti,
                 Attiva = f.Attiva,
                 OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
                 OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")

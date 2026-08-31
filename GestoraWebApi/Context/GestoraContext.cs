@@ -76,9 +76,9 @@ namespace GestoraWebApi.Context
                     .IsRequired()
                     .HasColumnName("GiornoSettimana");
 
-                entity.Property(f => f.MaxPrenotazioni)
+                entity.Property(f => f.MaxCoperti)
                     .IsRequired()
-                    .HasColumnName("MaxPrenotazioni");
+                    .HasColumnName("MaxCoperti");
 
                 entity.Property(f => f.Attiva)
                     .IsRequired()

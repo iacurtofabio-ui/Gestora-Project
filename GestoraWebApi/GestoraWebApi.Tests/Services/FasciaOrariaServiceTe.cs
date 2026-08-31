@@ -50,12 +50,12 @@ namespace GestoraWebApi.Tests.Services
                     new() { Id = 1, Attiva = true,  GiornoSettimana = DayOfWeek.Monday,
                                                     OrarioInizio = new TimeOnly(12, 0),
                                                     OrarioFine = new TimeOnly(14, 0),
-                                                    MaxPrenotazioni = 10 },
+                                                    MaxCoperti = 10 },
 
                     new() { Id = 2, Attiva = false, GiornoSettimana = DayOfWeek.Tuesday,
                                                     OrarioInizio = new TimeOnly(19, 0),
                                                     OrarioFine = new TimeOnly(21, 0),
-                                                    MaxPrenotazioni = 8 }
+                                                    MaxCoperti = 8 }
                 };
 
             _repoMock
@@ -131,7 +131,7 @@ namespace GestoraWebApi.Tests.Services
                 GiornoSettimana = DayOfWeek.Monday,
                 OrarioInizio = "13:00",
                 OrarioFine = "15:00",
-                MaxPrenotazioni = 10,
+                MaxCoperti = 10,
                 Attiva = true
             };
 
@@ -154,7 +154,7 @@ namespace GestoraWebApi.Tests.Services
                 GiornoSettimana = DayOfWeek.Monday,
                 OrarioInizio = "non-un-orario",
                 OrarioFine = "15:00",
-                MaxPrenotazioni = 10,
+                MaxCoperti = 10,
                 Attiva = true
             };
 
@@ -180,7 +180,7 @@ namespace GestoraWebApi.Tests.Services
                 GiornoSettimana = DayOfWeek.Monday,
                 OrarioInizio = "12:00",
                 OrarioFine = "14:00",
-                MaxPrenotazioni = 10,
+                MaxCoperti = 10,
                 Attiva = true
             };
 

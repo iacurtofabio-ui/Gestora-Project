@@ -14,14 +14,14 @@ namespace GestoraWebApi.Mappings
                 .ForMember(dest => dest.OrarioInizio, opt => opt.Ignore())
                 .ForMember(dest => dest.OrarioFine, opt => opt.Ignore())
                 .ForMember(dest => dest.GiornoSettimana, opt => opt.MapFrom(src => src.GiornoSettimana))
-                .ForMember(dest => dest.MaxPrenotazioni, opt => opt.MapFrom(src => src.MaxPrenotazioni))
+                .ForMember(dest => dest.MaxCoperti, opt => opt.MapFrom(src => src.MaxCoperti))
                 .ForMember(dest => dest.Attiva, opt => opt.MapFrom(src => src.Attiva));
 
             CreateMap<FasciaOraria, FasciaOrariaDTO>()
                 .ForMember(dest => dest.OrarioInizio, opt => opt.Ignore())
                 .ForMember(dest => dest.OrarioFine, opt => opt.Ignore())
                 .ForMember(dest => dest.GiornoSettimana, opt => opt.MapFrom(src => src.GiornoSettimana))
-                .ForMember(dest => dest.MaxPrenotazioni, opt => opt.MapFrom(src => src.MaxPrenotazioni))
+                .ForMember(dest => dest.MaxCoperti, opt => opt.MapFrom(src => src.MaxCoperti))
                 .ForMember(dest => dest.Attiva, opt => opt.MapFrom(src => src.Attiva));
         }
     }

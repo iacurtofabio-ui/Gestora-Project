@@ -14,7 +14,7 @@ const schema = z.object({
     orarioInizio: z.string().min(1, 'Orario obbligatorio'),
     orarioFine: z.string().min(1, 'Orario obbligatorio'),
     giornoSettimana: z.number().min(0, 'Giorno obbligatorio'),
-    maxPrenotazioni: z.number().min(1, 'Numero obbligatorio'),
+    maxCoperti: z.number().min(1, 'Numero obbligatorio'),
     attiva: z.boolean(),
 })
 
@@ -37,7 +37,7 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
             orarioInizio: fascia?.orarioInizio,
             orarioFine: fascia?.orarioFine,
             giornoSettimana: fascia?.giornoSettimana,
-            maxPrenotazioni: fascia?.maxPrenotazioni,
+            maxCoperti: fascia?.maxCoperti,
             attiva: fascia?.attiva ?? true,
         },
     })
@@ -47,7 +47,7 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
             orarioInizio: fascia?.orarioInizio,
             orarioFine: fascia?.orarioFine,
             giornoSettimana: fascia?.giornoSettimana,
-            maxPrenotazioni: fascia?.maxPrenotazioni,
+            maxCoperti: fascia?.maxCoperti,
             attiva: fascia?.attiva ?? true,
         })
     }, [fascia, reset])
@@ -102,16 +102,17 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
                         {errors.giornoSettimana && <p className="text-red-500 text-sm mt-1">{errors.giornoSettimana.message}</p>}
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-gray-700">Max Prenotazioni</label>
+                        <label className="text-sm font-medium text-gray-700">Capienza massima (coperti)</label>
+                        <p className="text-xs text-gray-500 mt-0.5">Numero massimo di persone prenotabili in questa fascia oraria, non il numero di prenotazioni.</p>
                         <input
-                            {...register('maxPrenotazioni', {
+                            {...register('maxCoperti', {
                                 valueAsNumber: true
                             })}
                             type="number"
-                            placeholder="maxPrenotazioni"
-                            className="w-full border rounded px-3 py-2"
+                            placeholder="Es. 40"
+                            className="w-full border rounded px-3 py-2 mt-1"
                         />
-                        {errors.maxPrenotazioni && <p className="text-red-500 text-sm mt-1">{errors.maxPrenotazioni.message}</p>}
+                        {errors.maxCoperti && <p className="text-red-500 text-sm mt-1">{errors.maxCoperti.message}</p>}
                     </div>
                     <div className="flex items-center gap-2">
                         <input

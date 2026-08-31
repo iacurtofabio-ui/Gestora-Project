@@ -5,7 +5,7 @@
         public TimeOnly OrarioInizio { get; set; }
         public TimeOnly OrarioFine { get; set; }
         public DayOfWeek GiornoSettimana { get; set; }
-        public int MaxPrenotazioni { get; set; }
+        public int MaxCoperti { get; set; }
         public bool Attiva { get; set; }
 
 

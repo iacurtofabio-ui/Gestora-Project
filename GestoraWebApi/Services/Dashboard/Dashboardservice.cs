@@ -87,9 +87,9 @@ namespace GestoraWebApi.Services.Dashboard
                     FasciaOrariaId = f.Id,
                     OraInizio = f.OrarioInizio.ToString("HH:mm"),
                     OraFine = f.OrarioFine.ToString("HH:mm"),
-                    MaxCoperti = f.MaxPrenotazioni,
+                    MaxCoperti = f.MaxCoperti,
                     CopertiPrenotati = copertiPrenotati,
-                    CopertiDisponibili = Math.Max(0, f.MaxPrenotazioni - copertiPrenotati),
+                    CopertiDisponibili = Math.Max(0, f.MaxCoperti - copertiPrenotati),
                     NumeroPrenotazioni = prenotazioniFascia.Count
                 };
             }).ToList();

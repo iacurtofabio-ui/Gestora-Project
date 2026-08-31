@@ -424,7 +424,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                     (!excludePrenotazioneId.HasValue || p.Id != excludePrenotazioneId.Value))
                 .SumAsync(p => p.NumeroCoperti);
 
-            int copertiDisponibili = fasciaOraria.MaxPrenotazioni - copertiGiaPrenotati;
+            int copertiDisponibili = fasciaOraria.MaxCoperti - copertiGiaPrenotati;
             if (dto.NumeroCoperti > copertiDisponibili)
                 throw new InvalidOperationException(
                     copertiDisponibili <= 0

@@ -45,7 +45,7 @@ export default function FasciaOrariaPage() {
                         <th className="text-left p-3">Orario Inizio</th>
                         <th className="text-left p-3">Orario Fine</th>
                         <th className="text-left p-3">Giorno Settimana</th>
-                        <th className="text-left p-3">Max Prenotazioni</th>
+                        <th className="text-left p-3">Capienza (coperti)</th>
                         <th className="text-left p-3">Attiva</th>
                         {isAdmin && <th className="text-left p-3">Azioni</th>}
                     </tr>
@@ -56,7 +56,7 @@ export default function FasciaOrariaPage() {
                             <td className="p-3">{fasciaOraria.orarioInizio}</td>
                             <td className="p-3">{fasciaOraria.orarioFine}</td>
                             <td className="p-3">{GIORNI[fasciaOraria.giornoSettimana]}</td>
-                            <td className="p-3">{fasciaOraria.maxPrenotazioni}</td>
+                            <td className="p-3">{fasciaOraria.maxCoperti}</td>
                             <td className="p-3">{fasciaOraria.attiva ? 'Sì' : 'No'}</td>
 
                             {isAdmin && (

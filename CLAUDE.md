@@ -3,11 +3,8 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 31/08/2026
-Ultima cosa fatta: **revisione architetturale della roadmap (confronto con una seconda sessione,
-3 decisioni prese, documento riscritto con tracciabilità REV-ID) + parte 🤖 della FASE 1
-implementata e verificata.**
-**FASE 0 CHIUSA.** Alla prossima sessione: guidare Fabio nei suoi 2 task Railway di Fase 1, poi
-chiudere la fase e passare alla Fase 2.
+Ultima cosa fatta: **FASE 1 DELLA ROADMAP CHIUSA** (fondamenta di deploy). Alla prossima sessione
+si riparte dalla **FASE 2** (checkpoint 2a — rename `MaxPrenotazioni`→`MaxCoperti`).
 
 ### Riprendere da qui — leggere in quest'ordine
 
@@ -23,20 +20,32 @@ chiudere la fase e passare alla Fase 2.
 Lo era prima della revisione del 28/08; da quel momento il backlog reale è
 `REVISIONE_END_TO_END.md` e l'ordine di lavorazione è `ROADMAP_REVISIONE.md`.
 
-### Prossimo passo — chiudere la FASE 1 (fondamenta di deploy)
+### Fase 1 — riepilogo (chiusa il 31/08/2026)
 
-**Parte 🤖 Claude già fatta e verificata** (`dotnet build` pulito, `dotnet test` 31/31 verdi):
-config di build/deploy portata nel repo (`GestoraWebApi/railway.json`), health check esteso al
-database (`AddDbContextCheck`), avviso in log all'avvio se ci sono migration non applicate,
-migration `StatoAsEnum` documentata come no-op intenzionale, pacchetti allineati (EF Tools
-9.0.9, rimosso `Serilog.Sinks.Seq` mai usato), più 3 fix di sicurezza anticipati dalla Fase 4
+Config di build/deploy portata nel repo (`GestoraWebApi/railway.json` + `global.json`), health
+check esteso al database (`AddDbContextCheck`), avviso in log all'avvio se ci sono migration non
+applicate, migration `StatoAsEnum` documentata come no-op intenzionale, pacchetti allineati (EF
+Tools 9.0.9, rimosso `Serilog.Sinks.Seq` mai usato), 3 fix di sicurezza anticipati dalla Fase 4
 (REV-008 lockout+rate limit login, REV-009 niente più leak di `exception.Message` sulle 500,
-REV-013 policy password anche sul reset Admin).
+REV-013 policy password anche sul reset Admin). Su Railway tolto il comando di build
+personalizzato dal pannello (ora vive in `railway.json`). Verificato: `dotnet test` 31/31 verdi,
+`GET /health` in produzione → `Healthy` (ora copre anche la raggiungibilità del DB, non solo il
+processo).
 
-**Parte 🧑 Fabio, ancora da fare**: su Railway togliere il comando di build personalizzato (ora
-nel repo), verificare che il rilascio vada a buon fine e che `/health` risponda. Va fatto **dopo**
-il merge/deploy della parte Claude, non prima (altrimenti Railway builda con le impostazioni di
-default e il deploy si rompe).
+> **Trovato e corretto durante il primo deploy**: `railway.json` da solo non bastava — Nixpacks
+> senza `global.json` installava SDK .NET 6 invece di 9 (build falliva con `NETSDK1045`), e senza
+> `startCommand` esplicito indovinava di avviare `GestoraWebApi.Tests` invece dell'API. Entrambi
+> fissati esplicitamente nei due file. Da tenere a mente per qualunque futura modifica alla
+> configurazione di build: Nixpacks non sempre auto-rileva correttamente in un repo con più
+> progetti .csproj.
+
+### Prossimo passo — FASE 2 (logica di prenotazione e assegnazione tavoli)
+
+Checkpoint 2a: rename `MaxPrenotazioni`→`MaxCoperti` (migration dedicata, comportamento
+invariato). Poi 2b (nuovo algoritmo di assegnazione) e 2c (disponibilità/assegnazione unificate +
+fix correlati). Dettaglio completo in `ROADMAP_REVISIONE.md` — leggerlo prima di iniziare, la
+formula del bonus capienza e il limite di 4 tavoli per unione sono decisioni già prese, non
+riaprirle.
 
 > Nota sulle migration: per decisione del 28/08 **restano manuali**. Claude prepara la migration,
 > Fabio la applica seguendo la procedura descritta in testa a `ROADMAP_REVISIONE.md`. Riguarda le
