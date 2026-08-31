@@ -118,6 +118,36 @@ attese.
 
 Nessun test unitario copre oggi `AutomaticCompletPrenotazioniAsync`/`AutomaticDeletePrenotazioniAsync`.
 
+## Assegnazione tavoli (riscritta 31/08/2026, checkpoint 2b)
+
+`Services/PostazioneAssignment/AssegnazioneTavoli.cs` — motore **puro e statico**, nessuna
+dipendenza da repository o DbContext: tutta la logica di scelta dei tavoli vive qui ed è testata
+direttamente (`PostazioneAssignmentServiceTests`, 15 test). `PostazioneAssignmentService` resta
+il solo responsabile di leggere i dati (tavoli attivi, tavoli già occupati nella fascia) e poi
+delega al motore. **Non rimettere logica di scelta dentro il service**: è proprio ciò che rendeva
+l'algoritmo precedente non testabile.
+
+Regole (decisioni di prodotto, vedi `ROADMAP_REVISIONE.md` — non riaprirle):
+- capienza di un'unione = somma delle capienze, **+2 (`BonusTestate`) solo se l'unione è composta
+  esclusivamente da tavoli da 2 posti** e ha almeno 2 tavoli; ogni altra combinazione = somma
+  semplice
+- si uniscono al massimo **4 tavoli** (`MaxTavoliPerUnione`) e sempre **della stessa zona**
+- vince la combinazione con **meno posti sprecati**; a parità, quella con meno tavoli. Tavolo
+  singolo e unioni sono valutati insieme
+- nessun vincolo sulle capienze ammesse (il vecchio 2/4/8 è stato rimosso dai validator)
+
+Le combinazioni sono generate sulle **capienze distinte**, non sui singoli tavoli (due tavoli di
+pari capienza sono intercambiabili): il costo non cresce col numero di tavoli in sala. I tavoli
+concreti si scelgono solo sulla combinazione vincente.
+
+`DistribuisciCoperti` riparte i coperti sui tavoli assegnati e alimenta
+`PrenotazionePostazione.NumeroPosti` (REV-001: il campo esisteva da sempre ma restava 0). La somma
+dei posti distribuiti è **sempre** pari ai coperti richiesti — è la proprietà su cui si appoggia
+il calcolo della disponibilità.
+
+⚠️ `DisponibilitaService` usa ancora `TrovaCombinazioniDisponibili`, oggi un wrapper sottile sul
+motore: l'unificazione vera fra disponibilità e assegnazione è il checkpoint 2c.
+
 ## Note tecniche da tenere a mente
 
 - HTTPS: Railway termina HTTPS a livello proxy → `UseHttpsRedirection` resta commentato in

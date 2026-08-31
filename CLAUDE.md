@@ -3,9 +3,9 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 31/08/2026
-Ultima cosa fatta: **FASE 1 chiusa** + **Fase 2, checkpoint 2a chiuso** (rename
-`MaxPrenotazioni`→`MaxCoperti`). Alla prossima sessione si riparte dal **checkpoint 2b** (nuovo
-algoritmo di assegnazione tavoli).
+Ultima cosa fatta: **FASE 1 chiusa** + **Fase 2, checkpoint 2a e 2b chiusi** (rename
+`MaxPrenotazioni`→`MaxCoperti`; nuovo algoritmo di assegnazione tavoli). Alla prossima sessione si
+riparte dal **checkpoint 2c** (unificazione disponibilità/assegnazione + fix correlati).
 
 ### Riprendere da qui — leggere in quest'ordine
 
@@ -57,11 +57,49 @@ pagina Fasce Orarie, creazione/modifica prenotazione, Dashboard — tutto pulito
 > corrette entrambe le volte prima di committare, nessun danno, ma **controllare sempre il branch
 > corrente a inizio di ogni blocco di modifiche**, non solo a inizio sessione.
 
-### Prossimo passo — Fase 2, checkpoint 2b (nuovo algoritmo di assegnazione)
+### Fase 2, checkpoint 2b — riepilogo (chiuso il 31/08/2026)
 
-Bonus di 2 posti solo per unioni di soli tavoli da 2, limite di 4 tavoli per unione, criterio
-"meno posti sprecati". Dettaglio completo in `ROADMAP_REVISIONE.md` — sono decisioni di prodotto
-già prese, non riaprirle.
+Nuovo algoritmo di assegnazione tavoli. Estratto in un motore puro
+`GestoraWebApi/Services/PostazioneAssignment/AssegnazioneTavoli.cs` (classe statica, nessuna
+dipendenza da repository/DB — prima la logica era annegata dentro un metodo `async` e testabile
+solo con mock pesanti). Regole implementate: capienza = somma, **+2 solo se l'unione è composta
+esclusivamente da tavoli da 2** e ha almeno 2 tavoli; unioni fino a **4 tavoli della stessa zona**
+(i tavoli si accostano fisicamente, mai tra zone diverse); vince la combinazione con **meno posti
+sprecati**, a parità di spreco quella con meno tavoli — tavolo singolo e unioni valutati insieme,
+non più "il singolo vince sempre".
+
+> **Scelta di implementazione da ricordare**: valutare tutte le unioni fino a 4 tavoli su N tavoli
+> liberi sarebbe O(N⁴) (~90.000 casi con 40 tavoli). Il motore genera invece le combinazioni sulle
+> **capienze distinte** (3-5 valori in un locale reale), perché due tavoli di pari capienza sono
+> intercambiabili; i tavoli concreti si scelgono solo alla fine. Il costo non cresce col numero di
+> tavoli in sala.
+
+Chiusi nello stesso checkpoint: **REV-001** — `PrenotazionePostazione.NumeroPosti` esisteva nel
+modello e in tabella ma non veniva **mai** scritto (restava 0); ora `PrenotazioniService` lo
+valorizza in creazione e in modifica tramite `AssegnazioneTavoli.DistribuisciCoperti` (i posti di
+testata, che non appartengono a nessun tavolo, sono ripartiti sui tavoli dell'unione; la somma
+corrisponde sempre ai coperti richiesti). È il dato su cui si appoggia il checkpoint 2c. Rimosso
+anche il vincolo capienza 2/4/8 dai due validator (`PostazioneDTOValidator`,
+`PostazioneUpdateDTOValidator`) → capienza libera da 1 in su; il form frontend accettava già
+qualsiasi valore ≥1, quindi era un disallineamento silenzioso, ora risolto — nessuna modifica
+frontend necessaria.
+
+Firma cambiata: `AssegnaPostazioneDisponibileAsync` restituisce `List<PostazioneAssegnata>`
+(record tavolo + posti occupati) invece di `List<Postazione>`.
+
+**Nessuna migration**: la colonna `NumeroPosti` esisteva già, nessuna modifica di schema.
+Verificato: `dotnet test` 42/42 verdi (erano 31), test manuali di Fabio in produzione ok
+(prenotazione da 2 con soli tavoli grandi, unione per 8, unione mista 2+6 senza bonus, creazione
+postazione con capienza 6 ora accettata).
+
+### Prossimo passo — Fase 2, checkpoint 2c (unificazione disponibilità/assegnazione)
+
+Far usare alla verifica di disponibilità lo stesso motore `AssegnazioneTavoli` dell'assegnazione
+(oggi `DisponibilitaService` e l'endpoint pubblico possono dare risposte opposte), sfruttare
+`NumeroPosti` ora finalmente popolato, più i fix correlati (REV-002 Staff bloccato, REV-034
+dettaglio prenotazione al Cliente, REV-024 zone/tavoli disattivati, posti residui basati sul tetto
+della fascia, messaggio d'errore coerente, riepilogo sala nella pagina Postazioni). Dettaglio
+completo in `ROADMAP_REVISIONE.md`.
 
 > Nota sulle migration: per decisione del 28/08 **restano manuali**. Claude prepara la migration,
 > Fabio la applica seguendo la procedura descritta in testa a `ROADMAP_REVISIONE.md`. Riguarda le
