@@ -5,6 +5,7 @@
     "buildCommand": "dotnet publish GestoraWebApi.csproj -c Release -o out"
   },
   "deploy": {
+    "startCommand": "dotnet out/GestoraWebApi.dll",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
