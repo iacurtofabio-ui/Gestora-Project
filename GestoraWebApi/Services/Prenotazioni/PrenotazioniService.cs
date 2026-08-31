@@ -93,9 +93,10 @@ namespace GestoraWebApi.Services.Prenotazioni
             };
 
             prenotazione.PrenotazioniPostazioni = postazioniAssegnate
-                .Select(p => new PrenotazionePostazione
+                .Select(a => new PrenotazionePostazione
                 {
-                    PostazioneId = p.Id,
+                    PostazioneId = a.Postazione.Id,
+                    NumeroPosti = a.PostiOccupati,
                     Prenotazione = prenotazione
                 })
                 .ToList();
@@ -164,9 +165,10 @@ namespace GestoraWebApi.Services.Prenotazioni
                 _context.PrenotazioniPostazioni.RemoveRange(prenotazione.PrenotazioniPostazioni);
 
             prenotazione.PrenotazioniPostazioni = postazioniAssegnate
-                .Select(p => new PrenotazionePostazione
+                .Select(a => new PrenotazionePostazione
                 {
-                    PostazioneId = p.Id,
+                    PostazioneId = a.Postazione.Id,
+                    NumeroPosti = a.PostiOccupati,
                     Prenotazione = prenotazione
                 })
                 .ToList();

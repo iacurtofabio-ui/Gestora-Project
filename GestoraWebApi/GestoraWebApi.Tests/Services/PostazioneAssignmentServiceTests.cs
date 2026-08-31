@@ -1,93 +1,186 @@
 using GestoraWebApi.Models;
-using GestoraWebApi.Repositories.Postazioni;
-using GestoraWebApi.Repositories.Prenotazioni;
 using GestoraWebApi.Services.PostazioneAssignment;
-using Moq;
 
 namespace GestoraWebApi.Tests.Services;
 
+/// <summary>
+/// Test del motore di assegnazione (<see cref="AssegnazioneTavoli"/>): logica pura,
+/// nessun mock necessario.
+/// </summary>
 public class PostazioneAssignmentServiceTests
 {
-    private readonly PostazioneAssignmentService _service;
+    private static Postazione Tavolo(long id, int capienza, long zonaId = 1) =>
+        new Postazione { Id = id, Numero = (int)id, CapienzaMassima = capienza, ZonaId = zonaId };
 
-    public PostazioneAssignmentServiceTests()
+    // --- Capienza di un'unione: bonus testate solo per unioni di soli tavoli da 2 ---
+
+    [Fact]
+    public void CalcolaCapienza_TavoloSingolo_NessunBonus()
     {
-        // TrovaCombinazioniDisponibili è una funzione pura: non usa repository.
-        // I mock servono solo per soddisfare il costruttore.
-        _service = new PostazioneAssignmentService(
-            new Mock<IPostazioneRepository>().Object,
-            new Mock<IPrenotazioniRepository>().Object);
+        var capienza = AssegnazioneTavoli.CalcolaCapienza(new[] { Tavolo(1, 2) });
+
+        Assert.Equal(2, capienza);
     }
 
     [Fact]
-    public void TrovaCombinazioniDisponibili_ReturnsSingolaPostazione_WhenCapienzaSufficiente()
+    public void CalcolaCapienza_UnioneDiSoliTavoliDa2_AggiungeBonusTestate()
     {
-        // Arrange: una postazione da 4 posti, richiesta per 3 coperti
-        var postazioni = new List<Postazione>
-        {
-            new Postazione { Id = 1, CapienzaMassima = 4, ZonaId = 1 }
-        };
+        // 2 + 2 = 4, più i 2 posti sulle testate = 6
+        var capienza = AssegnazioneTavoli.CalcolaCapienza(new[] { Tavolo(1, 2), Tavolo(2, 2) });
 
-        // Act
-        var result = _service.TrovaCombinazioniDisponibili(postazioni, numeroCoperti: 3);
-
-        // Assert: trovata una combinazione con una sola postazione
-        Assert.Single(result);
-        Assert.Single(result[0]);
-        Assert.Equal(1, result[0][0].Id);
+        Assert.Equal(6, capienza);
     }
 
     [Fact]
-    public void TrovaCombinazioniDisponibili_ReturnsCombinazione_WhenServonoPiuPostazioni()
+    public void CalcolaCapienza_UnioneMista_NonAggiungeBonus()
     {
-        // Arrange: due postazioni da 2 posti nella stessa zona, richiesta per 4 coperti
-        var postazioni = new List<Postazione>
-        {
-            new Postazione { Id = 1, CapienzaMassima = 2, ZonaId = 1 },
-            new Postazione { Id = 2, CapienzaMassima = 2, ZonaId = 1 }
-        };
+        // Un tavolo da 2 unito a uno da 6: somma semplice, niente bonus.
+        var capienza = AssegnazioneTavoli.CalcolaCapienza(new[] { Tavolo(1, 2), Tavolo(2, 6) });
 
-        // Act
-        var result = _service.TrovaCombinazioniDisponibili(postazioni, numeroCoperti: 4);
+        Assert.Equal(8, capienza);
+    }
 
-        // Assert: trovata una combinazione con due postazioni
-        Assert.Single(result);
-        Assert.Equal(2, result[0].Count);
+    // --- Scelta della combinazione: meno posti sprecati ---
+
+    [Fact]
+    public void TrovaMigliorCombinazione_PreferisceIlTavoloCheSprecaMeno()
+    {
+        var postazioni = new List<Postazione> { Tavolo(1, 8), Tavolo(2, 4) };
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 3);
+
+        Assert.NotNull(risultato);
+        Assert.Single(risultato!);
+        Assert.Equal(2, risultato![0].Id);
     }
 
     [Fact]
-    public void TrovaCombinazioniDisponibili_ReturnsEmpty_WhenCapienzaTotaleInsufficient()
+    public void TrovaMigliorCombinazione_NonOccupaTavoloDa8PerDuePersone_SeEsisteAlternativa()
     {
-        // Arrange: una sola postazione da 2 posti, richiesta per 5 coperti
-        var postazioni = new List<Postazione>
-        {
-            new Postazione { Id = 1, CapienzaMassima = 2, ZonaId = 1 }
-        };
+        var postazioni = new List<Postazione> { Tavolo(1, 8), Tavolo(2, 2) };
 
-        // Act
-        var result = _service.TrovaCombinazioniDisponibili(postazioni, numeroCoperti: 5);
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 2);
 
-        // Assert: nessuna combinazione possibile
-        Assert.Empty(result);
+        Assert.NotNull(risultato);
+        Assert.Single(risultato!);
+        Assert.Equal(2, risultato![0].Id);
     }
 
     [Fact]
-    public void TrovaCombinazioniDisponibili_PreferisceSingolaPostazione_AncheSeEsisteCombinazione()
+    public void TrovaMigliorCombinazione_PreferisceUnione_SeSprecaMenoDelSingolo()
     {
-        // Arrange: una postazione singola da 4 e due da 2 nella stessa zona
-        var postazioni = new List<Postazione>
-        {
-            new Postazione { Id = 1, CapienzaMassima = 4, ZonaId = 1 },
-            new Postazione { Id = 2, CapienzaMassima = 2, ZonaId = 1 },
-            new Postazione { Id = 3, CapienzaMassima = 2, ZonaId = 1 }
-        };
+        // Per 6 coperti: il tavolo da 8 spreca 2, l'unione di due da 2 vale 6 e non spreca nulla.
+        var postazioni = new List<Postazione> { Tavolo(1, 8), Tavolo(2, 2), Tavolo(3, 2) };
 
-        // Act
-        var result = _service.TrovaCombinazioniDisponibili(postazioni, numeroCoperti: 3);
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 6);
 
-        // Assert: viene preferita la singola postazione (Id=1), non la combinazione
-        Assert.Single(result);
-        Assert.Single(result[0]);
-        Assert.Equal(1, result[0][0].Id);
+        Assert.NotNull(risultato);
+        Assert.Equal(2, risultato!.Count);
+        Assert.DoesNotContain(risultato, p => p.Id == 1);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_APariSpreco_PreferisceMenoTavoli()
+    {
+        // Per 4 coperti: il tavolo da 4 non spreca nulla, come non sprecherebbe
+        // l'unione di due da 2 (che varrebbe 6). Vince il tavolo singolo.
+        var postazioni = new List<Postazione> { Tavolo(1, 4), Tavolo(2, 2), Tavolo(3, 2) };
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 4);
+
+        Assert.NotNull(risultato);
+        Assert.Single(risultato!);
+        Assert.Equal(1, risultato![0].Id);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_UnisceFinoAQuattroTavoli()
+    {
+        // Quattro tavoli da 2: capienza 8 + 2 di testate = 10 coperti.
+        var postazioni = new List<Postazione> { Tavolo(1, 2), Tavolo(2, 2), Tavolo(3, 2), Tavolo(4, 2) };
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 10);
+
+        Assert.NotNull(risultato);
+        Assert.Equal(4, risultato!.Count);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_NonSuperaIlLimiteDiQuattroTavoli()
+    {
+        // Cinque tavoli da 2 servirebbero, ma il limite è 4 (che valgono 10 coperti).
+        var postazioni = Enumerable.Range(1, 5).Select(i => Tavolo(i, 2)).ToList();
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 11);
+
+        Assert.Null(risultato);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_NonUnisceTavoliDiZoneDiverse()
+    {
+        var postazioni = new List<Postazione> { Tavolo(1, 2, zonaId: 1), Tavolo(2, 2, zonaId: 2) };
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 4);
+
+        Assert.Null(risultato);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_ReturnsNull_QuandoLaCapienzaNonBasta()
+    {
+        var postazioni = new List<Postazione> { Tavolo(1, 2) };
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 5);
+
+        Assert.Null(risultato);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_SupportaCapienzeNonStandard()
+    {
+        // Il vincolo "solo tavoli da 2, 4 e 8" è stato rimosso: qui vince il tavolo da 3.
+        var postazioni = new List<Postazione> { Tavolo(1, 5), Tavolo(2, 3) };
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 3);
+
+        Assert.NotNull(risultato);
+        Assert.Equal(2, risultato![0].Id);
+    }
+
+    // --- Distribuzione dei coperti sui tavoli assegnati ---
+
+    [Fact]
+    public void DistribuisciCoperti_RipartisceSenzaSuperareLaCapienzaDelSingoloTavolo()
+    {
+        var combinazione = new List<Postazione> { Tavolo(1, 6), Tavolo(2, 4) };
+
+        var distribuzione = AssegnazioneTavoli.DistribuisciCoperti(combinazione, numeroCoperti: 8);
+
+        Assert.Equal(6, distribuzione[1]);
+        Assert.Equal(2, distribuzione[2]);
+    }
+
+    [Fact]
+    public void DistribuisciCoperti_AssegnaAncheIPostiDiTestata()
+    {
+        // Due tavoli da 2 uniti valgono 6: 2 + 2 nominali, più 1 + 1 sulle testate.
+        var combinazione = new List<Postazione> { Tavolo(1, 2), Tavolo(2, 2) };
+
+        var distribuzione = AssegnazioneTavoli.DistribuisciCoperti(combinazione, numeroCoperti: 6);
+
+        Assert.Equal(6, distribuzione.Values.Sum());
+        Assert.Equal(3, distribuzione[1]);
+        Assert.Equal(3, distribuzione[2]);
+    }
+
+    [Fact]
+    public void DistribuisciCoperti_LaSommaCorrispondeSempreAiCopertiRichiesti()
+    {
+        var combinazione = new List<Postazione> { Tavolo(1, 4), Tavolo(2, 4) };
+
+        var distribuzione = AssegnazioneTavoli.DistribuisciCoperti(combinazione, numeroCoperti: 5);
+
+        Assert.Equal(5, distribuzione.Values.Sum());
     }
 }

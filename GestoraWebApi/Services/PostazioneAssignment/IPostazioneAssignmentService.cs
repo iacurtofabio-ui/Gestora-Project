@@ -5,7 +5,7 @@ namespace GestoraWebApi.Services.PostazioneAssignment
 {
     public interface IPostazioneAssignmentService
     {
-        Task<List<Postazione>> AssegnaPostazioneDisponibileAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null);
+        Task<List<PostazioneAssegnata>> AssegnaPostazioneDisponibileAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null);
         List<List<Postazione>> TrovaCombinazioniDisponibili(List<Postazione> postazioniLibere, int numeroCoperti);
     }
 }

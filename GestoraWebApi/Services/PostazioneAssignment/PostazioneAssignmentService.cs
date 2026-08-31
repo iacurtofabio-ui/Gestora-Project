@@ -19,7 +19,7 @@ namespace GestoraWebApi.Services.PostazioneAssignment
             _prenotazioniRepository = prenotazioniRepository;
         }
 
-        public async Task<List<Postazione>> AssegnaPostazioneDisponibileAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null)
+        public async Task<List<PostazioneAssegnata>> AssegnaPostazioneDisponibileAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null)
         {
             var postazioni = await _postazioneRepository.GetPostazioniAttiveAsync();
 
@@ -50,81 +50,25 @@ namespace GestoraWebApi.Services.PostazioneAssignment
             if (!postazioniLibere.Any())
                 throw new InvalidOperationException("Non ci sono postazioni libere per la fascia oraria selezionata.");
 
-            var singolaPostazione = postazioniLibere
-                .Where(p => p.CapienzaMassima >= dto.NumeroCoperti)
-                .OrderBy(p => p.CapienzaMassima)
-                .FirstOrDefault();
+            var migliore = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioniLibere, dto.NumeroCoperti);
 
-            if (singolaPostazione != null)
-                return new List<Postazione> { singolaPostazione };
-
-            var candidati = new List<(long ZonaId, List<Postazione> Selezionate, int Surplus)>();
-
-            foreach (var gruppoZona in postazioniLibere.GroupBy(p => p.ZonaId))
-            {
-                var ordered = gruppoZona.OrderByDescending(p => p.CapienzaMassima).ToList();
-                var selezionate = new List<Postazione>();
-                int acc = 0;
-
-                foreach (var p in ordered)
-                {
-                    selezionate.Add(p);
-                    acc += p.CapienzaMassima;
-
-                    if (acc >= dto.NumeroCoperti)
-                    {
-                        candidati.Add((gruppoZona.Key, selezionate, acc - dto.NumeroCoperti));
-                        break;
-                    }
-                }
-            }
-
-            if (!candidati.Any())
+            if (migliore == null)
                 throw new InvalidOperationException("Non ci sono postazioni libere o attive per i coperti richiesti nella fascia oraria selezionata.");
 
-            var migliore = candidati
-                .OrderBy(c => c.Selezionate.Count)
-                .ThenBy(c => c.Surplus)
-                .First();
+            var distribuzione = AssegnazioneTavoli.DistribuisciCoperti(migliore, dto.NumeroCoperti);
 
-            return migliore.Selezionate;
+            return migliore
+                .Select(p => new PostazioneAssegnata(p, distribuzione[p.Id]))
+                .ToList();
         }
 
         public List<List<Postazione>> TrovaCombinazioniDisponibili(List<Postazione> postazioniLibere, int numeroCoperti)
         {
-            var combinazioni = new List<List<Postazione>>();
+            var migliore = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioniLibere, numeroCoperti);
 
-            var singola = postazioniLibere
-                .Where(p => p.CapienzaMassima >= numeroCoperti)
-                .OrderBy(p => p.CapienzaMassima)
-                .FirstOrDefault();
-
-            if (singola != null)
-            {
-                combinazioni.Add(new List<Postazione> { singola });
-                return combinazioni;
-            }
-
-            foreach (var gruppoZona in postazioniLibere.GroupBy(p => p.ZonaId))
-            {
-                var ordered = gruppoZona.OrderByDescending(p => p.CapienzaMassima).ToList();
-                var selezionate = new List<Postazione>();
-                int acc = 0;
-
-                foreach (var p in ordered)
-                {
-                    selezionate.Add(p);
-                    acc += p.CapienzaMassima;
-
-                    if (acc >= numeroCoperti)
-                    {
-                        combinazioni.Add(new List<Postazione>(selezionate));
-                        break;
-                    }
-                }
-            }
-
-            return combinazioni;
+            return migliore == null
+                ? new List<List<Postazione>>()
+                : new List<List<Postazione>> { migliore };
         }
     }
 }

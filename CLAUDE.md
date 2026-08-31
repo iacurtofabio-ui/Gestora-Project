@@ -3,8 +3,9 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 31/08/2026
-Ultima cosa fatta: **FASE 1 DELLA ROADMAP CHIUSA** (fondamenta di deploy). Alla prossima sessione
-si riparte dalla **FASE 2** (checkpoint 2a — rename `MaxPrenotazioni`→`MaxCoperti`).
+Ultima cosa fatta: **FASE 1 chiusa** + **Fase 2, checkpoint 2a chiuso** (rename
+`MaxPrenotazioni`→`MaxCoperti`). Alla prossima sessione si riparte dal **checkpoint 2b** (nuovo
+algoritmo di assegnazione tavoli).
 
 ### Riprendere da qui — leggere in quest'ordine
 
@@ -32,20 +33,35 @@ personalizzato dal pannello (ora vive in `railway.json`). Verificato: `dotnet te
 `GET /health` in produzione → `Healthy` (ora copre anche la raggiungibilità del DB, non solo il
 processo).
 
-> **Trovato e corretto durante il primo deploy**: `railway.json` da solo non bastava — Nixpacks
-> senza `global.json` installava SDK .NET 6 invece di 9 (build falliva con `NETSDK1045`), e senza
-> `startCommand` esplicito indovinava di avviare `GestoraWebApi.Tests` invece dell'API. Entrambi
-> fissati esplicitamente nei due file. Da tenere a mente per qualunque futura modifica alla
-> configurazione di build: Nixpacks non sempre auto-rileva correttamente in un repo con più
-> progetti .csproj.
+> **Nixpacks abbandonato durante il deploy, sostituito con Dockerfile**: due tentativi falliti
+> sulla stessa causa di fondo (SDK .NET 6 invece di 9 il primo, poi `dotnet-sdk_9` assente dallo
+> snapshot nixpkgs pinnato da Nixpacks il secondo) hanno reso chiaro che l'auto-detection Nixpacks
+> per .NET 9 non è affidabile in questo ambiente. Sostituita con `GestoraWebApi/Dockerfile`
+> (multi-stage, immagini ufficiali Microsoft `dotnet/sdk:9.0` e `dotnet/aspnet:9.0`) +
+> `.dockerignore`; `railway.json` aggiornato con `"builder": "DOCKERFILE"`. Risolve anche REV-011
+> (deploy non versionato). `global.json` mantenuto comunque, utile per fissare la versione SDK
+> anche in locale/CI a prescindere da Railway.
 
-### Prossimo passo — FASE 2 (logica di prenotazione e assegnazione tavoli)
+### Fase 2, checkpoint 2a — riepilogo (chiuso il 31/08/2026)
 
-Checkpoint 2a: rename `MaxPrenotazioni`→`MaxCoperti` (migration dedicata, comportamento
-invariato). Poi 2b (nuovo algoritmo di assegnazione) e 2c (disponibilità/assegnazione unificate +
-fix correlati). Dettaglio completo in `ROADMAP_REVISIONE.md` — leggerlo prima di iniziare, la
-formula del bonus capienza e il limite di 4 tavoli per unione sono decisioni già prese, non
-riaprirle.
+Rename `MaxPrenotazioni`→`MaxCoperti` in modello, DTO, validator, mapping, tutti i service
+coinvolti e nei test (backend), più tipi/form/tabella (frontend) — comportamento invariato, solo
+il nome, con un'etichetta chiara aggiunta nel form ("Capienza massima (coperti)"). Migration
+`RinominaMaxPrenotazioniInMaxCoperti` (semplice `RenameColumn`, reversibile), applicata in
+produzione da Fabio via `railway connect Postgres` + `psql`, con backup mirato della tabella
+(`\copy "FasceOrarie" TO ... CSV HEADER`, 7 righe) prima del rename. Verificato in produzione:
+pagina Fasce Orarie, creazione/modifica prenotazione, Dashboard — tutto pulito, nessun errore.
+
+> **Nota di processo**: due volte in questa sessione le modifiche sono state fatte per un attimo
+> sul branch `main` invece di `dev` (stesso errore già capitato in passato, vedi storico Fase 5) —
+> corrette entrambe le volte prima di committare, nessun danno, ma **controllare sempre il branch
+> corrente a inizio di ogni blocco di modifiche**, non solo a inizio sessione.
+
+### Prossimo passo — Fase 2, checkpoint 2b (nuovo algoritmo di assegnazione)
+
+Bonus di 2 posti solo per unioni di soli tavoli da 2, limite di 4 tavoli per unione, criterio
+"meno posti sprecati". Dettaglio completo in `ROADMAP_REVISIONE.md` — sono decisioni di prodotto
+già prese, non riaprirle.
 
 > Nota sulle migration: per decisione del 28/08 **restano manuali**. Claude prepara la migration,
 > Fabio la applica seguendo la procedura descritta in testa a `ROADMAP_REVISIONE.md`. Riguarda le
