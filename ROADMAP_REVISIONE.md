@@ -221,6 +221,26 @@ posto di quello vecchio.
 *Tutto ciò che dipende dal nuovo algoritmo essendo già in campo, e i fix di logica minori che
 condividono lo stesso terreno.*
 
+> **Stato — 01/09/2026: codice completo, 3 commit su `dev`** (`89f3693` unificazione + REV-002/
+> 034/006/024, `d11a144` riepilogo sala, + orologio unico da committare). `dotnet test` 57/57,
+> frontend `tsc`/`build`/`eslint` puliti. **Nessuna migration in tutto il 2c.** Mancano solo i
+> test manuali di Fabio qui sotto per chiudere formalmente la Fase 2 (DoD punto 3).
+>
+> Note di implementazione:
+> - `DisponibilitaService` chiama direttamente `AssegnazioneTavoli.TrovaMigliorCombinazione` (il
+>   wrapper `TrovaCombinazioniDisponibili` è stato rimosso). `check-disponibilita` non ha
+>   consumatori frontend, quindi `FasciaDisponibilitaDTO` è stato esteso (`MaxCoperti`,
+>   `PostiResiduiFascia`, `Messaggio`) senza impatto.
+> - REV-024 applicato anche a `PostazioneAssignmentService` (assegnazione reale), non solo alla
+>   disponibilità, così i due percorsi restano allineati.
+> - REV-034: il Cliente su prenotazione altrui riceve **401** (fa logout lato frontend). Il fix
+>   401→403 è **REV-025, Fase 6** — non anticipato qui per non allargare lo scope.
+> - Orologio: nuovo `Common/IClock` (`SystemClock` singleton). Nessuna colonna `timestamptz` da
+>   convertire (le entità di prenotazione usano `DateOnly`/`TimeOnly`) → nessuna migration. I
+>   ~30 `DateTime.Now` nelle stringhe di log dei controller restano — rumore di logging, non
+>   orologio di dominio; candidati Fase 9.
+> - Debito residuo: secondo costruttore fantasma di `PrenotazioniService` (REV-010, Fase 9).
+
 🤖 **Claude**
 - **Disponibilità sempre piena**: l'endpoint pubblico oggi risponde "tutto libero" in ogni caso;
   usa il dato dei posti occupati che finalmente viene salvato (checkpoint 2b) — REV-001
@@ -243,12 +263,27 @@ condividono lo stesso terreno.*
   tutto in UTC nel database, conversione a Europe/Rome solo al confine (validator, dashboard,
   frontend) — REV-016, REV-092
 
-🧑 **Fabio**
-- Provare: verifica disponibilità con locale pieno, modifica di una prenotazione da account Staff,
-  lettura dettaglio di una propria prenotazione da account Cliente
+🧑 **Fabio** — test manuali per la chiusura della Fase 2 (5)
 
-**Chiusura checkpoint e chiusura Fase 2**: la nuova logica di assegnazione è coperta da test e
-tutti i casi sopra (2a, 2b, 2c) si comportano come previsto.
+1. **Disponibilità, tetto esaurito** — `POST /api/Prenotazione/check-disponibilita` per una data
+   e una fascia che ha già `MaxCoperti` coperti prenotati: la fascia deve tornare
+   `disponibilePerRichiesta=false` con `messaggio` che parla di **capienza massima**.
+2. **Disponibilità, tetto libero ma tavoli pieni** — stessa chiamata su una fascia col tetto
+   ancora lontano ma senza combinazione di tavoli liberi per i coperti richiesti (es. locale con
+   pochi tavoli grandi già occupati): `disponibilePerRichiesta=false` con `messaggio` che parla
+   di **tavoli**, non di capienza.
+3. **Staff modifica prenotazione cliente (REV-002)** — da account **Staff**, `PUT
+   update-prenotazione` su una prenotazione creata da/per un altro utente: deve funzionare (prima
+   dava 401).
+4. **Cliente legge il proprio dettaglio (REV-034)** — da account **Cliente**, `GET
+   get-prenotazione?id=` sulla propria prenotazione → 200; su una prenotazione altrui → 401.
+5. **Riepilogo sala + orologio** — pagina Postazioni (Admin/Staff): la card "Riepilogo sala" in
+   cima mostra tavoli attivi, posti totali e copertura del tetto per fascia. E: aprire la
+   Dashboard **tra mezzanotte e le 2 di notte** (o falsificando l'orario) → deve mostrare il
+   giorno corretto in ora italiana, non quello precedente (REV-016).
+
+**Chiusura checkpoint e chiusura Fase 2**: codice ✅ (01/09/2026); la Fase 2 si chiude quando i 5
+test sopra sono passati e commit/push fatti.
 
 ---
 
