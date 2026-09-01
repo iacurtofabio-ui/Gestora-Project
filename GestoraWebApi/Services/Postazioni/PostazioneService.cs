@@ -3,6 +3,7 @@ using GestoraWebApi.Common;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Models;
+using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.LogActivity;
@@ -18,6 +19,7 @@ namespace GestoraWebApi.Services.Postazioni
     {
         private readonly IPostazioneRepository _postazioneRepository;
         private readonly IZonaRepository _zonaRepository;
+        private readonly IFasciaOrariaRepository _fasciaOrariaRepository;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
         private readonly IHttpContextAccessor _httpContextAccessor;
@@ -28,10 +30,12 @@ namespace GestoraWebApi.Services.Postazioni
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
         public PostazioneService(IPostazioneRepository postazioneRepository, IMapper mapper, IZonaRepository zonaRepository,
-                                  IMemoryCache cache, IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity)
+                                  IMemoryCache cache, IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
+                                  IFasciaOrariaRepository fasciaOrariaRepository)
         {
             _postazioneRepository = postazioneRepository;
             _zonaRepository = zonaRepository;
+            _fasciaOrariaRepository = fasciaOrariaRepository;
             _mapper = mapper;
             _cache = cache;
             _httpContextAccessor = httpContextAccessor;
@@ -214,6 +218,40 @@ namespace GestoraWebApi.Services.Postazioni
                     .Select(pp => pp.PrenotazioneId)
                     .ToList() ?? new List<long>()
             }).ToList();
+        }
+
+        public async Task<RiepilogoSalaDTO> GetRiepilogoSalaAsync()
+        {
+            var zoneAttiveIds = (await _zonaRepository.GetAllZoneAttiveAsync()).Select(z => z.Id).ToHashSet();
+
+            var tavoli = (await _postazioneRepository.GetPostazioniAttiveAsync())
+                .Where(p => zoneAttiveIds.Contains(p.ZonaId))
+                .ToList();
+
+            var postiTotali = tavoli.Sum(t => t.CapienzaMassima);
+
+            var fasce = await _fasciaOrariaRepository.GetFasceAttiveAsync();
+            var cultureIt = new System.Globalization.CultureInfo("it-IT");
+
+            return new RiepilogoSalaDTO
+            {
+                TavoliAttivi = tavoli.Count,
+                PostiTotali = postiTotali,
+                Fasce = fasce
+                    .OrderBy(f => ((int)f.GiornoSettimana + 6) % 7) // lunedì primo
+                    .ThenBy(f => f.OrarioInizio)
+                    .Select(f => new RiepilogoFasciaDTO
+                    {
+                        FasciaOrariaId = f.Id,
+                        GiornoSettimana = cultureIt.DateTimeFormat.GetDayName(f.GiornoSettimana),
+                        OrarioInizio = f.OrarioInizio,
+                        OrarioFine = f.OrarioFine,
+                        MaxCoperti = f.MaxCoperti,
+                        PostiTavoli = postiTotali,
+                        TettoCoperto = postiTotali >= f.MaxCoperti
+                    })
+                    .ToList()
+            };
         }
 
         public async Task AssociaPostazioneAZonaAsync(long postazioneId, long zonaId)

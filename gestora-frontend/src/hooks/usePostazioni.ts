@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { AxiosError } from 'axios'
 import apiClient from '@/lib/axios'
-import type { PostazioneDTO, PostazioneFormDTO } from '@/types/postazione'
+import type { PostazioneDTO, PostazioneFormDTO, RiepilogoSala } from '@/types/postazione'
 import type { ApiErrorResponse } from '@/types/apiError'
 import { toast } from 'sonner'
 
@@ -9,6 +9,14 @@ export function usePostazioni(zonaId: number, options?: { enabled?: boolean }) {
   return useQuery<PostazioneDTO[]>({
     queryKey: ['postazioni', zonaId],
     queryFn: () => apiClient.get(`/Postazione/get-postazioni-per-zona?zonaId=${zonaId}`).then(r => r.data),
+    enabled: options?.enabled ?? true,
+  })
+}
+
+export function useRiepilogoSala(options?: { enabled?: boolean }) {
+  return useQuery<RiepilogoSala>({
+    queryKey: ['postazioni', 'riepilogo-sala'],
+    queryFn: () => apiClient.get('/Postazione/riepilogo-sala').then(r => r.data),
     enabled: options?.enabled ?? true,
   })
 }

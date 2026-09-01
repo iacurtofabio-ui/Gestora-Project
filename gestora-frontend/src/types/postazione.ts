@@ -13,3 +13,19 @@ export type PostazioneFormDTO = {
     zonaId: number
     attiva: boolean
 }
+
+export type RiepilogoFascia = {
+    fasciaOrariaId: number
+    giornoSettimana: string
+    orarioInizio: string
+    orarioFine: string
+    maxCoperti: number
+    postiTavoli: number
+    tettoCoperto: boolean
+}
+
+export type RiepilogoSala = {
+    tavoliAttivi: number
+    postiTotali: number
+    fasce: RiepilogoFascia[]
+}

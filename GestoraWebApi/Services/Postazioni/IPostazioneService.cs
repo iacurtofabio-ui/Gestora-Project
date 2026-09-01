@@ -12,6 +12,7 @@ namespace GestoraWebApi.Services.Postazioni
         Task<List<PostazioneDTO>> GetPostazioniAttiveAsync();
         Task<List<PostazioniDisponibiliDTO>> GetPostazioniDisponibiliAsync();
         Task<List<PostazioneDTO>> GetPostazioniPerZonaAsync(long zonaId);
+        Task<RiepilogoSalaDTO> GetRiepilogoSalaAsync();
         Task AssociaPostazioneAZonaAsync(long postazioneId, long zonaId);
         Task DeleteAsync(long postazioneId);
 

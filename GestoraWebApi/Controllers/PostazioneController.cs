@@ -57,6 +57,16 @@ namespace GestoraWebApi.Controllers
             return Ok(postazioni);
         }
 
+        /// <summary>Riepilogo informativo della sala: tavoli attivi, posti totali e, per ogni
+        /// fascia, se i tavoli coprono il tetto dichiarato (decisione 9). Solo Admin e Staff.</summary>
+        [Authorize(Roles = Roles.AdminOrStaff)]
+        [HttpGet("riepilogo-sala")]
+        public async Task<IActionResult> GetRiepilogoSalaAsync()
+        {
+            var riepilogo = await _postazioneService.GetRiepilogoSalaAsync();
+            return Ok(riepilogo);
+        }
+
         /// <summary>Restituisce le postazioni disponibili (attive e senza prenotazioni attive in corso).</summary>
         [Authorize(Roles = Roles.AdminOrStaffOrCliente)]
         [HttpGet("get-postazioni-disponibili")]

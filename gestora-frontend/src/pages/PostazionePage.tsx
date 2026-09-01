@@ -1,5 +1,5 @@
 import { useZone } from '@/hooks/useZone'
-import { usePostazioni, useDeletePostazione } from '@/hooks/usePostazioni'
+import { usePostazioni, useDeletePostazione, useRiepilogoSala } from '@/hooks/usePostazioni'
 import { useState } from 'react'
 import type { PostazioneDTO } from '@/types/postazione'
 import PostazioneModal from '@/components/PostazioneModal'
@@ -9,6 +9,8 @@ import { useAuth } from '@/hooks/useAuth'
 export default function PostazionePage() {
     const { user } = useAuth()
     const isAdmin = user?.roles.includes('Admin')
+    const isStaffOrAdmin = isAdmin || user?.roles.includes('Staff')
+    const riepilogo = useRiepilogoSala({ enabled: !!isStaffOrAdmin })
     const zone = useZone()
     const [zonaSelezionataId, setZonaSelezionataId] = useState<number | undefined>(undefined)
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -22,6 +24,50 @@ export default function PostazionePage() {
     if (zone.isError) return <div>Errore nel caricamento</div>
 
     return (
+        <div className="space-y-4">
+        {isStaffOrAdmin && riepilogo.data && (
+            <div className="bg-white rounded-lg border">
+                <div className="p-4 border-b">
+                    <h2 className="text-sm font-semibold text-gray-700">Riepilogo sala</h2>
+                </div>
+                <div className="p-4 flex flex-wrap gap-6 text-sm border-b">
+                    <div>
+                        <span className="text-gray-500">Tavoli attivi: </span>
+                        <span className="font-semibold text-gray-800">{riepilogo.data.tavoliAttivi}</span>
+                    </div>
+                    <div>
+                        <span className="text-gray-500">Posti totali: </span>
+                        <span className="font-semibold text-gray-800">{riepilogo.data.postiTotali}</span>
+                    </div>
+                </div>
+                {riepilogo.data.fasce.length > 0 && (
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b text-gray-500">
+                                <th className="text-left p-3 font-medium">Giorno</th>
+                                <th className="text-left p-3 font-medium">Orario</th>
+                                <th className="text-left p-3 font-medium">Tetto (coperti)</th>
+                                <th className="text-left p-3 font-medium">Copertura tavoli</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {riepilogo.data.fasce.map((f) => (
+                                <tr key={f.fasciaOrariaId} className="border-b">
+                                    <td className="p-3 capitalize">{f.giornoSettimana}</td>
+                                    <td className="p-3">{f.orarioInizio.slice(0, 5)} – {f.orarioFine.slice(0, 5)}</td>
+                                    <td className="p-3">{f.maxCoperti}</td>
+                                    <td className="p-3">
+                                        <span className={f.tettoCoperto ? 'text-green-600' : 'text-amber-600'}>
+                                            {f.postiTavoli} posti {f.tettoCoperto ? '· copre il tetto' : '· sotto il tetto'}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        )}
         <div className="bg-white rounded-lg border">
             <div className="flex justify-between items-center p-4 border-b">
                 <h2 className="text-sm font-semibold text-gray-700">Postazioni</h2>
@@ -92,6 +138,7 @@ export default function PostazionePage() {
                 onConfirm={() => { deletePostazione.mutate(idDaEliminare!); setIdDaEliminare(undefined) }}
                 onCancel={() => setIdDaEliminare(undefined)}
             />
+        </div>
         </div>
     )
 }
