@@ -1,99 +1,114 @@
 using GestoraWebApi.Models;
+using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Prenotazioni;
+using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.PostazioneAssignment;
 using GestoraWebApi.Services.PrenotazioniPostazioni;
 
 namespace GestoraWebApi.Services.Disponibilita
 {
+    /// <summary>
+    /// Verifica di disponibilità dell'endpoint pubblico. Checkpoint 2c: usa lo stesso motore
+    /// <see cref="AssegnazioneTavoli"/> dell'assegnazione reale e basa i posti residui sul tetto
+    /// della fascia (<c>MaxCoperti</c>), non sulla somma delle capienze dei tavoli.
+    /// </summary>
     public class DisponibilitaService : IDisponibilitaService
     {
         private readonly IPrenotazioniRepository _prenotazioniRepository;
-        private readonly IPostazioneAssignmentService _postazioneAssignmentService;
+        private readonly IPostazioneRepository _postazioneRepository;
+        private readonly IZonaRepository _zonaRepository;
 
         public DisponibilitaService(IPrenotazioniRepository prenotazioniRepository,
-                                    IPostazioneAssignmentService postazioneAssignmentService)
+                                    IPostazioneRepository postazioneRepository,
+                                    IZonaRepository zonaRepository)
         {
             _prenotazioniRepository = prenotazioniRepository;
-            _postazioneAssignmentService = postazioneAssignmentService;
+            _postazioneRepository = postazioneRepository;
+            _zonaRepository = zonaRepository;
         }
 
         public async Task<DisponibilitaResponseDTO> CheckDisponibilitaAsync(CheckDisponibilitaDTO dto)
         {
-            var dayOfWeek = dto.DataPrenotazione.DayOfWeek;
+            var richiesti = Math.Max(1, dto.NumeroCoperti);
 
-            var fasce = await _prenotazioniRepository.GetFasceOrarieByDayAsync(dayOfWeek);
-            var postazioni = await _prenotazioniRepository.GetAllPostazioniAsync();
+            var fasce = await _prenotazioniRepository.GetFasceOrarieByDayAsync(dto.DataPrenotazione.DayOfWeek);
             var prenotazioni = await _prenotazioniRepository.GetPrenotazioniByDataAsync(dto.DataPrenotazione);
 
-            var assegnate = prenotazioni
-                .SelectMany(p => p.PrenotazioniPostazioni ?? Enumerable.Empty<PrenotazionePostazione>(),
-                            (p, pp) => new { p.FasciaOrariaId, PostazioneId = pp.PostazioneId, pp.NumeroPosti })
+            // REV-024: solo tavoli attivi in zone attive concorrono alla disponibilità, come
+            // per l'assegnazione reale.
+            var zoneAttiveIds = (await _zonaRepository.GetAllZoneAttiveAsync()).Select(z => z.Id).ToHashSet();
+            var postazioni = (await _postazioneRepository.GetPostazioniAttiveAsync())
+                .Where(p => zoneAttiveIds.Contains(p.ZonaId))
                 .ToList();
 
-            var groupedAssegnate = assegnate
-                .GroupBy(x => new { x.FasciaOrariaId, x.PostazioneId })
-                .ToDictionary(g => (g.Key.FasciaOrariaId, g.Key.PostazioneId), g => g.Sum(x => x.NumeroPosti));
-
-            var nonAssegnatePerFascia = prenotazioni
-                .Where(p => p.PrenotazioniPostazioni == null || !p.PrenotazioniPostazioni.Any())
-                .GroupBy(p => p.FasciaOrariaId)
-                .ToDictionary(g => g.Key, g => g.Sum(p => p.NumeroCoperti));
-
-            var totalCapacityAllPostazioni = postazioni.Sum(p => p.CapienzaMassima);
             var response = new DisponibilitaResponseDTO();
 
             foreach (var f in fasce)
             {
                 var prenotazioniFascia = prenotazioni.Where(p => p.FasciaOrariaId == f.Id).ToList();
 
-                if (f.MaxCoperti > 0 && prenotazioniFascia.Count >= f.MaxCoperti)
-                    continue;
+                // Tetto della fascia: coperti già impegnati (non il conteggio delle prenotazioni).
+                var copertiPrenotati = prenotazioniFascia.Sum(p => p.NumeroCoperti);
+                var postiResidui = Math.Max(0, f.MaxCoperti - copertiPrenotati);
+                var tettoSufficiente = postiResidui >= richiesti;
+
+                // Tavoli fisicamente liberi in questa fascia.
+                var occupateIds = prenotazioniFascia
+                    .SelectMany(p => p.PrenotazioniPostazioni ?? Enumerable.Empty<PrenotazionePostazione>())
+                    .Select(pp => pp.PostazioneId)
+                    .ToHashSet();
+
+                var libere = postazioni.Where(p => !occupateIds.Contains(p.Id)).ToList();
+
+                // Stesso motore dell'assegnazione reale.
+                var combinazione = AssegnazioneTavoli.TrovaMigliorCombinazione(libere, richiesti);
+                var tavoliSufficienti = combinazione != null;
 
                 var fasciaDto = new FasciaDisponibilitaDTO
                 {
                     FasciaOrariaId = f.Id,
                     OrarioInizio = f.OrarioInizio,
-                    OrarioFine = f.OrarioFine
+                    OrarioFine = f.OrarioFine,
+                    MaxCoperti = f.MaxCoperti,
+                    PostiResiduiFascia = postiResidui,
+                    TotalePostiDisponibili = postiResidui,
+                    TotaleCapienza = postazioni.Sum(p => p.CapienzaMassima),
+                    DisponibilePerRichiesta = tettoSufficiente && tavoliSufficienti
                 };
 
-                var occupiedPerFascia = groupedAssegnate
-                    .Where(kvp => kvp.Key.Item1 == f.Id)
-                    .GroupBy(kvp => kvp.Key.Item2)
-                    .ToDictionary(g => g.Key, g => g.Sum(kvp => kvp.Value));
-
-                int allocatedSumForFascia = groupedAssegnate
-                    .Where(kvp => kvp.Key.Item1 == f.Id)
-                    .Sum(kvp => kvp.Value);
-
-                int unassigned = nonAssegnatePerFascia.TryGetValue(f.Id, out var u) ? u : 0;
-                int totalReserved = allocatedSumForFascia + unassigned;
-                int totalAvailable = totalCapacityAllPostazioni - totalReserved;
-
-                fasciaDto.TotaleCapienza = totalCapacityAllPostazioni;
-                fasciaDto.TotalePostiDisponibili = Math.Max(0, totalAvailable);
-                fasciaDto.DisponibilePerRichiesta = fasciaDto.TotalePostiDisponibili >= dto.NumeroCoperti;
-
-                var postazioniLibere = postazioni
-                    .Where(p => !occupiedPerFascia.ContainsKey(p.Id))
-                    .ToList();
-
-                var combinazioni = _postazioneAssignmentService.TrovaCombinazioniDisponibili(postazioniLibere, dto.NumeroCoperti);
-
-                foreach (var combo in combinazioni)
+                if (!tettoSufficiente)
                 {
-                    fasciaDto.Postazioni.AddRange(combo.Select(p => new PostazioneDisponibilitaDTO
-                    {
-                        PostazioneId = p.Id,
-                        Numero = p.Numero,
-                        Capienza = p.CapienzaMassima,
-                        PostiOccupati = occupiedPerFascia.TryGetValue(p.Id, out var occ) ? occ : 0,
-                        PostiDisponibili = Math.Max(0, p.CapienzaMassima - (occupiedPerFascia.TryGetValue(p.Id, out var occ2) ? occ2 : 0)),
-                        DisponibilePerRichiesta = true
-                    }));
+                    fasciaDto.Messaggio = postiResidui <= 0
+                        ? "La fascia oraria ha raggiunto la capienza massima: nessun coperto disponibile."
+                        : $"La fascia oraria ha ancora {postiResidui} coperti disponibili, non sufficienti per i {richiesti} richiesti.";
+                }
+                else if (!tavoliSufficienti)
+                {
+                    fasciaDto.Messaggio =
+                        $"Il tetto della fascia lascerebbe spazio ({postiResidui} coperti), ma nessuna combinazione di tavoli liberi copre {richiesti} persone.";
                 }
 
-                if (fasciaDto.Postazioni.Any())
-                    response.Fasce.Add(fasciaDto);
+                if (tavoliSufficienti)
+                {
+                    var occupatiPerTavolo = prenotazioniFascia
+                        .SelectMany(p => p.PrenotazioniPostazioni ?? Enumerable.Empty<PrenotazionePostazione>())
+                        .GroupBy(pp => pp.PostazioneId)
+                        .ToDictionary(g => g.Key, g => g.Sum(pp => pp.NumeroPosti));
+
+                    fasciaDto.Postazioni = combinazione!
+                        .Select(p => new PostazioneDisponibilitaDTO
+                        {
+                            PostazioneId = p.Id,
+                            Numero = p.Numero,
+                            Capienza = p.CapienzaMassima,
+                            PostiOccupati = occupatiPerTavolo.TryGetValue(p.Id, out var occ) ? occ : 0,
+                            PostiDisponibili = Math.Max(0, p.CapienzaMassima - (occupatiPerTavolo.TryGetValue(p.Id, out var o2) ? o2 : 0)),
+                            DisponibilePerRichiesta = true
+                        })
+                        .ToList();
+                }
+
+                response.Fasce.Add(fasciaDto);
             }
 
             return response;

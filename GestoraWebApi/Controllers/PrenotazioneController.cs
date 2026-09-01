@@ -39,8 +39,9 @@ namespace GestoraWebApi.Controllers
             return Created("", new { Message = "Prenotazione creata con successo" });
         }
 
-        /// <summary>Restituisce il dettaglio di una prenotazione tramite ID.</summary>
-        [Authorize(Roles = Roles.AdminOrStaff)]
+        /// <summary>Restituisce il dettaglio di una prenotazione tramite ID. Admin/Staff su
+        /// qualsiasi prenotazione; il Cliente solo sulla propria (REV-034).</summary>
+        [Authorize(Roles = Roles.AdminOrStaffOrCliente)]
         [HttpGet("get-prenotazione")]
         public async Task<IActionResult> GetById(long id)
         {

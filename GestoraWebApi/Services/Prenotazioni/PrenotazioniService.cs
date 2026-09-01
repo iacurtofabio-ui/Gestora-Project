@@ -126,6 +126,12 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (prenotazione == null)
                 throw new KeyNotFoundException("Prenotazione non trovata.");
 
+            // REV-034: il Cliente può leggere il dettaglio solo della propria prenotazione.
+            // Admin/Staff nessun limite.
+            if (IsSelfServiceCliente()
+                && !string.Equals(prenotazione.UserId, GetAuthenticatedUserId(), StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("Non hai i permessi per visualizzare questa prenotazione.");
+
             return _mapper.Map<PrenotazioneDTO>(prenotazione);
         }
 
@@ -142,11 +148,17 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new InvalidOperationException($"Non è possibile modificare una prenotazione nello stato {prenotazione.Stato}.");
 
             var userId = GetAuthenticatedUserId();
-            if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
-                throw new UnauthorizedAccessException("Non hai i permessi per modificare questa prenotazione.");
 
+            // REV-002: il vincolo di ownership vale solo per il self-service del Cliente.
+            // Admin e Staff possono modificare la prenotazione di qualunque cliente (creata
+            // sotto un altro UserId), come previsto dai ruoli.
             if (IsSelfServiceCliente())
+            {
+                if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
+                    throw new UnauthorizedAccessException("Non hai i permessi per modificare questa prenotazione.");
+
                 GuardCutoffAsync(prenotazione);
+            }
 
             await ValidatePrenotazioneAsync(dto, prenotazione.Id);
 
@@ -174,6 +186,9 @@ namespace GestoraWebApi.Services.Prenotazioni
                 .ToList();
 
             await _prenotazioniRepository.UpdateAsync(prenotazione);
+
+            // REV-006: la modifica era l'unica scrittura su prenotazione non tracciata.
+            await _logActivity.LogAsync(userId, $"Modificata prenotazione ID {id}", GetIpAddress());
         }
 
         public async Task ConfermaPrenotazioneAsync(long id)

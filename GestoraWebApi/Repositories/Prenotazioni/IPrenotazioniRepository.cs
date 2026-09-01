@@ -8,6 +8,5 @@ namespace GestoraWebApi.Repositories.Prenotazioni
         Task<List<Prenotazione>> GetPrenotazioniByDataAsync(DateOnly data);
         Task<List<Prenotazione>> GetAllPrenotazioniAsync();
         Task<List<FasciaOraria>> GetFasceOrarieByDayAsync(DayOfWeek giorno);
-        Task<List<Postazione>> GetAllPostazioniAsync();
     }
 }

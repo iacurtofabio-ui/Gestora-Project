@@ -11,7 +11,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+using MockQueryable;
 using GestoraWebApi.Services.LogActivity;
+using GestoraWebApi.Services.Prenotazioni.DTOs;
 
 namespace GestoraWebApi.Tests.Services;
 
@@ -258,5 +260,95 @@ public class PrenotazioniServiceTests
         // Assert
         Assert.Equal(StatoPrenotazione.InCorso, prenotazione.Stato);
         _prenotazioniRepoMock.Verify(r => r.UpdateAsync(prenotazione), Times.Once);
+    }
+
+    // ─── UpdateAsync — REV-002 (Staff/Admin su prenotazione altrui) + REV-006 (audit) ──
+
+    private (Prenotazione prenotazione, PrenotazioneCreateDTO dto) ArrangeUpdateValido(string ownerUserId)
+    {
+        var data = new DateOnly(2026, 9, 7); // lunedì
+        var fascia = new FasciaOraria { Id = 1, Attiva = true, GiornoSettimana = DayOfWeek.Monday, MaxCoperti = 50, OrarioInizio = new TimeOnly(19, 0), OrarioFine = new TimeOnly(21, 0) };
+        var prenotazione = new Prenotazione
+        {
+            Id = 1,
+            NumeroCoperti = 2,
+            Stato = StatoPrenotazione.Attiva,
+            UserId = ownerUserId,
+            DataPrenotazione = data,
+            FasciaOrariaId = 1,
+            FasciaOraria = fascia,
+            PrenotazioniPostazioni = new List<PrenotazionePostazione>()
+        };
+        var dto = new PrenotazioneCreateDTO { DataPrenotazione = data, NumeroCoperti = 2, FasciaOrariaId = 1 };
+
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
+        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fascia);
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
+        _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
+        _context.SaveChanges();
+        _assignmentServiceMock.Setup(s => s.AssegnaPostazioneDisponibileAsync(It.IsAny<PrenotazioneCreateDTO>(), 1))
+                              .ReturnsAsync(new List<PostazioneAssegnata>
+                              {
+                                  new(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, ZonaId = 1 }, 2)
+                              });
+
+        return (prenotazione, dto);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ConsenteAStaffDiModificarePrenotazioneDiUnAltroUtente()
+    {
+        // principal di default = Staff, id "user-test-123"
+        var (prenotazione, dto) = ArrangeUpdateValido(ownerUserId: "cliente-diverso");
+
+        await _service.UpdateAsync(1, dto);
+
+        _prenotazioniRepoMock.Verify(r => r.UpdateAsync(prenotazione), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RegistraLAuditLog()
+    {
+        var (_, dto) = ArrangeUpdateValido(ownerUserId: "cliente-diverso");
+
+        await _service.UpdateAsync(1, dto);
+
+        _logActivityMock.Verify(l => l.LogAsync("user-test-123", It.Is<string>(m => m.Contains("Modificata prenotazione")), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ClienteNonPuoModificarePrenotazioneAltrui()
+    {
+        SetUserAsCliente("user-test-123");
+        var (_, dto) = ArrangeUpdateValido(ownerUserId: "altro-utente");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _service.UpdateAsync(1, dto));
+    }
+
+    // ─── GetByIdAsync — REV-034 (dettaglio al Cliente proprietario) ────────────
+
+    [Fact]
+    public async Task GetByIdAsync_ClienteNonPuoLeggerePrenotazioneAltrui()
+    {
+        SetUserAsCliente("user-test-123");
+        _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1))
+                             .ReturnsAsync(new Prenotazione { Id = 1, NumeroCoperti = 2, UserId = "altro-utente" });
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _service.GetByIdAsync(1));
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ClienteLeggeLaPropriaPrenotazione()
+    {
+        SetUserAsCliente("user-test-123");
+        var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, UserId = "user-test-123" };
+        _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(prenotazione);
+        _mapperMock.Setup(m => m.Map<GestoraWebApi.Services.Prenotazioni.DTOs.PrenotazioneDTO>(prenotazione))
+                   .Returns(new GestoraWebApi.Services.Prenotazioni.DTOs.PrenotazioneDTO { Id = 1 });
+
+        var dto = await _service.GetByIdAsync(1);
+
+        Assert.Equal(1, dto.Id);
     }
 }

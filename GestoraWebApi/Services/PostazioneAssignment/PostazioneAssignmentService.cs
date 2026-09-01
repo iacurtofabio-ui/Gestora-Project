@@ -2,6 +2,7 @@ using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Prenotazioni;
+using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,17 +12,24 @@ namespace GestoraWebApi.Services.PostazioneAssignment
     {
         private readonly IPostazioneRepository _postazioneRepository;
         private readonly IPrenotazioniRepository _prenotazioniRepository;
+        private readonly IZonaRepository _zonaRepository;
 
         public PostazioneAssignmentService(IPostazioneRepository postazioneRepository,
-                                           IPrenotazioniRepository prenotazioniRepository)
+                                           IPrenotazioniRepository prenotazioniRepository,
+                                           IZonaRepository zonaRepository)
         {
             _postazioneRepository = postazioneRepository;
             _prenotazioniRepository = prenotazioniRepository;
+            _zonaRepository = zonaRepository;
         }
 
         public async Task<List<PostazioneAssegnata>> AssegnaPostazioneDisponibileAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null)
         {
-            var postazioni = await _postazioneRepository.GetPostazioniAttiveAsync();
+            // REV-024: escludi i tavoli che appartengono a zone disattivate.
+            var zoneAttiveIds = (await _zonaRepository.GetAllZoneAttiveAsync()).Select(z => z.Id).ToHashSet();
+            var postazioni = (await _postazioneRepository.GetPostazioniAttiveAsync())
+                .Where(p => zoneAttiveIds.Contains(p.ZonaId))
+                .ToList();
 
             if (dto.ZonaId.HasValue)
                 postazioni = postazioni.Where(p => p.ZonaId == dto.ZonaId.Value).ToList();
@@ -60,15 +68,6 @@ namespace GestoraWebApi.Services.PostazioneAssignment
             return migliore
                 .Select(p => new PostazioneAssegnata(p, distribuzione[p.Id]))
                 .ToList();
-        }
-
-        public List<List<Postazione>> TrovaCombinazioniDisponibili(List<Postazione> postazioniLibere, int numeroCoperti)
-        {
-            var migliore = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioniLibere, numeroCoperti);
-
-            return migliore == null
-                ? new List<List<Postazione>>()
-                : new List<List<Postazione>> { migliore };
         }
     }
 }

@@ -82,10 +82,5 @@ namespace GestoraWebApi.Repositories.Prenotazioni
                 .OrderBy(f => f.OrarioInizio)
                 .ToListAsync();
         }
-
-        public async Task<List<Postazione>> GetAllPostazioniAsync()
-        {
-            return await _context.Postazioni.AsNoTracking().ToListAsync();
-        }
     }
 }
