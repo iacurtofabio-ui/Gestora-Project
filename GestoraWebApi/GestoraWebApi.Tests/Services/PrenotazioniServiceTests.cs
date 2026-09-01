@@ -77,7 +77,8 @@ public class PrenotazioniServiceTests
             _httpContextMock.Object,
             _zonaRepoMock.Object,
             _loggerMock.Object,
-            _logActivityMock.Object);
+            _logActivityMock.Object,
+            new TestClock());
 
     }
 

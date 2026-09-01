@@ -1,4 +1,5 @@
 ﻿using GestoraWebApi.Auth;
+using GestoraWebApi.Common;
 using GestoraWebApi.Services.Dashboard;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +13,15 @@ namespace GestoraWebApi.Controllers
     {
         private readonly IDashboardService _dashboardService;
         private readonly ILogger<DashboardController> _logger;
+        private readonly IClock _clock;
 
         public DashboardController(IDashboardService dashboardService,
-                                   ILogger<DashboardController> logger)
+                                   ILogger<DashboardController> logger,
+                                   IClock clock)
         {
             _dashboardService = dashboardService;
             _logger = logger;
+            _clock = clock;
         }
 
         /// <summary>
@@ -27,7 +31,7 @@ namespace GestoraWebApi.Controllers
         [HttpGet("giornaliera")]
         public async Task<IActionResult> GetGiornaliera([FromQuery] DateOnly? data)
         {
-            var targetData = data ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var targetData = data ?? _clock.TodayInRome;
 
             _logger.LogInformation(
                 "[{Controller}] - [{Method}]: Dashboard giornaliera richiesta per {Data}",
@@ -45,9 +49,10 @@ namespace GestoraWebApi.Controllers
         [HttpGet("settimanale")]
         public async Task<IActionResult> GetSettimanale([FromQuery] DateOnly? dataInizio)
         {
-            // Se non specificata, partiamo dal lunedì della settimana corrente
-            var oggi = DateOnly.FromDateTime(DateTime.UtcNow);
-            var lunedi = oggi.AddDays(-(int)oggi.DayOfWeek == 0 ? 6 : (int)oggi.DayOfWeek - 1);
+            // Se non specificata, partiamo dal lunedì della settimana corrente (ora italiana)
+            var oggi = _clock.TodayInRome;
+            var giorniDaLunedi = ((int)oggi.DayOfWeek + 6) % 7; // lunedì = 0, domenica = 6
+            var lunedi = oggi.AddDays(-giorniDaLunedi);
             var target = dataInizio ?? lunedi;
 
             _logger.LogInformation(

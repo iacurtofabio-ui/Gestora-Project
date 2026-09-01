@@ -28,6 +28,7 @@ namespace GestoraWebApi.Services.Prenotazioni
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<PrenotazioniService> _logger;
         private readonly ILogActivityService _logActivity;
+        private readonly IClock _clock;
         private IPrenotazioniRepository object1;
         private IPostazioneAssignmentService object2;
         private IFasciaOrariaRepository object3;
@@ -45,7 +46,8 @@ namespace GestoraWebApi.Services.Prenotazioni
                                    IHttpContextAccessor httpContextAccessor,
                                    IZonaRepository zonaRepository,
                                    ILogger<PrenotazioniService> logger,
-                                   ILogActivityService logActivity)
+                                   ILogActivityService logActivity,
+                                   IClock clock)
         {
             _prenotazioniRepository = prenotazioniRepository;
             _postazioneAssignmentService = postazioneAssignmentService;
@@ -56,6 +58,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             _zonaRepository = zonaRepository;
             _logger = logger;
             _logActivity = logActivity;
+            _clock = clock;
         }
 
         public PrenotazioniService(IPrenotazioniRepository object1, IPostazioneAssignmentService object2, IFasciaOrariaRepository object3, IMapper object4, GestoraContext context, IHttpContextAccessor object5, IZonaRepository object6, ILogger<PrenotazioniService> object7)
@@ -219,7 +222,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (prenotazione.Stato != StatoPrenotazione.InCorso)
                 throw new InvalidOperationException("Solo prenotazioni 'In corso' possono essere completate.");
 
-            var now = GetNowInRome();
+            var now = _clock.NowInRome;
             var endDateTime = prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
                                           .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan());
 
@@ -325,7 +328,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
         public async Task AutomaticCompletPrenotazioniAsync()
         {
-            var now = GetNowInRome();
+            var now = _clock.NowInRome;
             var today = DateOnly.FromDateTime(now);
             var oraAttuale = TimeOnly.FromTimeSpan(now.TimeOfDay);
 
@@ -349,7 +352,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
         public async Task AutomaticDeletePrenotazioniAsync()
         {
-            var now = GetNowInRome();
+            var now = _clock.NowInRome;
             var cutoffDate = DateOnly.FromDateTime(now).AddMonths(-6);
 
             var prenotazioniToDelete = await _prenotazioniRepository
@@ -395,7 +398,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             var inizioPrenotazione = prenotazione.DataPrenotazione.ToDateTime(prenotazione.FasciaOraria.OrarioInizio);
             var limiteModifica = inizioPrenotazione.AddHours(-CutoffOreClienteSelfService);
 
-            if (GetNowInRome() > limiteModifica)
+            if (_clock.NowInRome > limiteModifica)
                 throw new InvalidOperationException(
                     $"Non è più possibile modificare o annullare autonomamente questa prenotazione: mancano meno di " +
                     $"{CutoffOreClienteSelfService} ore dall'orario prenotato. Contatta il locale per assistenza.");
@@ -468,23 +471,6 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             if (!almenoUnaPostazioneAttiva)
                 throw new ArgumentException("Non ci sono postazioni attive nel sistema.");
-        }
-
-        private DateTime GetNowInRome()
-        {
-            try
-            {
-                var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome");
-                return TimeZoneInfo.ConvertTime(DateTime.UtcNow, tz);
-            }
-            catch (TimeZoneNotFoundException)
-            {
-                return DateTime.Now;
-            }
-            catch (InvalidTimeZoneException)
-            {
-                return DateTime.Now;
-            }
         }
     }
 }

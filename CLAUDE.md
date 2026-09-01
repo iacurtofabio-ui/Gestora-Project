@@ -2,10 +2,54 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 31/08/2026
-Ultima cosa fatta: **FASE 1 chiusa** + **Fase 2, checkpoint 2a e 2b chiusi** (rename
-`MaxPrenotazioni`→`MaxCoperti`; nuovo algoritmo di assegnazione tavoli). Alla prossima sessione si
-riparte dal **checkpoint 2c** (unificazione disponibilità/assegnazione + fix correlati).
+Ultima sessione: 01/09/2026
+Ultima cosa fatta: **Fase 2, checkpoint 2c — codice completo** (unificazione
+disponibilità/assegnazione + fix correlati + un solo orologio UTC). `dotnet test` 57/57 verdi,
+frontend `tsc`/`build`/`eslint` puliti. **Mancano solo i test manuali di Fabio** (vedi sotto) per
+chiudere formalmente la Fase 2. Nessuna migration in tutto il 2c.
+
+### Prossimo passo — test manuali di Fabio (chiusura Fase 2)
+
+Da provare in locale/produzione prima di dichiarare chiusa la Fase 2:
+1. Verifica disponibilità con locale pieno (`POST check-disponibilita`): la fascia col tetto
+   `MaxCoperti` esaurito deve dare `disponibilePerRichiesta=false` con `messaggio` che parla di
+   capienza; tetto libero ma tavoli fisici insufficienti → `messaggio` che parla di tavoli.
+2. Modifica di una prenotazione di un cliente da account **Staff** (REV-002) → deve funzionare.
+3. Lettura dettaglio di una propria prenotazione da account **Cliente** (`get-prenotazione`,
+   REV-034) → deve funzionare; su prenotazione altrui → 401 (nota: il fix 401→403 è REV-025,
+   Fase 6, non anticipato).
+4. Riepilogo sala in cima alla pagina Postazioni (Admin/Staff): tavoli attivi, posti totali,
+   copertura del tetto per fascia.
+5. Dashboard tra mezzanotte e le 2 di notte → deve mostrare il giorno corretto (ora italiana),
+   non quello prima (REV-016).
+
+Poi si passa alla **Fase 3** (prenotazioni simultanee, unique index parziale — questa richiede
+una migration manuale).
+
+### Checkpoint 2c — riepilogo (codice chiuso 01/09/2026)
+
+Tre commit su `dev`:
+- **Blocco 1+2** — `DisponibilitaService` riscritto: usa il motore `AssegnazioneTavoli` (non più
+  `TrovaCombinazioniDisponibili`, rimosso), posti residui sul tetto `MaxCoperti` (decisione 8),
+  esclude zone/tavoli disattivati (REV-024, applicato anche a `PostazioneAssignmentService`),
+  `Messaggio` che distingue tetto esaurito da tavoli insufficienti. DTO `FasciaDisponibilitaDTO`
+  +3 campi (nessun consumatore frontend di `check-disponibilita`). REV-002 (Staff/Admin modificano
+  la prenotazione di un cliente), REV-034 (Cliente legge il dettaglio della propria), REV-006
+  (audit log sulla modifica). Rimosso `IPrenotazioniRepository.GetAllPostazioniAsync` (morto).
+- **Blocco 3** — endpoint `GET /api/Postazione/riepilogo-sala` (Admin/Staff) + card "Riepilogo
+  sala" in cima a `PostazionePage` (decisione 9). `PostazioneService` ora dipende da
+  `IFasciaOrariaRepository`.
+- **Blocco 4** — un solo orologio (REV-016 / REV-092): nuovo `Common/IClock` (`SystemClock`,
+  singleton) con `UtcNow` / `NowInRome` / `TodayInRome`. `PrenotazioniService` (rimosso il
+  privato `GetNowInRome` duplicato), `DashboardService` + `DashboardController` (fix REV-016 +
+  bug di precedenza nel calcolo del lunedì corrente), `PrenotazioneCreateDTOValidator` ora usano
+  `IClock`. Job Quartz: log timestamp normalizzati a UTC. `TestClock` nel progetto test.
+  I ~30 `DateTime.Now` nelle stringhe di log dei controller **non** toccati (rumore di logging,
+  non "orologio di dominio") — candidati Fase 9.
+
+> **Nota debito**: `PrenotazioniService` ha ancora il secondo costruttore fantasma con
+> `object1..object7` (REV-010, assegnato a Fase 9). Non è un bug attivo — la DI sceglie sempre il
+> costruttore più largo, ora a 10 parametri — ma va rimosso.
 
 ### Riprendere da qui — leggere in quest'ordine
 
@@ -92,14 +136,13 @@ Verificato: `dotnet test` 42/42 verdi (erano 31), test manuali di Fabio in produ
 (prenotazione da 2 con soli tavoli grandi, unione per 8, unione mista 2+6 senza bonus, creazione
 postazione con capienza 6 ora accettata).
 
-### Prossimo passo — Fase 2, checkpoint 2c (unificazione disponibilità/assegnazione)
+### Fase 2, checkpoint 2c — riepilogo (codice chiuso 01/09/2026)
 
-Far usare alla verifica di disponibilità lo stesso motore `AssegnazioneTavoli` dell'assegnazione
-(oggi `DisponibilitaService` e l'endpoint pubblico possono dare risposte opposte), sfruttare
-`NumeroPosti` ora finalmente popolato, più i fix correlati (REV-002 Staff bloccato, REV-034
-dettaglio prenotazione al Cliente, REV-024 zone/tavoli disattivati, posti residui basati sul tetto
-della fascia, messaggio d'errore coerente, riepilogo sala nella pagina Postazioni). Dettaglio
-completo in `ROADMAP_REVISIONE.md`.
+Vedi il blocco "STATO SESSIONE" in cima al file per il dettaglio dei tre commit e per i test
+manuali di Fabio ancora da fare (chiusura formale della Fase 2). In sintesi: `DisponibilitaService`
+unificato sul motore `AssegnazioneTavoli` (REV-001/REV-024, posti residui sul tetto `MaxCoperti`),
+REV-002 / REV-034 / REV-006, riepilogo sala (`GET /api/Postazione/riepilogo-sala` + card in
+`PostazionePage`), un solo orologio `Common/IClock` (REV-016 / REV-092). Nessuna migration.
 
 > Nota sulle migration: per decisione del 28/08 **restano manuali**. Claude prepara la migration,
 > Fabio la applica seguendo la procedura descritta in testa a `ROADMAP_REVISIONE.md`. Riguarda le

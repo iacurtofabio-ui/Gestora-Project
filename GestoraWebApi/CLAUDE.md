@@ -57,15 +57,17 @@ Zona: `GET get-zone-attive`, `GET get-all-zone`, `GET get-zona/{id}`, `POST crea
 `PUT update-zona`, `PATCH update-stato/{id}?attiva=`, `DELETE delete-zona/{id}`.
 
 Postazione: `GET get-postazioni-attive`, `GET get-postazioni-disponibili`,
-`GET get-postazioni-per-zona`, `GET get-postazione-id`, `POST crea-postazione`,
-`PUT update-postazione`, `PUT associa-postazione-a-zona`, `DELETE delete-postazione`.
+`GET get-postazioni-per-zona`, `GET get-postazione-id`, `GET riepilogo-sala` (Admin+Staff,
+quadro d'insieme sala — decisione 9), `POST crea-postazione`, `PUT update-postazione`,
+`PUT associa-postazione-a-zona`, `DELETE delete-postazione`.
 
 FasceOrarie: `GET fasce-attive`, `GET get-all-fasce` (Admin+Staff), `GET fasce-per-giorno?giorno={0-6}`,
 `GET fasce-disponibili?fasciaId=&data=`, `POST crea-fascia`, `PUT update-fascia`,
 `PATCH update-stato/{id}?attiva=`, `DELETE delete-fascia`.
 
 Prenotazione: `POST crea-prenotazione`, `POST check-disponibilita` (pubblico, no auth),
-`GET get-prenotazione?id=`, `GET get-all-prenotazioni` (filtri opzionali via
+`GET get-prenotazione?id=` (Admin/Staff su tutte; Cliente solo la propria — REV-034),
+`GET get-all-prenotazioni` (filtri opzionali via
 `PrenotazioniQueryParams`, paginato), `GET get-mie-prenotazioni` (solo Cliente, filtra su
 UserId dal JWT), `GET get-prenotazioni-by-data?data=`, `PUT update-prenotazione`,
 `DELETE delete-prenotazione` (solo Admin), `PATCH conferma-prenotazione?id=` (Admin+Staff),
@@ -145,8 +147,21 @@ concreti si scelgono solo sulla combinazione vincente.
 dei posti distribuiti è **sempre** pari ai coperti richiesti — è la proprietà su cui si appoggia
 il calcolo della disponibilità.
 
-⚠️ `DisponibilitaService` usa ancora `TrovaCombinazioniDisponibili`, oggi un wrapper sottile sul
-motore: l'unificazione vera fra disponibilità e assegnazione è il checkpoint 2c.
+`DisponibilitaService` (checkpoint 2c, 01/09/2026) chiama direttamente
+`AssegnazioneTavoli.TrovaMigliorCombinazione` — stesso motore dell'assegnazione reale. Basa i
+posti residui sul tetto della fascia (`MaxCoperti`, decisione 8), esclude tavoli in zone
+disattivate (REV-024, come `PostazioneAssignmentService`) e restituisce un `Messaggio` che
+distingue "tetto esaurito" da "tetto libero ma tavoli fisici insufficienti". Il vecchio wrapper
+`TrovaCombinazioniDisponibili` è stato rimosso.
+
+## Orologio unico (REV-016 / REV-092, checkpoint 2c)
+
+`Common/IClock` (`SystemClock`, singleton): `UtcNow`, `NowInRome`, `TodayInRome`. Il database e la
+logica interna lavorano in UTC; la conversione a `Europe/Rome` avviene solo al confine —
+`PrenotazioniService` (cutoff, completamento job, cleanup), `DashboardService` /
+`DashboardController` (data "oggi"), `PrenotazioneCreateDTOValidator` (soglia data passata). Non
+reintrodurre `DateTime.Now`/`DateTime.Today`/`GetNowInRome()` privati: iniettare `IClock`. Nei
+test usare `TestClock` (istante fisso).
 
 ## Note tecniche da tenere a mente
 
@@ -185,8 +200,10 @@ motore: l'unificazione vera fra disponibilità e assegnazione è il checkpoint 2
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, pattern Arrange/Act/Assert. Un file per service
 (`FasciaOrariaServiceTe.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
-`PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`). 31 test totali. Eseguire con `dotnet test`
-dalla cartella `GestoraWebApi/`. Nessun test su controller o su `AuthenticationUserController` —
+`PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`, `DisponibilitaServiceTests.cs`,
+`DashboardServiceTests.cs`) più `Validators/PrenotazioneCreateDTOValidatorTests.cs`. **57 test
+totali** (01/09/2026). Orologio nei test: `TestClock` (istante fisso, alla radice del progetto
+test). Eseguire con `dotnet test` dalla cartella `GestoraWebApi/`. Nessun test su controller o su `AuthenticationUserController` —
 la logica di auth non è ancora estratta in un service dedicato. Per mockare `IQueryable<T>`
 restituito dai repository (necessario per testare query EF Core come `AnyAsync`/`FirstOrDefaultAsync`
 su un repository mockato) si usa il pacchetto `MockQueryable.Moq` (7.0.3, l'unica versione

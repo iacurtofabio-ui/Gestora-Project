@@ -190,6 +190,9 @@ builder.Services.ConfigureCustomInvalidModelState();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Un solo orologio per tutto il progetto (REV-016 / REV-092)
+builder.Services.AddSingleton<GestoraWebApi.Common.IClock, GestoraWebApi.Common.SystemClock>();
+
 //REPOSITORY
 builder.Services.AddScoped<ILogActivityRepository, LogActivityRepository>();
 builder.Services.AddScoped<IPostazioneRepository, PostazioneRepository>();

@@ -16,7 +16,7 @@ namespace GestoraWebApi.Background
 
         public async Task Execute(IJobExecutionContext context)
         {
-            _logger.LogInformation("PrenotazioniJob started at {Time}", DateTime.Now);
+            _logger.LogInformation("PrenotazioniJob started at {Time}", DateTime.UtcNow);
 
             try
             {
@@ -24,7 +24,7 @@ namespace GestoraWebApi.Background
                 var prenotazioniService = scope.ServiceProvider.GetRequiredService<IPrenotazioniService>();
                 await prenotazioniService.AutomaticCompletPrenotazioniAsync();
 
-                _logger.LogInformation("PrenotazioniJob completed at {Time}", DateTime.Now);
+                _logger.LogInformation("PrenotazioniJob completed at {Time}", DateTime.UtcNow);
             }
             catch (Exception ex)
             {

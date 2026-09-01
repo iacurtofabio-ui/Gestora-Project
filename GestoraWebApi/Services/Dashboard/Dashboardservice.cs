@@ -1,4 +1,5 @@
-﻿using GestoraWebApi.Context;
+﻿using GestoraWebApi.Common;
+using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Services.Dashboard.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -9,15 +10,17 @@ namespace GestoraWebApi.Services.Dashboard
     {
         private readonly GestoraContext _context;
         private readonly ILogger<DashboardService> _logger;
+        private readonly IClock _clock;
 
         // Per la localizzazione italiana dei nomi giorno
         private static readonly System.Globalization.CultureInfo _itCulture =
             new("it-IT");
 
-        public DashboardService(GestoraContext context, ILogger<DashboardService> logger)
+        public DashboardService(GestoraContext context, ILogger<DashboardService> logger, IClock clock)
         {
             _context = context;
             _logger = logger;
+            _clock = clock;
         }
 
         //Panoramica giornaliera
@@ -141,7 +144,7 @@ namespace GestoraWebApi.Services.Dashboard
 
             // Tasso no-show: prenotazioni rimaste Attiva su date già passate
             // (il cliente non si è presentato, lo staff non ha mai confermato)
-            var oggi = DateOnly.FromDateTime(DateTime.UtcNow);
+            var oggi = _clock.TodayInRome;
             var noShow = prenotazioni.Count(p =>
                 p.Stato == StatoPrenotazione.Attiva && p.DataPrenotazione < oggi);
             var prenotazioniConcluse = prenotazioni.Count(p =>
