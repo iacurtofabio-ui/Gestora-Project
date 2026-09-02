@@ -486,7 +486,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                     // disponibilita' e la scrittura. Il rollback avviene nel Dispose della
                     // transazione, mai committata.
                     throw new ConflictException(
-                        "Il tavolo e' stato appena assegnato a un'altra prenotazione. Riprova: verra' cercata una nuova disponibilita'.", ex);
+                        "Il tavolo è stato appena assegnato a un'altra prenotazione. Riprova: verrà cercata una nuova disponibilità.", ex);
                 }
             });
         }

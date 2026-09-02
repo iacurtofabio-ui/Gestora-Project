@@ -290,3 +290,28 @@ In ordine di rapporto valore/sforzo, tutte coerenti con il dominio già modellat
 - **REV-095** — `CLAUDE.md` §Stack dice ancora "FRONTEND (completato — deploy pendente)" mentre il deploy Vercel è fatto
 - **REV-096** — Grafo `graphify-out/` fermo al 14/08: non riflette le Fasi 5-7
 - **REV-097** — `JobsController.cs` non committato, presente solo nel working tree (risolto il 27/08/2026, committato in `3d614b1`)
+
+---
+
+## Aggiunte dopo la revisione — emerse in Fase 3 (02/09/2026)
+
+Due difetti trovati durante i test manuali della Fase 3, non presenti nella revisione originale.
+Nessuno dei due è stato introdotto dalla Fase 3: erano già lì.
+
+- **REV-098** — **La modifica di una prenotazione non esiste nel frontend.** *(non è nuovo: è
+  già tracciato come `NEW-001` nel foglio "Fix e Bug" del tracker, pianificato per la Fase 6
+  insieme a REV-015 perché condividono lo stesso componente. L'ID REV-098 vale come riferimento
+  nel backlog scritto, non come segnalazione aggiuntiva.)* L'endpoint
+  `PUT /api/Prenotazione/update-prenotazione` è implementato, testato e protetto da RBAC, ma
+  nessuno lo chiama: in `PrenotazionePage.tsx` ci sono solo Conferma, Completa e Annulla, e in
+  `usePrenotazioni.ts` manca l'hook di update. Di fatto una prenotazione si può solo annullare e
+  rifare, e i test di modifica sono possibili solo via Swagger/Postman. Collocazione confermata:
+  Fase 6, come già previsto dal tracker.
+- **REV-099** — **Un tavolo usato una volta non è più modificabile.**
+  `PostazioneService.UpdateAsync` rifiuta l'aggiornamento se `HasPrenotazioniAsync` trova una
+  qualsiasi riga in `PrenotazioniPostazioni`, senza distinguere fra prenotazioni future e
+  storiche: dopo la prima prenotazione completata, quella postazione non si può più rinominare,
+  spostare di zona né disattivare. Emerso provando a disattivare i tavoli per preparare il test
+  di concorrenza. Il controllo corretto guarda solo le prenotazioni **future e non annullate**.
+  Collocazione proposta: Fase 7 (robustezza del backend).
+

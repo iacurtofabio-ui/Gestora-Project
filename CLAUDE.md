@@ -3,49 +3,63 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 02/09/2026
-Ultima cosa fatta: **FASE 3 — codice completo, in attesa dei task di Fabio.** Concorrenza sulla
-doppia prenotazione chiusa a database (REV-003), più REV-026 completo e REV-032 parziale.
-`dotnet test` **70/70** (erano 57), `npm run build` verde. Nessuna modifica al frontend: si è
-verificato che l'interceptor Axios non intercetta il 409 e che `usePrenotazioni.ts` mostra già
-`data.message` in un toast.
+Ultima cosa fatta: **FASE 3 CHIUSA.** La doppia prenotazione sullo stesso tavolo non è più
+possibile: vincolo reale a database (REV-003), più REV-026 completo e REV-032 parziale.
+`dotnet test` **70/70**, `npm run build` verde, migration applicata in produzione, **test di
+concorrenza superato in produzione** (due richieste simultanee → `201` + `409` con il messaggio
+di conflitto sullo slot). Nessuna modifica al frontend.
 
-⚠️ **La fase NON è chiusa**: mancano i task 🧑 (migration in produzione + prova da due browser) e
-il loro esito scritto — Definition of Done, punto 3.
+### Fase 3 — riepilogo
 
-### Dove siamo esattamente
-
-**Fatto (da committare):**
-- `PrenotazionePostazione` + colonne denormalizzate `DataPrenotazione` / `FasciaOrariaId`;
-  unique index pieno `UX_PrenotazionePostazione_Slot`. Migration
-  `20260902081401_AggiungiSlotPrenotazionePostazione` **riscritta a mano** (lo scaffolding EF era
-  inutilizzabile: riempiva le colonne con `0001-01-01`/`0` e poi falliva l'indice). Ordine:
-  colonne nullable → backfill → cancellazione righe delle annullate → `NOT NULL` → indice.
+- `PrenotazionePostazione` porta la copia denormalizzata di `DataPrenotazione` + `FasciaOrariaId`
+  e l'unique index **pieno** `UX_PrenotazionePostazione_Slot`. Migration
+  `20260902081401_AggiungiSlotPrenotazionePostazione` **scritta a mano** (lo scaffolding EF
+  riempiva le colonne con `0001-01-01`/`0` e poi falliva l'indice): nullable → backfill →
+  cancellazione righe delle annullate → `NOT NULL` → indice.
 - `AddAsync` / `UpdateAsync` / `AnnullaPrenotazioneAsync` dentro
   `CreateExecutionStrategy().ExecuteAsync(...)` + transazione, via l'helper privato
-  `EseguiInTransazioneAsync`. In `UpdateAsync` i DELETE sono salvati **prima** degli INSERT.
-- Annullo → cancella le righe join (l'annullata libera il tavolo).
-- `ConflictException` + `DbExceptionTranslator` (`Infrastructure/Exceptions/`): `23505` su quel
-  constraint → 409; `23505` di altri indici → resta 500.
+  `EseguiInTransazioneAsync`. In `UpdateAsync` i DELETE sono salvati **prima** degli INSERT (EF
+  non garantisce quell'ordine in una singola `SaveChanges`, e l'indice rifiuterebbe una modifica
+  che riusa lo stesso tavolo).
+- Annullo → cancella le righe join: l'annullata libera il tavolo.
+- `ConflictException` + `DbExceptionTranslator`: `23505` su quel constraint → 409 leggibile,
+  `23505` di altri indici → resta 500.
 - **REV-026 chiuso** (era Fase 7): 37 `InvalidOperationException` convertite — 34 in
-  `ConflictException`, 3 in `NotFoundException` (unico cambio di contratto: quei 3 casi passano
-  da 409 a 404). Middleware: `InvalidOperationException` non è più mappata a 409.
-- **REV-032 parziale**: audit log dentro la transazione per creazione/modifica/annullo. Zone,
+  `ConflictException`, 3 in `NotFoundException` (unico cambio di contratto: quei 3 casi da 409 a
+  404). `InvalidOperationException` non è più mappata nel middleware.
+- **REV-032 parziale**: audit log nella stessa transazione per creazione/modifica/annullo; Zone,
   Postazioni e Fasce restano alla Fase 7.
-- Test: +13 (6 su `DbExceptionTranslator`, 7 su `PrenotazioniService`). **Nessun test di
-  concorrenza reale**: scelta del 02/09 di non introdurre Testcontainers, l'InMemory non applica
-  gli unique index → la prova end-to-end è il test manuale di Fabio.
+- Test: +13 (6 `DbExceptionTranslator`, 7 `PrenotazioniService`). **Nessun test di concorrenza
+  automatico**: l'InMemory non applica gli unique index e si è deciso di non introdurre
+  Testcontainers — la prova è quella manuale in produzione.
 
-**Da fare, in quest'ordine (guida completa data a Fabio in sessione):**
-1. Migration sul DB **locale** (`dotnet ef database update`) e prova in locale
-2. Commit + push su `dev`
-3. Produzione: query di pre-check duplicati → `pg_dump` → migration → deploy → verifica
-4. Prova della doppia prenotazione da due browser
-5. Scrivere l'esito, aggiornare il tracker Excel (tutti i fogli), chiudere la fase
+> **Da ricordare — BOM negli script SQL**: `dotnet ef migrations script` genera il file con BOM
+> UTF-8; psql lo attacca alla prima istruzione, `START TRANSACTION` fallisce e **tutto lo script
+> gira in autocommit**, senza rollback in caso di errore. È successo in produzione il 02/09 (esito
+> corretto, ma senza rete di sicurezza). Il file in `GestoraWebApi/Scripts/` è stato ripulito e
+> porta la nota in testa: se se ne rigenera uno, togliere il BOM prima di usarlo.
 
-> ⚠️ **Punto aperto da chiarire con Fabio**: Railway fa deploy dal branch `main`, ma il lavoro sta
-> su `dev`. Va ricostruito come è stata portata in produzione la migration della Fase 2a (merge su
-> `main`? branch di deploy cambiato?) prima di ripetere la procedura qui — applicare la migration
-> senza il codice nuovo online significa 500 su tutto ciò che tocca `PrenotazioniPostazioni`.
+> **Nota su Railway**: il servizio Postgres **non ha TCP proxy pubblico**, quindi `pg_dump` da
+> locale non è possibile (`postgres.railway.internal` non è raggiungibile da fuori). Il backup si
+> fa con `\copy` dentro `railway connect Postgres`, tabella per tabella, come in Fase 2a.
+
+### Emersi in Fase 3, da lavorare più avanti
+
+- **REV-098** — la **modifica di una prenotazione non esiste nel frontend**: l'endpoint
+  `PUT /update-prenotazione` c'è, ma non ci sono né hook né pulsante. **Già tracciato come
+  `NEW-001`** nel foglio "Fix e Bug", pianificato per la Fase 6 insieme a REV-015 (stesso
+  componente): REV-098 è solo il riferimento nel backlog scritto, non una segnalazione nuova.
+- **REV-099** — `PostazioneService.UpdateAsync` blocca l'aggiornamento se esiste una qualsiasi
+  riga in `PrenotazioniPostazioni`, anche di prenotazioni concluse: **un tavolo usato una volta
+  non è più modificabile né disattivabile**. Proposta: Fase 7.
+- Password del database di produzione e token Admin **esposti in chat il 02/09**: da ruotare.
+
+### Prossimo passo — Fase 4 (sicurezza e primo avvio)
+
+Schermata di primo avvio al posto di `seed-admin` pubblico (REV-007), email fuori dai log di
+accesso (REV-070), distinzione 401/403 senza logout (REV-025), campo riservato non scrivibile dal
+Cliente (REV-033). Nessun task 🧑 previsto. A fine Fase 4 va **decisa** l'eventuale release
+intermedia `v1.0.1` (proposta facoltativa in `ROADMAP_REVISIONE.md`).
 
 ### Checkpoint 2c — riepilogo (codice chiuso 01/09/2026)
 

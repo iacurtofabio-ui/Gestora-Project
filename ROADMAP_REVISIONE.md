@@ -346,7 +346,35 @@ diverse, nessun conflitto da rilevare a quel livello. La garanzia reale va messa
 - Provare a prenotare lo stesso tavolo da due browser diversi contemporaneamente
 
 **Chiusura**: la doppia prenotazione sullo stesso tavolo non è più possibile, né in locale né in
-produzione.
+produzione. ✅ **Fase chiusa il 02/09/2026.**
+
+> **Esito dei task 🧑 (Definition of Done, punto 3) — 02/09/2026**
+>
+> - **Locale**: migration applicata con `dotnet ef database update`, indice verificato con
+>   `\d "PrenotazioniPostazioni"`. Le tre prove manuali passate: creazione, annullo che libera
+>   il tavolo (righe join a 0), modifica sullo stesso slot senza falso conflitto. Conferma sui
+>   dati: l'unica prenotazione presente era annullata e la migration ne ha cancellato le righe.
+> - **Produzione**: backup mirato con `\copy` di `Prenotazioni` (20 righe) e
+>   `PrenotazioniPostazioni` (33 righe) — il `pg_dump` completo non era possibile, il servizio
+>   Postgres su Railway non ha TCP proxy pubblico e l'host interno non è raggiungibile da fuori.
+>   Pre-check duplicati: 0. Righe di prenotazioni annullate da cancellare: 14 → 33 − 14 = **19
+>   righe finali, come previsto**, nessuna con slot nullo. Indice creato, migration registrata in
+>   `__EFMigrationsHistory`. Poi merge `dev`→`main` e deploy Railway.
+> - **Test di concorrenza superato**: due `POST /crea-prenotazione` realmente simultanee (script
+>   `test-concorrenza.ps1`, due `SendAsync` su `HttpClient` senza attesa reciproca) su una zona di
+>   test con un solo tavolo da 2 → **`201` + `409` "Il tavolo è stato appena assegnato a
+>   un'altra prenotazione"**. Il controllo applicativo aveva visto il tavolo libero per entrambe:
+>   a fermare la seconda è stato l'unique index. È la dimostrazione diretta di REV-003.
+>
+> **Incidente da ricordare**: lo script SQL generato da `dotnet ef migrations script` ha il BOM
+> UTF-8 in testa, e psql lo attacca alla prima istruzione → `START TRANSACTION` fallisce con
+> `syntax error at or near "START"` e **il resto dello script gira in autocommit**, senza
+> rollback automatico. È successo in produzione: il risultato è stato corretto, ma senza rete di
+> sicurezza. Il file in `Scripts/` è stato ripulito dal BOM e porta la nota in testa.
+>
+> **Emersi durante i test, registrati come REV-098 e REV-099** (vedi `REVISIONE_END_TO_END.md`):
+> la modifica prenotazione non esiste nel frontend, e un tavolo con prenotazioni storiche non è
+> più modificabile né disattivabile.
 
 > **Stato al 02/09/2026 — codice completo, `dotnet test` 70/70 e `npm run build` verdi.**
 > Restano i task 🧑 (migration in produzione + prova da due browser): senza il loro esito scritto
