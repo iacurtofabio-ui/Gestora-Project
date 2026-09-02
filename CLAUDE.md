@@ -2,29 +2,50 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 01/09/2026
-Ultima cosa fatta: **Fase 2, checkpoint 2c — codice completo** (unificazione
-disponibilità/assegnazione + fix correlati + un solo orologio UTC). `dotnet test` 57/57 verdi,
-frontend `tsc`/`build`/`eslint` puliti. **Mancano solo i test manuali di Fabio** (vedi sotto) per
-chiudere formalmente la Fase 2. Nessuna migration in tutto il 2c.
+Ultima sessione: 02/09/2026
+Ultima cosa fatta: **FASE 3 — codice completo, in attesa dei task di Fabio.** Concorrenza sulla
+doppia prenotazione chiusa a database (REV-003), più REV-026 completo e REV-032 parziale.
+`dotnet test` **70/70** (erano 57), `npm run build` verde. Nessuna modifica al frontend: si è
+verificato che l'interceptor Axios non intercetta il 409 e che `usePrenotazioni.ts` mostra già
+`data.message` in un toast.
 
-### Prossimo passo — test manuali di Fabio (chiusura Fase 2)
+⚠️ **La fase NON è chiusa**: mancano i task 🧑 (migration in produzione + prova da due browser) e
+il loro esito scritto — Definition of Done, punto 3.
 
-Da provare in locale/produzione prima di dichiarare chiusa la Fase 2:
-1. Verifica disponibilità con locale pieno (`POST check-disponibilita`): la fascia col tetto
-   `MaxCoperti` esaurito deve dare `disponibilePerRichiesta=false` con `messaggio` che parla di
-   capienza; tetto libero ma tavoli fisici insufficienti → `messaggio` che parla di tavoli.
-2. Modifica di una prenotazione di un cliente da account **Staff** (REV-002) → deve funzionare.
-3. Lettura dettaglio di una propria prenotazione da account **Cliente** (`get-prenotazione`,
-   REV-034) → deve funzionare; su prenotazione altrui → 401 (nota: il fix 401→403 è REV-025,
-   Fase 6, non anticipato).
-4. Riepilogo sala in cima alla pagina Postazioni (Admin/Staff): tavoli attivi, posti totali,
-   copertura del tetto per fascia.
-5. Dashboard tra mezzanotte e le 2 di notte → deve mostrare il giorno corretto (ora italiana),
-   non quello prima (REV-016).
+### Dove siamo esattamente
 
-Poi si passa alla **Fase 3** (prenotazioni simultanee, unique index parziale — questa richiede
-una migration manuale).
+**Fatto (da committare):**
+- `PrenotazionePostazione` + colonne denormalizzate `DataPrenotazione` / `FasciaOrariaId`;
+  unique index pieno `UX_PrenotazionePostazione_Slot`. Migration
+  `20260902081401_AggiungiSlotPrenotazionePostazione` **riscritta a mano** (lo scaffolding EF era
+  inutilizzabile: riempiva le colonne con `0001-01-01`/`0` e poi falliva l'indice). Ordine:
+  colonne nullable → backfill → cancellazione righe delle annullate → `NOT NULL` → indice.
+- `AddAsync` / `UpdateAsync` / `AnnullaPrenotazioneAsync` dentro
+  `CreateExecutionStrategy().ExecuteAsync(...)` + transazione, via l'helper privato
+  `EseguiInTransazioneAsync`. In `UpdateAsync` i DELETE sono salvati **prima** degli INSERT.
+- Annullo → cancella le righe join (l'annullata libera il tavolo).
+- `ConflictException` + `DbExceptionTranslator` (`Infrastructure/Exceptions/`): `23505` su quel
+  constraint → 409; `23505` di altri indici → resta 500.
+- **REV-026 chiuso** (era Fase 7): 37 `InvalidOperationException` convertite — 34 in
+  `ConflictException`, 3 in `NotFoundException` (unico cambio di contratto: quei 3 casi passano
+  da 409 a 404). Middleware: `InvalidOperationException` non è più mappata a 409.
+- **REV-032 parziale**: audit log dentro la transazione per creazione/modifica/annullo. Zone,
+  Postazioni e Fasce restano alla Fase 7.
+- Test: +13 (6 su `DbExceptionTranslator`, 7 su `PrenotazioniService`). **Nessun test di
+  concorrenza reale**: scelta del 02/09 di non introdurre Testcontainers, l'InMemory non applica
+  gli unique index → la prova end-to-end è il test manuale di Fabio.
+
+**Da fare, in quest'ordine (guida completa data a Fabio in sessione):**
+1. Migration sul DB **locale** (`dotnet ef database update`) e prova in locale
+2. Commit + push su `dev`
+3. Produzione: query di pre-check duplicati → `pg_dump` → migration → deploy → verifica
+4. Prova della doppia prenotazione da due browser
+5. Scrivere l'esito, aggiornare il tracker Excel (tutti i fogli), chiudere la fase
+
+> ⚠️ **Punto aperto da chiarire con Fabio**: Railway fa deploy dal branch `main`, ma il lavoro sta
+> su `dev`. Va ricostruito come è stata portata in produzione la migration della Fase 2a (merge su
+> `main`? branch di deploy cambiato?) prima di ripetere la procedura qui — applicare la migration
+> senza il codice nuovo online significa 500 su tutto ciò che tocca `PrenotazioniPostazioni`.
 
 ### Checkpoint 2c — riepilogo (codice chiuso 01/09/2026)
 
@@ -136,13 +157,13 @@ Verificato: `dotnet test` 42/42 verdi (erano 31), test manuali di Fabio in produ
 (prenotazione da 2 con soli tavoli grandi, unione per 8, unione mista 2+6 senza bonus, creazione
 postazione con capienza 6 ora accettata).
 
-### Fase 2, checkpoint 2c — riepilogo (codice chiuso 01/09/2026)
+### Fase 2, checkpoint 2c — riepilogo (chiuso 01/09/2026, test manuali inclusi)
 
-Vedi il blocco "STATO SESSIONE" in cima al file per il dettaglio dei tre commit e per i test
-manuali di Fabio ancora da fare (chiusura formale della Fase 2). In sintesi: `DisponibilitaService`
-unificato sul motore `AssegnazioneTavoli` (REV-001/REV-024, posti residui sul tetto `MaxCoperti`),
-REV-002 / REV-034 / REV-006, riepilogo sala (`GET /api/Postazione/riepilogo-sala` + card in
-`PostazionePage`), un solo orologio `Common/IClock` (REV-016 / REV-092). Nessuna migration.
+In sintesi: `DisponibilitaService` unificato sul motore `AssegnazioneTavoli` (REV-001/REV-024,
+posti residui sul tetto `MaxCoperti`), REV-002 / REV-034 / REV-006, riepilogo sala
+(`GET /api/Postazione/riepilogo-sala` + card in `PostazionePage`), un solo orologio
+`Common/IClock` (REV-016 / REV-092). Nessuna migration. Tutti e 5 i test manuali di Fabio passati.
+Con questo la **Fase 2 è chiusa**.
 
 > Nota sulle migration: per decisione del 28/08 **restano manuali**. Claude prepara la migration,
 > Fabio la applica seguendo la procedura descritta in testa a `ROADMAP_REVISIONE.md`. Riguarda le

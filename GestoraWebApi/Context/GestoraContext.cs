@@ -150,6 +150,22 @@ namespace GestoraWebApi.Context
                 entity.Property(pp => pp.NumeroPosti)                    
                     .HasColumnName("NumeroPosti");
 
+                entity.Property(pp => pp.DataPrenotazione)
+                    .IsRequired()
+                    .HasColumnName("DataPrenotazione");
+
+                entity.Property(pp => pp.FasciaOrariaId)
+                    .IsRequired()
+                    .HasColumnName("FasciaOrariaId");
+
+                // REV-003: e' il database a impedire che lo stesso tavolo finisca in due
+                // prenotazioni nello stesso slot. Indice PIENO, senza filtro: le righe di una
+                // prenotazione annullata vengono cancellate (AnnullaPrenotazioneAsync), quindi
+                // non c'e' nulla da escludere con un WHERE.
+                entity.HasIndex(pp => new { pp.PostazioneId, pp.DataPrenotazione, pp.FasciaOrariaId })
+                    .IsUnique()
+                    .HasDatabaseName("UX_PrenotazionePostazione_Slot");
+
             });
 
             //ZONA

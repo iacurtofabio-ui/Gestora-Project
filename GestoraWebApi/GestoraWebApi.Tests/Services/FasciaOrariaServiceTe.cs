@@ -14,6 +14,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Tests.Services
 {
@@ -97,7 +98,7 @@ namespace GestoraWebApi.Tests.Services
         // --- FIX-004 A: UpdateStatoAsync deve controllare la sovrapposizione quando riattiva ---
 
         [Fact]
-        public async Task UpdateStatoAsync_ThrowsInvalidOperationException_WhenReactivatingOverlapsAttiva()
+        public async Task UpdateStatoAsync_ThrowsConflictException_WhenReactivatingOverlapsAttiva()
         {
             // Arrange: fascia disattivata 12:00-14:00 lunedì, si sovrappone a una attiva 13:00-15:00
             var fasciaDaRiattivare = new FasciaOraria { Id = 1, Attiva = false, GiornoSettimana = DayOfWeek.Monday,
@@ -110,14 +111,14 @@ namespace GestoraWebApi.Tests.Services
                      .Returns(new List<FasciaOraria> { fasciaDaRiattivare, fasciaAttivaEsistente }.AsQueryable().BuildMockDbSet().Object);
 
             // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() => _service.UpdateStatoAsync(1, true));
+            await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateStatoAsync(1, true));
             _repoMock.Verify(r => r.UpdateAsync(It.IsAny<FasciaOraria>()), Times.Never);
         }
 
         // --- FIX-004 B: la sovrapposizione va controllata anche contro fasce disattivate ---
 
         [Fact]
-        public async Task AddAsync_ThrowsInvalidOperationException_WhenOverlapsFasciaDisattivata()
+        public async Task AddAsync_ThrowsConflictException_WhenOverlapsFasciaDisattivata()
         {
             // Arrange: fascia disattivata 12:00-14:00 lunedì già presente
             var fasciaDisattivata = new FasciaOraria { Id = 1, Attiva = false, GiornoSettimana = DayOfWeek.Monday,
@@ -136,7 +137,7 @@ namespace GestoraWebApi.Tests.Services
             };
 
             // Act & Assert
-            await Assert.ThrowsAsync<InvalidOperationException>(() => _service.AddAsync(dto));
+            await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(dto));
             _repoMock.Verify(r => r.AddAsync(It.IsAny<FasciaOraria>()), Times.Never);
         }
 

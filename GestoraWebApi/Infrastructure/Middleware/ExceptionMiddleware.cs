@@ -44,7 +44,11 @@ namespace GestoraWebApi.Infrastructure.Middleware
                 ValidationException => (int)HttpStatusCode.BadRequest,
                 ArgumentOutOfRangeException => (int)HttpStatusCode.BadRequest,
                 ArgumentException => (int)HttpStatusCode.BadRequest,
-                InvalidOperationException => (int)HttpStatusCode.Conflict,
+                ConflictException => (int)HttpStatusCode.Conflict,
+                // NB (REV-026): InvalidOperationException NON e' piu' mappata a 409. Le regole di
+                // dominio che rifiutano l'operazione sollevano ConflictException; una
+                // InvalidOperationException che arriva fin qui e' un errore interno (spesso di EF
+                // Core) e deve risultare 500, non un conflitto applicativo.
                 _ => (int)HttpStatusCode.InternalServerError
             };
 

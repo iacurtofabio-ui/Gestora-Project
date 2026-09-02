@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.LogActivity;
@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
 using System.Security.Claims;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Tests.Services;
 
@@ -36,7 +37,7 @@ public class ZonaServiceTests
     }
 
     [Fact]
-    public async Task AddAsync_ThrowsInvalidOperationException_WhenNomeEsiste()
+    public async Task AddAsync_ThrowsConflictException_WhenNomeEsiste()
     {
         // Arrange
         var dto = new ZonaDTO { Nome = "Terrazza" };
@@ -44,7 +45,7 @@ public class ZonaServiceTests
                  .ReturnsAsync(new Zona { Id = 1, Nome = "Terrazza" });
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.AddAsync(dto));
+        await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(dto));
     }
 
     [Fact]
@@ -65,24 +66,24 @@ public class ZonaServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_ThrowsInvalidOperationException_WhenZonaNonEsiste()
+    public async Task DeleteAsync_ThrowsNotFoundException_WhenZonaNonEsiste()
     {
         // Arrange
         _repoMock.Setup(r => r.GetByIdAsync(99)).ReturnsAsync((Zona?)null);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(99));
+        await Assert.ThrowsAsync<NotFoundException>(() => _service.DeleteAsync(99));
     }
 
     [Fact]
-    public async Task DeleteAsync_ThrowsInvalidOperationException_WhenZonaUsata()
+    public async Task DeleteAsync_ThrowsConflictException_WhenZonaUsata()
     {
         // Arrange
         _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new Zona { Id = 1, Nome = "Sala" });
         _repoMock.Setup(r => r.IsZonaUsataAsync(1)).ReturnsAsync(true);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(1));
+        await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(1));
     }
 
     [Fact]

@@ -272,9 +272,13 @@ condividono lo stesso terreno.*
    ancora lontano ma senza combinazione di tavoli liberi per i coperti richiesti (es. locale con
    pochi tavoli grandi già occupati): `disponibilePerRichiesta=false` con `messaggio` che parla
    di **tavoli**, non di capienza.
-3. **Staff modifica prenotazione cliente (REV-002)** — da account **Staff**, `PUT
-   update-prenotazione` su una prenotazione creata da/per un altro utente: deve funzionare (prima
-   dava 401).
+3. **Staff modifica prenotazione cliente (REV-002)** — **da testare via Swagger/Postman**: il
+   frontend non ha (ancora) un pulsante "Modifica" per le prenotazioni, solo Conferma/Completa/
+   Annulla. Da account **Staff**: `PUT /api/Prenotazione/update-prenotazione?id={id}` con un body
+   `PrenotazioneCreateDTO` valido, su una prenotazione il cui `UserId` è di un altro utente →
+   prima dava **401**, ora deve dare **200**. (Gap noto: `update-prenotazione` è oggi una
+   capacità solo-backend — nessuna UI la usa. Decidere in Fase 6 se aggiungere un modal di
+   modifica o accettare "annulla + ricrea" per la v1.)
 4. **Cliente legge il proprio dettaglio (REV-034)** — da account **Cliente**, `GET
    get-prenotazione?id=` sulla propria prenotazione → 200; su una prenotazione altrui → 401.
 5. **Riepilogo sala + orologio** — pagina Postazioni (Admin/Staff): la card "Riepilogo sala" in
@@ -282,8 +286,11 @@ condividono lo stesso terreno.*
    Dashboard **tra mezzanotte e le 2 di notte** (o falsificando l'orario) → deve mostrare il
    giorno corretto in ora italiana, non quello precedente (REV-016).
 
-**Chiusura checkpoint e chiusura Fase 2**: codice ✅ (01/09/2026); la Fase 2 si chiude quando i 5
-test sopra sono passati e commit/push fatti.
+**Chiusura Fase 2**: ✅ **CHIUSA 01/09/2026.** Codice completo (checkpoint 2a+2b il 31/08,
+checkpoint 2c il 01/09, 4 commit su `dev`), `dotnet test` 57/57, nessuna migration nel 2c. I 5
+test manuali di Fabio **tutti passati** (2 e 3 il 01/09 via UI + Postman, 1/4/5 il 01/09). Restano
+da committare `ROADMAP_REVISIONE.md` e `TrackAttività_Gestora.xlsx` — vanno con il primo commit
+della Fase 3.
 
 ---
 
@@ -293,14 +300,41 @@ test sopra sono passati e commit/push fatti.
 sulla riga della prenotazione non basta: due `INSERT` distinti sullo stesso tavolo sono righe
 diverse, nessun conflitto da rilevare a quel livello. La garanzia reale va messa a database.*
 
-🤖 **Claude**
+> **Decisioni prese il 01/09/2026 (analisi Sonnet, implementazione Opus):**
+>
+> - **Forma dell'indice: A2 — unique index PIENO, non parziale.** Lo slot è `(PostazioneId,
+>   DataPrenotazione, FasciaOrariaId)` ma `Data` e `FasciaOrariaId` vivono su `Prenotazione` →
+>   si **denormalizzano `DataPrenotazione` + `FasciaOrariaId` sulla join `PrenotazioniPostazioni`**
+>   (2 colonne nuove, niente flag `Annullata`). L'indice è un semplice
+>   `CREATE UNIQUE INDEX "UX_PrenotazionePostazione_Slot" ON "PrenotazioniPostazioni"
+>   ("PostazioneId","DataPrenotazione","FasciaOrariaId")` — **nessun `WHERE`**.
+> - **`AnnullaPrenotazioneAsync` elimina le righe `PrenotazioniPostazioni`** della prenotazione
+>   (oggi le lascia): una prenotazione annullata libera il tavolo, che è anche più corretto.
+>   Verificato che Dashboard e disponibilità filtrano già `Stato != Annullata`, nessuno dipende
+>   da quelle righe. Effetto collaterale: il dettaglio di una prenotazione annullata mostra lista
+>   tavoli vuota — accettabile. (Deviazione consapevole dal testo originale "indice parziale":
+>   eliminando le righe su annulla il filtro diventa inutile. Non è una delle 10 decisioni
+>   vincolanti.)
+> - **Errore `23505` → nuova `ConflictException`** in `Infrastructure/Exceptions/`, mappata a
+>   **409** nel middleware. Si stringe contestualmente la regola `InvalidOperationException → 409`
+>   (anticipa **REV-026**): d'ora in poi il 409 è solo `ConflictException`.
+> - **Transazione dentro `context.Database.CreateExecutionStrategy().ExecuteAsync(...)`** perché
+>   `EnableRetryOnFailure` è attivo (vedi `GestoraWebApi/CLAUDE.md`).
+> - **Test di concorrenza**: il provider InMemory **non applica** gli unique index → il test
+>   "due prenotazioni simultanee" ha bisogno di Postgres vero. Opzioni da valutare all'inizio:
+>   Testcontainers (nuova dipendenza di test) **oppure** spezzare in (a) unit test sulla
+>   traduzione `23505`→`ConflictException` con `DbUpdateException`/`PostgresException` costruita a
+>   mano + (b) un test d'integrazione separato a parte. Decidere prima di scrivere.
+
+🤖 **Claude (Opus)**
 - Racchiudere creazione e modifica della prenotazione in un'unica operazione atomica — REV-003
-- Aggiungere un **unique index parziale** su `(PostazioneId, Data, FasciaOrariaId)`, limitato alle
-  prenotazioni non annullate (migration): è il database stesso a rifiutare la seconda riga, non
-  dipende dal livello di isolamento della transazione
-- Tradurre il codice errore Postgres `23505` (violazione unique) in un `409` leggibile, con un
-  retry lato client dove ha senso
-- Scrivere un test che simula due prenotazioni simultanee sullo stesso tavolo
+- Denormalizzare `DataPrenotazione` + `FasciaOrariaId` su `PrenotazioniPostazioni` e aggiungere
+  l'**unique index pieno** `UX_PrenotazionePostazione_Slot` (migration): è il database stesso a
+  rifiutare la seconda riga, non dipende dal livello di isolamento della transazione
+- Far sì che `AnnullaPrenotazioneAsync` elimini le righe join della prenotazione
+- Tradurre il codice errore Postgres `23505` in `ConflictException` → `409` leggibile, con un
+  retry lato client dove ha senso; stringere `InvalidOperationException → 409` nel middleware
+- Scrivere il/i test di concorrenza (vedi nota sulle opzioni sopra)
 
 > **Nota**: "una prenotazione al giorno per Cliente" (REV-004) **non** riceve un vincolo a
 > database in questa fase — per decisione 10, resta un controllo applicativo, rischio residuo
@@ -313,6 +347,46 @@ diverse, nessun conflitto da rilevare a quel livello. La garanzia reale va messa
 
 **Chiusura**: la doppia prenotazione sullo stesso tavolo non è più possibile, né in locale né in
 produzione.
+
+> **Stato al 02/09/2026 — codice completo, `dotnet test` 70/70 e `npm run build` verdi.**
+> Restano i task 🧑 (migration in produzione + prova da due browser): senza il loro esito scritto
+> la fase è formalmente aperta (Definition of Done, punto 3).
+>
+> Cosa è stato fatto:
+> - `PrenotazionePostazione` porta le due colonne denormalizzate `DataPrenotazione` +
+>   `FasciaOrariaId` e l'unique index pieno `UX_PrenotazionePostazione_Slot`. Migration
+>   `20260902081401_AggiungiSlotPrenotazionePostazione`, **scritta a mano**: lo scaffolding di EF
+>   riempiva le colonne con `0001-01-01`/`0` e poi falliva la creazione dell'indice. Ordine
+>   vincolante: colonne nullable → backfill dallo slot della prenotazione → cancellazione delle
+>   righe delle annullate → `NOT NULL` → indice.
+> - `AddAsync`, `UpdateAsync` e `AnnullaPrenotazioneAsync` girano dentro
+>   `CreateExecutionStrategy().ExecuteAsync(...)` + transazione esplicita. In `UpdateAsync` i
+>   DELETE delle vecchie righe sono salvati **prima** degli INSERT: EF non garantisce
+>   quest'ordine dentro una singola `SaveChanges` e l'indice rifiuterebbe una modifica che riusa
+>   lo stesso tavolo.
+> - `AnnullaPrenotazioneAsync` elimina le righe join → l'annullata libera il tavolo.
+> - `ConflictException` + `DbExceptionTranslator` (`Infrastructure/Exceptions/`): un `23505` su
+>   quel preciso constraint diventa 409 leggibile; un `23505` di un altro indice resta 500.
+> - **REV-026 chiuso qui** (anticipato dalla Fase 7): 37 `InvalidOperationException` di dominio
+>   convertite in 5 service — 34 in `ConflictException` (409 invariato) e 3 in `NotFoundException`
+>   (`"Fascia oraria con id X non esiste"`, `"La zona con ID X non esiste"`, `"Zona non trovata"`:
+>   erano 409, ora 404 — l'unico cambio di contratto della fase). Mappatura
+>   `InvalidOperationException → 409` rimossa dal middleware.
+> - **REV-032 parziale**: l'audit log di creazione/modifica/annullo è ora dentro la stessa
+>   transazione della scrittura. Le altre scritture che loggano (Zone, Postazioni, Fasce) restano
+>   alla Fase 7.
+> - Test: 6 su `DbExceptionTranslator` + 7 su `PrenotazioniService` (slot valorizzato in
+>   creazione e modifica, 23505 sullo slot → 409, 23505 di altro vincolo non tradotto, righe join
+>   cancellate sull'annullo, fallimento dell'audit log che fa fallire l'operazione). Il test
+>   "due prenotazioni simultanee" vero **non** esiste: l'InMemory non applica gli unique index e
+>   si è deciso di non introdurre Testcontainers — la prova end-to-end è il test manuale di Fabio.
+> - Per la produzione: `GestoraWebApi/Scripts/20260902_AggiungiSlotPrenotazionePostazione.sql`,
+>   generato con `dotnet ef migrations script --idempotent`. E' tutto in una transazione e
+>   aggiorna anche `__EFMigrationsHistory`: se il passo dell'indice fallisce per dati duplicati,
+>   il database torna com'era e EF non considera la migration applicata.
+> - Frontend: nessuna modifica necessaria. L'interceptor Axios non intercetta il 409 e
+>   `usePrenotazioni.ts` mostra già `data.message` in un toast, quindi il messaggio di conflitto
+>   arriva all'utente così com'è.
 
 ---
 
@@ -377,14 +451,22 @@ prenotazione.*
 
 ## Fase 6 — Bug del frontend
 
-*I quattro problemi che l'utente incontra davvero.*
+*I problemi che l'utente incontra davvero.*
 
 🤖 **Claude**
 - **Schermata bianca**: oggi un dato di sessione corrotto blocca l'app in modo irrecuperabile,
   nemmeno il login è raggiungibile — REV-014
 - **Scelta della zona**: il campo non è collegato al modulo, si prenota "nessuna preferenza"
   credendo di aver scelto una zona — REV-015
-- **Dashboard**: tra mezzanotte e le due mostra i dati del giorno prima — REV-016
+- **Modal di modifica prenotazione** (NEW-001, aperto 01/09/2026): oggi non esiste alcun pulsante
+  "Modifica" per le prenotazioni, solo Conferma/Completa/Annulla — `update-prenotazione` è una
+  capacità solo-backend e il fix REV-002 (Admin/Staff modificano la prenotazione di un cliente)
+  non è raggiungibile dall'app. Riusare il `PrenotazioneModal` esistente: prop `prenotazione` +
+  precompilazione + mutation `PUT` + pulsante nella colonna Azioni per stato `Attiva`. Va fatto
+  **insieme a REV-015** perché tocca lo stesso componente.
+- **Dashboard**: tra mezzanotte e le due mostra i dati del giorno prima — REV-016. **Già risolto
+  lato backend nel checkpoint 2c** (`IClock` / `TodayInRome`): qui resta solo da verificare che
+  la pagina Dashboard non faccia a sua volta conti sulle date lato client.
 - **Indirizzo del server**: se la variabile non è impostata l'app fallisce in silenzio; aggiungo
   un errore esplicito — REV-017
 - Far scadere la sessione in modo pulito invece che con un errore improvviso — REV-025
@@ -416,9 +498,12 @@ prenotazione.*
 - Contare i tavoli occupati per fascia e non per giornata intera, nella dashboard — REV-039
 - Rendere il log attività consultabile: indici sulla tabella e endpoint di lettura per l'Admin —
   REV-037
-- Restringere la mappatura `InvalidOperationException → 409`, oggi cattura anche errori interni
-  di EF Core — REV-026
+- ~~Restringere la mappatura `InvalidOperationException → 409`, oggi cattura anche errori interni
+  di EF Core~~ — **REV-026 chiuso in Fase 3** (02/09/2026), anticipato lì per non lasciare due
+  strade diverse verso il 409 dopo l'introduzione di `ConflictException`
 - Includere l'audit log nella stessa transazione della scrittura che registra — REV-032
+  (**parziale**: chiuso in Fase 3 per creazione/modifica/annullo di prenotazione, dove la
+  transazione serviva comunque; restano da coprire le scritture di Zone, Postazioni e Fasce)
 - Documentare (non serve un fix: Railway gira una sola replica oggi) che Quartz non è in cluster
   mode — se in futuro arrivano più repliche, ogni job girerebbe due volte — REV-028
 
@@ -495,6 +580,11 @@ costanti ripetute, endpoint scritti inline) — dettaglio completo di ognuno in
 - Mostrare nome e ruolo dell'utente e la pagina attiva nel menu — REV-081
 - Aggiungere un link di ritorno nella pagina `/unauthorized`, oggi un vicolo cieco — REV-080
 - Sistemare titolo, lingua e icona del sito — REV-079
+- **Pannello disponibilità nel form di creazione prenotazione** (NEW-002, aperto 01/09/2026,
+  **opzionale**): scelti data + coperti, mostrare le fasce con semaforo verde/rosso, posti
+  residui e — sfruttando `messaggio` di `check-disponibilita` — il motivo quando non c'è posto,
+  invece di lasciare che l'utente scopra il rifiuto solo all'invio. **Non** una pagina pubblica
+  per il cliente: quella è esclusa dalla v1 (decisione 10). Da confermare se vale lo sforzo.
 
 🧑 **Fabio**
 - Un giro di prova da telefono sui tre ruoli

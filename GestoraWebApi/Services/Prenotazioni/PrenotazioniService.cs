@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using GestoraWebApi.Auth;
 using GestoraWebApi.Common;
 using GestoraWebApi.Context;
@@ -14,6 +14,7 @@ using GestoraWebApi.Services.Prenotazioni.DTOs;
 using GestoraWebApi.Services.PrenotazioniPostazioni;
 using Microsoft.EntityFrameworkCore;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Services.Prenotazioni
 {
@@ -77,35 +78,41 @@ namespace GestoraWebApi.Services.Prenotazioni
         {
             var userId = GetAuthenticatedUserId();
 
-            await ValidatePrenotazioneAsync(dto);
-
-            if (IsSelfServiceCliente())
-                await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione);
-
-            var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto);
-
-            var prenotazione = new Prenotazione
+            // REV-003: verifica di disponibilita', scelta del tavolo e scrittura sono una sola
+            // operazione atomica. Fuori dalla transazione, fra "il tavolo risulta libero" e
+            // "la riga e' scritta" c'e' una finestra in cui un altro utente puo' prendersi lo
+            // stesso tavolo; e' l'unique index a chiudere la corsa, la transazione a garantire
+            // che non resti scritto niente a meta'.
+            await EseguiInTransazioneAsync(async () =>
             {
-                UserId = userId,
-                DataPrenotazione = (DateOnly)dto.DataPrenotazione,
-                NumeroCoperti = dto.NumeroCoperti,
-                FasciaOrariaId = dto.FasciaOrariaId,
-                NomeCliente = dto.NomeCliente,
-                Note = dto.Note,
-                Stato = StatoPrenotazione.Attiva,
-            };
+                await ValidatePrenotazioneAsync(dto);
 
-            prenotazione.PrenotazioniPostazioni = postazioniAssegnate
-                .Select(a => new PrenotazionePostazione
+                if (IsSelfServiceCliente())
+                    await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione);
+
+                var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto);
+
+                var prenotazione = new Prenotazione
                 {
-                    PostazioneId = a.Postazione.Id,
-                    NumeroPosti = a.PostiOccupati,
-                    Prenotazione = prenotazione
-                })
-                .ToList();
+                    UserId = userId,
+                    DataPrenotazione = (DateOnly)dto.DataPrenotazione,
+                    NumeroCoperti = dto.NumeroCoperti,
+                    FasciaOrariaId = dto.FasciaOrariaId,
+                    NomeCliente = dto.NomeCliente,
+                    Note = dto.Note,
+                    Stato = StatoPrenotazione.Attiva,
+                };
 
-            await _prenotazioniRepository.AddAsync(prenotazione);
-            await _logActivity.LogAsync(userId, $"Creata prenotazione per data {dto.DataPrenotazione:yyyy-MM-dd}, {dto.NumeroCoperti} coperti", GetIpAddress());
+                prenotazione.PrenotazioniPostazioni = postazioniAssegnate
+                    .Select(a => CreaRigaPostazione(prenotazione, a))
+                    .ToList();
+
+                await _prenotazioniRepository.AddAsync(prenotazione);
+
+                // REV-032 (parziale): il log sta nella stessa transazione della scrittura che
+                // registra. Se fallisce, la prenotazione non resta scritta e non tracciata.
+                await _logActivity.LogAsync(userId, $"Creata prenotazione per data {dto.DataPrenotazione:yyyy-MM-dd}, {dto.NumeroCoperti} coperti", GetIpAddress());
+            });
         }
 
         public async Task DeleteAsync(long id)
@@ -116,7 +123,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new KeyNotFoundException($"Prenotazione con Id {id} non trovata.");
 
             if (prenotazione.Stato != StatoPrenotazione.Attiva && prenotazione.Stato != StatoPrenotazione.Annullata)
-                throw new InvalidOperationException($"Non è possibile eliminare una prenotazione nello stato {prenotazione.Stato}.");
+                throw new ConflictException($"Non è possibile eliminare una prenotazione nello stato {prenotazione.Stato}.");
 
             await _prenotazioniRepository.DeleteAsync(prenotazione);
             await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata prenotazione ID {id}", GetIpAddress());
@@ -148,7 +155,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (prenotazione.Stato == StatoPrenotazione.InCorso
                 || prenotazione.Stato == StatoPrenotazione.Annullata
                 || prenotazione.Stato == StatoPrenotazione.Completata)
-                throw new InvalidOperationException($"Non è possibile modificare una prenotazione nello stato {prenotazione.Stato}.");
+                throw new ConflictException($"Non è possibile modificare una prenotazione nello stato {prenotazione.Stato}.");
 
             var userId = GetAuthenticatedUserId();
 
@@ -168,30 +175,39 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (IsSelfServiceCliente() && dto.DataPrenotazione != prenotazione.DataPrenotazione)
                 await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione, excludePrenotazioneId: prenotazione.Id);
 
-            var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto, prenotazione.Id);
+            await EseguiInTransazioneAsync(async () =>
+            {
+                var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto, prenotazione.Id);
 
-            prenotazione.DataPrenotazione = (DateOnly)dto.DataPrenotazione;
-            prenotazione.NumeroCoperti = dto.NumeroCoperti;
-            prenotazione.FasciaOrariaId = dto.FasciaOrariaId;
-            prenotazione.NomeCliente = dto.NomeCliente;
-            prenotazione.Note = dto.Note;
+                prenotazione.DataPrenotazione = (DateOnly)dto.DataPrenotazione;
+                prenotazione.NumeroCoperti = dto.NumeroCoperti;
+                prenotazione.FasciaOrariaId = dto.FasciaOrariaId;
+                prenotazione.NomeCliente = dto.NomeCliente;
+                prenotazione.Note = dto.Note;
 
-            if (prenotazione.PrenotazioniPostazioni != null && prenotazione.PrenotazioniPostazioni.Any())
-                _context.PrenotazioniPostazioni.RemoveRange(prenotazione.PrenotazioniPostazioni);
-
-            prenotazione.PrenotazioniPostazioni = postazioniAssegnate
-                .Select(a => new PrenotazionePostazione
+                if (prenotazione.PrenotazioniPostazioni != null && prenotazione.PrenotazioniPostazioni.Any())
                 {
-                    PostazioneId = a.Postazione.Id,
-                    NumeroPosti = a.PostiOccupati,
-                    Prenotazione = prenotazione
-                })
-                .ToList();
+                    _context.PrenotazioniPostazioni.RemoveRange(prenotazione.PrenotazioniPostazioni);
 
-            await _prenotazioniRepository.UpdateAsync(prenotazione);
+                    // I DELETE devono arrivare al database PRIMA degli INSERT: EF non garantisce
+                    // quest'ordine dentro una singola SaveChanges, e con l'unique index sullo slot
+                    // una modifica che riassegna lo stesso tavolo verrebbe rifiutata da sola.
+                    // Siamo dentro la transazione: se l'INSERT poi fallisce, il DELETE torna
+                    // indietro con tutto il resto.
+                    await _context.SaveChangesAsync();
+                    prenotazione.PrenotazioniPostazioni = new List<PrenotazionePostazione>();
+                }
 
-            // REV-006: la modifica era l'unica scrittura su prenotazione non tracciata.
-            await _logActivity.LogAsync(userId, $"Modificata prenotazione ID {id}", GetIpAddress());
+                prenotazione.PrenotazioniPostazioni = postazioniAssegnate
+                    .Select(a => CreaRigaPostazione(prenotazione, a))
+                    .ToList();
+
+                await _prenotazioniRepository.UpdateAsync(prenotazione);
+
+                // REV-006: la modifica era l'unica scrittura su prenotazione non tracciata.
+                // REV-032 (parziale): ora il log e' nella stessa transazione della modifica.
+                await _logActivity.LogAsync(userId, $"Modificata prenotazione ID {id}", GetIpAddress());
+            });
         }
 
         public async Task ConfermaPrenotazioneAsync(long id)
@@ -202,7 +218,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new KeyNotFoundException("Prenotazione non trovata.");
 
             if (prenotazione.Stato != StatoPrenotazione.Attiva)
-                throw new InvalidOperationException("Solo prenotazioni con stato 'Attiva' possono essere confermate.");
+                throw new ConflictException("Solo prenotazioni con stato 'Attiva' possono essere confermate.");
 
             prenotazione.Stato = StatoPrenotazione.InCorso;
             await _prenotazioniRepository.UpdateAsync(prenotazione);
@@ -217,17 +233,17 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new KeyNotFoundException("Prenotazione non trovata.");
 
             if (prenotazione.FasciaOraria == null)
-                throw new InvalidOperationException("La fascia oraria associata alla prenotazione non è disponibile.");
+                throw new ConflictException("La fascia oraria associata alla prenotazione non è disponibile.");
 
             if (prenotazione.Stato != StatoPrenotazione.InCorso)
-                throw new InvalidOperationException("Solo prenotazioni 'In corso' possono essere completate.");
+                throw new ConflictException("Solo prenotazioni 'In corso' possono essere completate.");
 
             var now = _clock.NowInRome;
             var endDateTime = prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
                                           .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan());
 
             if (now < endDateTime)
-                throw new InvalidOperationException("Non è possibile completare: la prenotazione non è ancora terminata.");
+                throw new ConflictException("Non è possibile completare: la prenotazione non è ancora terminata.");
 
             prenotazione.Stato = StatoPrenotazione.Completata;
             await _prenotazioniRepository.UpdateAsync(prenotazione);
@@ -242,7 +258,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new KeyNotFoundException("Prenotazione non trovata nel sistema.");
 
             if (prenotazione.Stato == StatoPrenotazione.Completata)
-                throw new InvalidOperationException("Non è possibile annullare una prenotazione già completata.");
+                throw new ConflictException("Non è possibile annullare una prenotazione già completata.");
 
             if (IsSelfServiceCliente())
             {
@@ -253,9 +269,20 @@ namespace GestoraWebApi.Services.Prenotazioni
                 GuardCutoffAsync(prenotazione);
             }
 
-            prenotazione.Stato = StatoPrenotazione.Annullata;
-            await _prenotazioniRepository.UpdateAsync(prenotazione);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Annullata prenotazione ID {id}", GetIpAddress());
+            await EseguiInTransazioneAsync(async () =>
+            {
+                prenotazione.Stato = StatoPrenotazione.Annullata;
+
+                // REV-003: una prenotazione annullata libera il tavolo. Le righe join vanno
+                // eliminate, non lasciate in tabella: con l'unique index pieno (senza WHERE)
+                // continuerebbero a occupare lo slot e bloccherebbero ogni nuova prenotazione
+                // su quel tavolo.
+                if (prenotazione.PrenotazioniPostazioni != null && prenotazione.PrenotazioniPostazioni.Any())
+                    _context.PrenotazioniPostazioni.RemoveRange(prenotazione.PrenotazioniPostazioni);
+
+                await _prenotazioniRepository.UpdateAsync(prenotazione);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Annullata prenotazione ID {id}", GetIpAddress());
+            });
         }
 
         public async Task<List<PrenotazioneDTO>> GetPrenotazioniByDataAsync(DateOnly data)
@@ -393,13 +420,13 @@ namespace GestoraWebApi.Services.Prenotazioni
         private void GuardCutoffAsync(Prenotazione prenotazione)
         {
             if (prenotazione.FasciaOraria == null)
-                throw new InvalidOperationException("La fascia oraria associata alla prenotazione non è disponibile.");
+                throw new ConflictException("La fascia oraria associata alla prenotazione non è disponibile.");
 
             var inizioPrenotazione = prenotazione.DataPrenotazione.ToDateTime(prenotazione.FasciaOraria.OrarioInizio);
             var limiteModifica = inizioPrenotazione.AddHours(-CutoffOreClienteSelfService);
 
             if (_clock.NowInRome > limiteModifica)
-                throw new InvalidOperationException(
+                throw new ConflictException(
                     $"Non è più possibile modificare o annullare autonomamente questa prenotazione: mancano meno di " +
                     $"{CutoffOreClienteSelfService} ore dall'orario prenotato. Contatta il locale per assistenza.");
         }
@@ -414,7 +441,54 @@ namespace GestoraWebApi.Services.Prenotazioni
                     (!excludePrenotazioneId.HasValue || p.Id != excludePrenotazioneId.Value));
 
             if (esisteGiaAttiva)
-                throw new InvalidOperationException("Hai già una prenotazione attiva per questo giorno. Annullala prima di crearne una nuova, oppure modificala.");
+                throw new ConflictException("Hai già una prenotazione attiva per questo giorno. Annullala prima di crearne una nuova, oppure modificala.");
+        }
+
+        /// <summary>Nome dell'unique index che protegge lo slot (PostazioneId + data + fascia).</summary>
+        private const string SlotConstraintName = "UX_PrenotazionePostazione_Slot";
+
+        /// <summary>
+        /// Crea la riga di legame prenotazione-tavolo, copiandoci lo slot: sono le colonne su cui
+        /// insiste UX_PrenotazionePostazione_Slot, se restassero vuote il vincolo non varrebbe.
+        /// </summary>
+        private static PrenotazionePostazione CreaRigaPostazione(Prenotazione prenotazione, PostazioneAssegnata assegnata)
+            => new()
+            {
+                PostazioneId = assegnata.Postazione.Id,
+                NumeroPosti = assegnata.PostiOccupati,
+                Prenotazione = prenotazione,
+                DataPrenotazione = prenotazione.DataPrenotazione,
+                FasciaOrariaId = prenotazione.FasciaOrariaId
+            };
+
+        /// <summary>
+        /// Esegue l'operazione in un'unica transazione e traduce la violazione dell'unique index
+        /// dello slot in un 409 leggibile. La transazione va aperta dentro
+        /// CreateExecutionStrategy().ExecuteAsync: con EnableRetryOnFailure attivo (vedi
+        /// Program.cs) EF deve poter ritentare l'intero blocco, non una singola query.
+        /// </summary>
+        private async Task EseguiInTransazioneAsync(Func<Task> operazione)
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
+                {
+                    await operazione();
+                    await transaction.CommitAsync();
+                }
+                catch (DbUpdateException ex) when (DbExceptionTranslator.IsUniqueViolation(ex, SlotConstraintName))
+                {
+                    // Un altro utente ha vinto la corsa sullo stesso tavolo fra la verifica di
+                    // disponibilita' e la scrittura. Il rollback avviene nel Dispose della
+                    // transazione, mai committata.
+                    throw new ConflictException(
+                        "Il tavolo e' stato appena assegnato a un'altra prenotazione. Riprova: verra' cercata una nuova disponibilita'.", ex);
+                }
+            });
         }
 
         private string? GetIpAddress()
@@ -428,13 +502,13 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new ArgumentException("La fascia oraria specificata non esiste.");
 
             if (!fasciaOraria.Attiva)
-                throw new InvalidOperationException("La fascia oraria selezionata non è attiva.");
+                throw new ConflictException("La fascia oraria selezionata non è attiva.");
 
             var giornoIt = new System.Globalization.CultureInfo("it-IT")
                 .DateTimeFormat.GetDayName(fasciaOraria.GiornoSettimana);
 
             if (fasciaOraria.GiornoSettimana != dto.DataPrenotazione.DayOfWeek)
-                throw new InvalidOperationException($"La fascia oraria selezionata è valida solo per il giorno {giornoIt}.");
+                throw new ConflictException($"La fascia oraria selezionata è valida solo per il giorno {giornoIt}.");
 
             int copertiGiaPrenotati = await _prenotazioniRepository.GetAllQueryableAsync()
                 .Where(p =>
@@ -446,7 +520,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             int copertiDisponibili = fasciaOraria.MaxCoperti - copertiGiaPrenotati;
             if (dto.NumeroCoperti > copertiDisponibili)
-                throw new InvalidOperationException(
+                throw new ConflictException(
                     copertiDisponibili <= 0
                         ? "La fascia oraria ha raggiunto la capienza massima. Non ci sono coperti disponibili."
                         : $"Coperti richiesti ({dto.NumeroCoperti}) superiori a quelli disponibili ({copertiDisponibili}) per questa fascia oraria.");
@@ -455,14 +529,14 @@ namespace GestoraWebApi.Services.Prenotazioni
             {
                 var zona = await _zonaRepository.GetByIdAsync(dto.ZonaId.Value);
                 if (zona == null || !zona.Attiva)
-                    throw new InvalidOperationException("La zona selezionata non è attiva o non esiste.");
+                    throw new ConflictException("La zona selezionata non è attiva o non esiste.");
 
                 bool zonaHaPostazioni = await _context.Postazioni
                     .AsNoTracking()
                     .AnyAsync(p => p.ZonaId == dto.ZonaId.Value && p.Attiva);
 
                 if (!zonaHaPostazioni)
-                    throw new InvalidOperationException("La zona preferita selezionata non ha postazioni attive.");
+                    throw new ConflictException("La zona preferita selezionata non ha postazioni attive.");
             }
 
             bool almenoUnaPostazioneAttiva = await _context.Postazioni

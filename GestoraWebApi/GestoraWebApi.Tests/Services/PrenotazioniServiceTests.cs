@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
@@ -9,11 +9,15 @@ using GestoraWebApi.Services.PostazioneAssignment;
 using GestoraWebApi.Services.Prenotazioni;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.InMemory.Diagnostics;
+using Npgsql;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MockQueryable;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Tests.Services;
 
@@ -62,8 +66,12 @@ public class PrenotazioniServiceTests
     h.HttpContext).Returns(httpContext);
         // ↑ FINE BLOCCO ↑
 
+        // Il provider InMemory non supporta le transazioni e di default trasforma il warning
+        // in eccezione. Il service ora apre una transazione esplicita (REV-003/REV-032): qui la
+        // si ignora, la transazione vera e' verificata solo contro Postgres.
         var options = new DbContextOptionsBuilder<GestoraContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         _context = new GestoraContext(options);
@@ -96,25 +104,25 @@ public class PrenotazioniServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_ThrowsInvalidOperationException_WhenStatoIsInCorso()
+    public async Task DeleteAsync_ThrowsConflictException_WhenStatoIsInCorso()
     {
         // Arrange
         var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.InCorso };
         _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(1));
+        await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(1));
     }
 
     [Fact]
-    public async Task DeleteAsync_ThrowsInvalidOperationException_WhenStatoIsCompletata()
+    public async Task DeleteAsync_ThrowsConflictException_WhenStatoIsCompletata()
     {
         // Arrange
         var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.Completata };
         _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(1));
+        await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(1));
     }
 
     // ─── AnnullaPrenotazioneAsync ──────────────────────────────────────────────
@@ -131,14 +139,14 @@ public class PrenotazioniServiceTests
     }
 
     [Fact]
-    public async Task AnnullaPrenotazioneAsync_ThrowsInvalidOperationException_WhenGiaCompletata()
+    public async Task AnnullaPrenotazioneAsync_ThrowsConflictException_WhenGiaCompletata()
     {
         // Arrange
         var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.Completata };
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.AnnullaPrenotazioneAsync(1));
+        await Assert.ThrowsAsync<ConflictException>(() => _service.AnnullaPrenotazioneAsync(1));
     }
 
     [Fact]
@@ -178,7 +186,7 @@ public class PrenotazioniServiceTests
     }
 
     [Fact]
-    public async Task AnnullaPrenotazioneAsync_ThrowsInvalidOperationException_WhenClienteOltreCutoff()
+    public async Task AnnullaPrenotazioneAsync_ThrowsConflictException_WhenClienteOltreCutoff()
     {
         // Arrange — fascia che inizia "ora" (stesso istante UTC, senza offset): il limite di
         // cutoff (2h prima) è già passato indipendentemente dal fuso orario di GetNowInRome.
@@ -196,7 +204,7 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.AnnullaPrenotazioneAsync(1));
+        await Assert.ThrowsAsync<ConflictException>(() => _service.AnnullaPrenotazioneAsync(1));
     }
 
     [Fact]
@@ -238,14 +246,14 @@ public class PrenotazioniServiceTests
     }
 
     [Fact]
-    public async Task ConfermaPrenotazioneAsync_ThrowsInvalidOperationException_WhenNonAttiva()
+    public async Task ConfermaPrenotazioneAsync_ThrowsConflictException_WhenNonAttiva()
     {
         // Arrange
         var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.InCorso };
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ConfermaPrenotazioneAsync(1));
+        await Assert.ThrowsAsync<ConflictException>(() => _service.ConfermaPrenotazioneAsync(1));
     }
 
     [Fact]
@@ -351,5 +359,151 @@ public class PrenotazioniServiceTests
         var dto = await _service.GetByIdAsync(1);
 
         Assert.Equal(1, dto.Id);
+    }
+
+    // --- REV-003 - slot denormalizzato, conflitto sul tavolo, atomicita' ---
+
+    private PrenotazioneCreateDTO ArrangeAddValido()
+    {
+        var data = new DateOnly(2026, 9, 7); // lunedì
+        var fascia = new FasciaOraria { Id = 1, Attiva = true, GiornoSettimana = DayOfWeek.Monday, MaxCoperti = 50, OrarioInizio = new TimeOnly(19, 0), OrarioFine = new TimeOnly(21, 0) };
+
+        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fascia);
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
+        _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
+        _context.SaveChanges();
+        _assignmentServiceMock.Setup(s => s.AssegnaPostazioneDisponibileAsync(It.IsAny<PrenotazioneCreateDTO>(), null))
+                              .ReturnsAsync(new List<PostazioneAssegnata>
+                              {
+                                  new(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, ZonaId = 1 }, 2)
+                              });
+
+        return new PrenotazioneCreateDTO { DataPrenotazione = data, NumeroCoperti = 2, FasciaOrariaId = 1 };
+    }
+
+    /// <summary>
+    /// Le due colonne denormalizzate sono la base dell'unique index: se non vengono valorizzate
+    /// in scrittura, il vincolo a database non protegge nulla.
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_ValorizzaLoSlotSulleRigheJoin()
+    {
+        var dto = ArrangeAddValido();
+        Prenotazione? salvata = null;
+        _prenotazioniRepoMock.Setup(r => r.AddAsync(It.IsAny<Prenotazione>()))
+                             .Callback<Prenotazione>(p => salvata = p)
+                             .Returns(Task.CompletedTask);
+
+        await _service.AddAsync(dto);
+
+        Assert.NotNull(salvata);
+        var riga = Assert.Single(salvata!.PrenotazioniPostazioni);
+        Assert.Equal(dto.DataPrenotazione, riga.DataPrenotazione);
+        Assert.Equal(dto.FasciaOrariaId, riga.FasciaOrariaId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ValorizzaLoSlotSulleRigheJoin()
+    {
+        var (prenotazione, dto) = ArrangeUpdateValido(ownerUserId: "cliente-diverso");
+
+        await _service.UpdateAsync(1, dto);
+
+        var riga = Assert.Single(prenotazione.PrenotazioniPostazioni);
+        Assert.Equal(dto.DataPrenotazione, riga.DataPrenotazione);
+        Assert.Equal(dto.FasciaOrariaId, riga.FasciaOrariaId);
+    }
+
+    private static DbUpdateException ViolazioneSlot() => new(
+        "errore",
+        new PostgresException(
+            messageText: "duplicate key value violates unique constraint",
+            severity: "ERROR",
+            invariantSeverity: "ERROR",
+            sqlState: "23505",
+            constraintName: "UX_PrenotazionePostazione_Slot"));
+
+    /// <summary>
+    /// L'altro utente ha vinto la corsa sullo stesso tavolo: deve uscire un 409 leggibile
+    /// (ConflictException), non un 500 con dentro il messaggio del driver.
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_ThrowsConflictException_QuandoIlTavoloVieneOccupatoNelFrattempo()
+    {
+        var dto = ArrangeAddValido();
+        _prenotazioniRepoMock.Setup(r => r.AddAsync(It.IsAny<Prenotazione>()))
+                             .ThrowsAsync(ViolazioneSlot());
+
+        await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(dto));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ThrowsConflictException_QuandoIlTavoloVieneOccupatoNelFrattempo()
+    {
+        var (_, dto) = ArrangeUpdateValido(ownerUserId: "cliente-diverso");
+        _prenotazioniRepoMock.Setup(r => r.UpdateAsync(It.IsAny<Prenotazione>()))
+                             .ThrowsAsync(ViolazioneSlot());
+
+        await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateAsync(1, dto));
+    }
+
+    /// <summary>
+    /// Un errore di unicita' che non riguarda lo slot non e' un conflitto di tavolo: deve restare
+    /// un errore interno (500), non travestirsi da 409.
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_NonTraduceUnaViolazioneDiAltriVincoli()
+    {
+        var dto = ArrangeAddValido();
+        var altraViolazione = new DbUpdateException("errore",
+            new PostgresException("duplicate", "ERROR", "ERROR", "23505", constraintName: "UX_QualcosAltro"));
+        _prenotazioniRepoMock.Setup(r => r.AddAsync(It.IsAny<Prenotazione>()))
+                             .ThrowsAsync(altraViolazione);
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => _service.AddAsync(dto));
+    }
+
+    /// <summary>
+    /// REV-003: una prenotazione annullata libera il tavolo - le righe join vengono cancellate,
+    /// non lasciate a occupare lo slot (con l'indice pieno bloccherebbero le prenotazioni future).
+    /// </summary>
+    [Fact]
+    public async Task AnnullaPrenotazioneAsync_CancellaLeRigheJoin()
+    {
+        var prenotazione = new Prenotazione
+        {
+            Id = 1,
+            NumeroCoperti = 2,
+            Stato = StatoPrenotazione.Attiva,
+            DataPrenotazione = new DateOnly(2026, 9, 7),
+            FasciaOrariaId = 1,
+            PrenotazioniPostazioni = new List<PrenotazionePostazione>
+            {
+                new() { PostazioneId = 1, PrenotazioneId = 1, NumeroPosti = 2, DataPrenotazione = new DateOnly(2026, 9, 7), FasciaOrariaId = 1 }
+            }
+        };
+        _context.Prenotazioni.Attach(prenotazione);
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
+
+        await _service.AnnullaPrenotazioneAsync(1);
+
+        var riga = _context.ChangeTracker.Entries<PrenotazionePostazione>().Single();
+        Assert.Equal(EntityState.Deleted, riga.State);
+    }
+
+    /// <summary>
+    /// REV-032 (parziale): l'audit log sta dentro la stessa transazione della scrittura. Se il
+    /// log fallisce l'operazione deve fallire, non restare scritta e non tracciata.
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_FallisceSeLAuditLogFallisce()
+    {
+        var dto = ArrangeAddValido();
+        _prenotazioniRepoMock.Setup(r => r.AddAsync(It.IsAny<Prenotazione>())).Returns(Task.CompletedTask);
+        _logActivityMock.Setup(l => l.LogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+                        .ThrowsAsync(new Exception("log ko"));
+
+        await Assert.ThrowsAsync<Exception>(() => _service.AddAsync(dto));
     }
 }

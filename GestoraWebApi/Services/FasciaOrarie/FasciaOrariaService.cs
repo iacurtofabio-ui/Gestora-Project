@@ -10,6 +10,7 @@ using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Postazioni.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Services.FasciaOrarie
 {
@@ -78,7 +79,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             if (sovrapposta)
             {
-                throw new InvalidOperationException("Operazione non riuscita! La fascia oraria si sovrappone ad una già esistente.");
+                throw new ConflictException("Operazione non riuscita! La fascia oraria si sovrappone ad una già esistente.");
             }
         }
 
@@ -123,12 +124,12 @@ namespace GestoraWebApi.Services.FasciaOrarie
             var fascia = await _fasciaRepository.GetByIdAsync(fasciaId);
 
             if (fascia == null)
-                throw new InvalidOperationException($"Fascia oraria con id {fasciaId} non esiste.");
+                throw new NotFoundException($"Fascia oraria con id {fasciaId} non esiste.");
 
             bool fasciaUsata = await _fasciaRepository.IsFasciaUsataAsync(fasciaId);
 
             if (fasciaUsata)
-                throw new InvalidOperationException("Impossibile eliminare la fascia perchè associata almeno ad una prenotazione!");
+                throw new ConflictException("Impossibile eliminare la fascia perchè associata almeno ad una prenotazione!");
 
             await _fasciaRepository.DeleteAsync(fascia);
 
@@ -228,7 +229,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             var assegnata = await _fasciaRepository.IsAssignedToPrenotazioneAsync(dto.Id);
             if (assegnata)
             {
-                throw new InvalidOperationException("Impossibile modificare la fascia: è già assegnata a una prenotazione.");
+                throw new ConflictException("Impossibile modificare la fascia: è già assegnata a una prenotazione.");
             }
 
             await GuardSovrapposizioneAsync(dto.Id, dto.GiornoSettimana, orarioInizio, orarioFine);

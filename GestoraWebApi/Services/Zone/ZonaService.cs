@@ -6,6 +6,7 @@ using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Zone.DTOs;
 using Microsoft.Extensions.Caching.Memory;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Services.Zone
 {
@@ -38,7 +39,7 @@ namespace GestoraWebApi.Services.Zone
             var existingZona = await _zonaRepository.GetByNameAsync(entity.Nome);
 
             if (existingZona != null)
-                throw new InvalidOperationException("Esiste già una zona con questo nome.");
+                throw new ConflictException("Esiste già una zona con questo nome.");
 
             var zona = _mapper.Map<Zona>(entity);
             await _zonaRepository.AddAsync(zona);
@@ -53,13 +54,13 @@ namespace GestoraWebApi.Services.Zone
             var zona = await _zonaRepository.GetByIdAsync(zonaId);
 
             if (zona == null)
-                throw new InvalidOperationException($"La zona con ID {zonaId} non esiste.");
+                throw new NotFoundException($"La zona con ID {zonaId} non esiste.");
 
             // Controllo se la zona è assegnata ad almeno una postazione
             bool usata = await _zonaRepository.IsZonaUsataAsync(zonaId);
 
             if (usata)
-                throw new InvalidOperationException("Non è possibile cancellare la zona perché è assegnata ad almeno una postazione.");
+                throw new ConflictException("Non è possibile cancellare la zona perché è assegnata ad almeno una postazione.");
 
             await _zonaRepository.DeleteAsync(zona);
 
@@ -113,13 +114,13 @@ namespace GestoraWebApi.Services.Zone
             var existingZona = await _zonaRepository.GetByIdAsync(entity.Id);
 
             if (existingZona == null)
-                throw new InvalidOperationException("Zona non trovata.");
+                throw new NotFoundException("Zona non trovata.");
 
             //validation nome univoco
             var zonaWithSameName = await _zonaRepository.GetByNameAsync(entity.Nome);
 
             if (zonaWithSameName != null && zonaWithSameName.Id != entity.Id)
-                throw new InvalidOperationException("Esiste già una zona con questo nome.");
+                throw new ConflictException("Esiste già una zona con questo nome.");
 
             existingZona.Nome = entity.Nome;
             existingZona.Attiva = entity.Attiva;

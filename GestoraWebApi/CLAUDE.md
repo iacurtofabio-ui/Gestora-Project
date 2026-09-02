@@ -184,9 +184,28 @@ test usare `TestClock` (istante fisso).
   Non rimuovere quei controlli: senza, un errore di configurazione emerge molto più tardi come
   eccezione opaca del driver.
 - Connessione DB: `EnableRetryOnFailure` attivo (5 tentativi / 10s) perché la rete privata tra
-  container non è raggiungibile nei primi secondi. Attenzione se in futuro si introducono
-  transazioni esplicite (`BeginTransaction`): con una strategia di retry vanno eseguite dentro
-  `CreateExecutionStrategy().ExecuteAsync(...)`. Oggi nel progetto non ce ne sono.
+  container non è raggiungibile nei primi secondi. Con una strategia di retry le transazioni
+  esplicite vanno eseguite dentro `CreateExecutionStrategy().ExecuteAsync(...)`: dal 02/09/2026
+  ce ne sono tre (`AddAsync`, `UpdateAsync`, `AnnullaPrenotazioneAsync` di `PrenotazioniService`),
+  tutte incapsulate nell'helper privato `EseguiInTransazioneAsync` — usare quello, non aprire
+  transazioni a mano.
+- Concorrenza sul tavolo (REV-003, Fase 3): la riga di `PrenotazioniPostazioni` porta una copia
+  denormalizzata di `DataPrenotazione` + `FasciaOrariaId`, e l'unique index **pieno**
+  `UX_PrenotazionePostazione_Slot` su `(PostazioneId, DataPrenotazione, FasciaOrariaId)` rende
+  impossibile assegnare due volte lo stesso tavolo nello stesso slot. Due conseguenze da non
+  dimenticare: **chi scrive una riga join deve valorizzare anche quei due campi** (si passa da
+  `CreaRigaPostazione`), e **annullare una prenotazione cancella le sue righe join** — senza
+  filtro `WHERE` sull'indice, righe di annullate continuerebbero a occupare lo slot.
+- Errori del database: `Infrastructure/Exceptions/DbExceptionTranslator` riconosce il codice
+  Postgres `23505` (violazione di unicità) e, opzionalmente, il nome del constraint. La
+  traduzione è isolata lì per poter essere testata senza database: il provider InMemory **non**
+  applica gli unique index, quindi la violazione va simulata (`PostgresException` costruita a
+  mano). Corollario: un test di concorrenza vero richiederebbe Postgres reale — scelta del
+  01/09/2026, non è stato introdotto.
+- Codici di errore (REV-026, 02/09/2026): il **409 è solo `ConflictException`**. Le regole di
+  dominio che rifiutano un'operazione sollevano quella; `InvalidOperationException` non è più
+  mappata e, se affiora, è un bug interno → 500 con messaggio generico. `NotFoundException` →
+  404, `ValidationException`/`ArgumentException` → 400.
 - Log: in produzione **solo console** (`appsettings.json`) — il filesystem del container è effimero
   e la piattaforma raccoglie lo stdout. Il sink su file resta in `appsettings.Development.json`,
   che ora è **versionato** (non contiene segreti). Nota: la configurazione .NET sovrascrive gli
@@ -201,8 +220,12 @@ test usare `TestClock` (istante fisso).
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, pattern Arrange/Act/Assert. Un file per service
 (`FasciaOrariaServiceTe.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
 `PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`, `DisponibilitaServiceTests.cs`,
-`DashboardServiceTests.cs`) più `Validators/PrenotazioneCreateDTOValidatorTests.cs`. **57 test
-totali** (01/09/2026). Orologio nei test: `TestClock` (istante fisso, alla radice del progetto
+`DashboardServiceTests.cs`) più `Validators/PrenotazioneCreateDTOValidatorTests.cs` e
+`Infrastructure/DbExceptionTranslatorTests.cs`. **70 test totali** (02/09/2026).
+Nota: `PrenotazioniServiceTests` configura il contesto InMemory con
+`ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — l'InMemory non
+supporta le transazioni e senza quella riga il service, che ora ne apre una, farebbe fallire
+tutti i test della classe. Orologio nei test: `TestClock` (istante fisso, alla radice del progetto
 test). Eseguire con `dotnet test` dalla cartella `GestoraWebApi/`. Nessun test su controller o su `AuthenticationUserController` —
 la logica di auth non è ancora estratta in un service dedicato. Per mockare `IQueryable<T>`
 restituito dai repository (necessario per testare query EF Core come `AnyAsync`/`FirstOrDefaultAsync`

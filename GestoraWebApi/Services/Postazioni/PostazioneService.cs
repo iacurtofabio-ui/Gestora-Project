@@ -12,6 +12,7 @@ using GestoraWebApi.Services.Prenotazioni.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Diagnostics.Eventing.Reader;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Services.Postazioni
 {
@@ -60,7 +61,7 @@ namespace GestoraWebApi.Services.Postazioni
 
             // Controllo se ha prenotazioni associate
             if (postazione.PrenotazioniPostazioni != null && postazione.PrenotazioniPostazioni.Any())
-                throw new InvalidOperationException($"Impossibile eliminare la postazione {postazioneId}: ci sono prenotazioni associate.");
+                throw new ConflictException($"Impossibile eliminare la postazione {postazioneId}: ci sono prenotazioni associate.");
 
             await _postazioneRepository.DeleteAsync(postazione);
 
@@ -106,14 +107,14 @@ namespace GestoraWebApi.Services.Postazioni
         private async Task ValidatePostazioneAsync(PostazioneDTO dto)
         {
             if (!dto.Attiva)
-                throw new InvalidOperationException("La postazione selezionata non è attiva.");
+                throw new ConflictException("La postazione selezionata non è attiva.");
 
             var existingPostazione = await _postazioneRepository
                 .GetAllQueryable()
                 .FirstOrDefaultAsync(p => p.Numero == dto.Numero);
 
             if (existingPostazione != null)
-                throw new InvalidOperationException($"Esiste già una postazione con il numero '{dto.Numero}'.");
+                throw new ConflictException($"Esiste già una postazione con il numero '{dto.Numero}'.");
 
             var zona = await _zonaRepository.GetByIdAsync(dto.ZonaId);
             if (zona == null)
@@ -129,7 +130,7 @@ namespace GestoraWebApi.Services.Postazioni
 
             // Controllo prenotazioni
             if (await _postazioneRepository.HasPrenotazioniAsync(dto.Id))
-                throw new InvalidOperationException("Impossibile aggiornare la postazione: esistono prenotazioni associate.");
+                throw new ConflictException("Impossibile aggiornare la postazione: esistono prenotazioni associate.");
 
             // Controllo numero duplicato
             var existingPostazione = await _postazioneRepository
@@ -137,7 +138,7 @@ namespace GestoraWebApi.Services.Postazioni
                 .FirstOrDefaultAsync(p => p.Numero == dto.Numero && p.Id != dto.Id);
 
             if (existingPostazione != null)
-                throw new InvalidOperationException($"Esiste già una postazione con il numero '{dto.Numero}'.");
+                throw new ConflictException($"Esiste già una postazione con il numero '{dto.Numero}'.");
 
             // Controllo esistenza zona (FIX-001: evita il messaggio tecnico EF su violazione FK)
             var zona = await _zonaRepository.GetByIdAsync(dto.ZonaId);
@@ -201,7 +202,7 @@ namespace GestoraWebApi.Services.Postazioni
             if (zona == null)
                 throw new ArgumentException($"La zona con ID {zonaId} non esiste.");
             if (!zona.Attiva)
-                throw new InvalidOperationException($"La zona con ID {zonaId} non è attiva.");
+                throw new ConflictException($"La zona con ID {zonaId} non è attiva.");
 
             // Recupera postazioni libere per zona
             var postazioni = await _postazioneRepository.GetPostazioniPerZonaAsync(zonaId);
@@ -262,17 +263,17 @@ namespace GestoraWebApi.Services.Postazioni
                 throw new ArgumentException($"La zona con ID {zonaId} non esiste.");
 
             if (!zona.Attiva)
-                throw new InvalidOperationException($"Impossibile associare: la zona con ID {zonaId} non è attiva.");
+                throw new ConflictException($"Impossibile associare: la zona con ID {zonaId} non è attiva.");
 
             var postazione = await _postazioneRepository.GetByIdAsync(postazioneId);
             if (postazione == null)
                 throw new KeyNotFoundException($"Postazione con ID {postazioneId} non trovata.");
 
             if (!postazione.Attiva)
-                throw new InvalidOperationException($"Impossibile associare: la postazione con ID {postazioneId} non è attiva.");
+                throw new ConflictException($"Impossibile associare: la postazione con ID {postazioneId} non è attiva.");
 
             if (await _postazioneRepository.HasPrenotazioniAsync(postazioneId))
-                throw new InvalidOperationException(
+                throw new ConflictException(
                     $"Impossibile associare! Esistono prenotazioni associate alla postazione {postazioneId}."
                 );
             #endregion

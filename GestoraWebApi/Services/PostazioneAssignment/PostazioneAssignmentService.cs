@@ -1,10 +1,11 @@
-using GestoraWebApi.Enums;
+﻿using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Prenotazioni;
 using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using Microsoft.EntityFrameworkCore;
+using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Services.PostazioneAssignment
 {
@@ -37,9 +38,9 @@ namespace GestoraWebApi.Services.PostazioneAssignment
             if (!postazioni.Any())
             {
                 if (dto.ZonaId.HasValue)
-                    throw new InvalidOperationException("Non ci sono postazioni libere nella zona preferita selezionata.");
+                    throw new ConflictException("Non ci sono postazioni libere nella zona preferita selezionata.");
                 else
-                    throw new InvalidOperationException("Non ci sono postazioni libere.");
+                    throw new ConflictException("Non ci sono postazioni libere.");
             }
 
             var postazioniOccupateIds = await _prenotazioniRepository.GetAllQueryableAsync()
@@ -56,12 +57,12 @@ namespace GestoraWebApi.Services.PostazioneAssignment
                 .ToList();
 
             if (!postazioniLibere.Any())
-                throw new InvalidOperationException("Non ci sono postazioni libere per la fascia oraria selezionata.");
+                throw new ConflictException("Non ci sono postazioni libere per la fascia oraria selezionata.");
 
             var migliore = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioniLibere, dto.NumeroCoperti);
 
             if (migliore == null)
-                throw new InvalidOperationException("Non ci sono postazioni libere o attive per i coperti richiesti nella fascia oraria selezionata.");
+                throw new ConflictException("Non ci sono postazioni libere o attive per i coperti richiesti nella fascia oraria selezionata.");
 
             var distribuzione = AssegnazioneTavoli.DistribuisciCoperti(migliore, dto.NumeroCoperti);
 
