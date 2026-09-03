@@ -492,8 +492,3 @@ $RECYCLE.BIN/
 
 
 .github/
-
- # backup di database e dump: mai versionati (dati reali)
-  backup_*.csv
-  backup_*.dump
-  *.dump
