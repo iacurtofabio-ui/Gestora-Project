@@ -346,7 +346,9 @@ diverse, nessun conflitto da rilevare a quel livello. La garanzia reale va messa
 - Provare a prenotare lo stesso tavolo da due browser diversi contemporaneamente
 
 **Chiusura**: la doppia prenotazione sullo stesso tavolo non è più possibile, né in locale né in
-produzione. ✅ **Fase chiusa il 02/09/2026.**
+produzione. ⏳ **Codice e verifiche completi il 02/09/2026; la fase si chiude formalmente con il
+commit/push (Definition of Done, punto 5) e con la pulizia dei dati di test rimasti in
+produzione** — vedi in fondo a questo blocco.
 
 > **Esito dei task 🧑 (Definition of Done, punto 3) — 02/09/2026**
 >
@@ -371,6 +373,16 @@ produzione. ✅ **Fase chiusa il 02/09/2026.**
 > `syntax error at or near "START"` e **il resto dello script gira in autocommit**, senza
 > rollback automatico. È successo in produzione: il risultato è stato corretto, ma senza rete di
 > sicurezza. Il file in `Scripts/` è stato ripulito dal BOM e porta la nota in testa.
+>
+> **Ancora da fare per chiudere formalmente (02/09/2026, fine sessione)**
+> 1. **Commit e push** del lavoro documentale e del fix agli accenti — punto 5 della DoD, non
+>    ancora fatto.
+> 2. **Pulizia dei dati di test in produzione**: la zona "Test concorrenza", il tavolo da 2 creato
+>    dentro di essa e le prenotazioni generate dalle prove. Ordine obbligato per via dei vincoli:
+>    prima si eliminano le prenotazioni (Admin, `DELETE /delete-prenotazione`, ammesso solo su
+>    stato Attiva o Annullata), poi la postazione, poi la zona. Nota: finché una postazione ha
+>    righe in `PrenotazioniPostazioni` non è modificabile né eliminabile (è REV-099), quindi
+>    l'ordine non è opzionale.
 >
 > **Emersi durante i test, registrati come REV-098 e REV-099** (vedi `REVISIONE_END_TO_END.md`):
 > la modifica prenotazione non esiste nel frontend, e un tavolo con prenotazioni storiche non è

@@ -3,7 +3,8 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 02/09/2026
-Ultima cosa fatta: **FASE 3 CHIUSA.** La doppia prenotazione sullo stesso tavolo non è più
+Ultima cosa fatta: **FASE 3 — codice e verifiche completi, chiusura formale in sospeso**
+(mancano commit/push e la pulizia dei dati di test in produzione: vedi "DA FARE PER PRIMA COSA"). La doppia prenotazione sullo stesso tavolo non è più
 possibile: vincolo reale a database (REV-003), più REV-026 completo e REV-032 parziale.
 `dotnet test` **70/70**, `npm run build` verde, migration applicata in produzione, **test di
 concorrenza superato in produzione** (due richieste simultanee → `201` + `409` con il messaggio
@@ -39,6 +40,23 @@ di conflitto sullo slot). Nessuna modifica al frontend.
 > corretto, ma senza rete di sicurezza). Il file in `GestoraWebApi/Scripts/` è stato ripulito e
 > porta la nota in testa: se se ne rigenera uno, togliere il BOM prima di usarlo.
 
+> **Rotazione password DB su Railway (02/09/2026)** — procedura e trappole:
+> 1. La password va cambiata dal **tab Config del servizio Postgres** ("regenerate"), che aggiorna
+>    insieme il database e le variabili. `ALTER USER` a mano cambia solo il database e lascia le
+>    variabili indietro: il pannello poi non permette di allinearle, perché `PGPASSWORD` è un
+>    **riferimento** a `POSTGRES_PASSWORD` (il valore vero vive lì).
+> 2. `ConnectionStrings__DefaultConnection` del servizio .NET deve usare i **riferimenti**
+>    (`${{Postgres.PGHOST}}` ecc.), non valori copiati: con i valori letterali ogni rigenerazione
+>    rompe la connessione. I riferimenti vanno **digitati** nel campo (`${{` + autocomplete),
+>    incollati da fuori restano stringhe morte.
+> 3. ⚠️ **L'autocomplete di Railway mangia il carattere che precede il riferimento**: scegliendo
+>    il valore dalla lista, gli `=` di `Port=`, `Database=`, `Username=`, `Password=` spariscono e
+>    la stringa diventa `Port5432;Databaserailway;...`. Npgsql non trova i parametri e il database
+>    risponde `password authentication failed` — errore che porta fuori strada, perché la password
+>    è giusta. **Dopo ogni modifica contare i cinque `=`** con
+>    `railway variables --service "Gestora-Project"` prima di deployare.
+> 4. Verifica finale: `GET /health` → `Healthy` (copre anche il database, vedi Fase 1).
+
 > **Nota su Railway**: il servizio Postgres **non ha TCP proxy pubblico**, quindi `pg_dump` da
 > locale non è possibile (`postgres.railway.internal` non è raggiungibile da fuori). Il backup si
 > fa con `\copy` dentro `railway connect Postgres`, tabella per tabella, come in Fase 2a.
@@ -54,7 +72,38 @@ di conflitto sullo slot). Nessuna modifica al frontend.
   non è più modificabile né disattivabile**. Proposta: Fase 7.
 - Password del database di produzione e token Admin **esposti in chat il 02/09**: da ruotare.
 
-### Prossimo passo — Fase 4 (sicurezza e primo avvio)
+### ⚠️ DA FARE PER PRIMA COSA — coda aperta del 02/09/2026
+
+**1. Il lavoro di oggi non è ancora committato.** Working tree con: `CLAUDE.md`,
+`ROADMAP_REVISIONE.md`, `REVISIONE_END_TO_END.md`, `TrackAttività_Gestora.xlsx`,
+`PrenotazioniService.cs` (accenti nel messaggio di conflitto) e la cancellazione dei tre file di
+backup. Messaggio di commit pronto, chiederlo a Claude. Prima del commit vanno aggiunte a
+`.gitignore` le righe `backup_*.csv`, `backup_*.dump`, `*.dump`.
+
+**2. Backup con dati reali in un repository PUBBLICO.** I file `backup_Prenotazioni_20260902.csv`,
+`backup_PrenotazioniPostazioni_20260902.csv` e `backup_20260902_pre_slot.dump` sono finiti nel
+commit `15f98a0`, già pushato su `origin/dev` e `origin/main` di
+`https://github.com/iacurtofabio-ui/Gestora-Project` (repository **pubblico**, verificato).
+Toglierli dalla versione corrente non basta: restano scaricabili dalla cronologia. Serve
+`git filter-repo` (`python -m pip install git-filter-repo`), copia di sicurezza della cartella,
+riscrittura della storia sui tre path, riaggancio del remote e **force push su `dev` e `main`**.
+Non ancora fatto. **Domanda ancora senza risposta**: le 20 prenotazioni sono dati inventati o
+nomi di persone reali? Se reali, dopo il force push va chiesto anche a GitHub Support di purgare
+gli oggetti orfani.
+
+**3. Pulizia dei dati di test in produzione** — zona "Test concorrenza", il tavolo da 2 al suo
+interno e le prenotazioni delle prove. Ordine obbligato: prima le prenotazioni (Admin,
+`DELETE /delete-prenotazione`, solo su Attiva o Annullata), poi la postazione, poi la zona —
+finché la postazione ha righe join non è né modificabile né eliminabile (REV-099).
+
+**4. Facoltativo**: ruotare `JwtSettings__Secret` per invalidare subito il token Admin esposto in
+chat (scade comunque da solo). Costo: tutti gli utenti devono rifare login.
+
+**Fatto oggi su questo fronte**: password del database ruotata dal tab Config di Railway,
+`ConnectionStrings__DefaultConnection` ricostruita **per riferimenti**, `/health` → `Healthy`
+verificato.
+
+### Poi — Fase 4 (sicurezza e primo avvio)
 
 Schermata di primo avvio al posto di `seed-admin` pubblico (REV-007), email fuori dai log di
 accesso (REV-070), distinzione 401/403 senza logout (REV-025), campo riservato non scrivibile dal
