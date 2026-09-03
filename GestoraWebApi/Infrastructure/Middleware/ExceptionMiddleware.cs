@@ -40,7 +40,11 @@ namespace GestoraWebApi.Infrastructure.Middleware
             {
                 NotFoundException => (int)HttpStatusCode.NotFound,
                 KeyNotFoundException => (int)HttpStatusCode.NotFound,
+                // REV-025: 401 solo per "non sei autenticato" (nessun token, o token non
+                // valido). Il permesso negato su una risorsa altrui e' ForbiddenException -> 403,
+                // che il frontend mostra come errore senza fare logout.
                 UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
+                ForbiddenException => (int)HttpStatusCode.Forbidden,
                 ValidationException => (int)HttpStatusCode.BadRequest,
                 ArgumentOutOfRangeException => (int)HttpStatusCode.BadRequest,
                 ArgumentException => (int)HttpStatusCode.BadRequest,
@@ -67,7 +71,7 @@ namespace GestoraWebApi.Infrastructure.Middleware
 
             // Per le eccezioni non gestite (500) il messaggio non va esposto al client: può
             // contenere dettagli interni del driver (es. Npgsql) o della query. Per le eccezioni
-            // tipizzate (404/400/409/401) il messaggio è invece scritto apposta dal service per
+            // tipizzate (404/400/409/403/401) il messaggio è invece scritto apposta dal service per
             // l'utente, va restituito così com'è.
             var isUnhandled = statusCode == (int)HttpStatusCode.InternalServerError;
             var response = new ErrorDetails

@@ -459,13 +459,13 @@ un obbligo — se preferisci un unico rilascio finale, si salta e si prosegue.
 spostati in Fase 1, non richiedono di aspettare la schermata di primo avvio).*
 
 🤖 **Claude**
-- **Schermata di primo avvio**: se non esiste ancora nessun amministratore, l'app mostra una
+- ✅ **Schermata di primo avvio**: se non esiste ancora nessun amministratore, l'app mostra una
   pagina dedicata per crearlo; appena esiste, la pagina sparisce da sola. L'endpoint pubblico
   attuale viene rimosso — REV-007
-- Togliere l'email dai log di accesso — REV-070
-- Distinguere "non autenticato" da "non autorizzato": oggi un permesso negato provoca il logout —
-  REV-025
-- Impedire al cliente di scrivere il campo riservato a Staff e Admin — REV-033
+- ✅ Togliere l'email dai log di accesso — REV-070
+- ✅ Distinguere "non autenticato" da "non autorizzato": oggi un permesso negato provoca il
+  logout — REV-025
+- ✅ Impedire al cliente di scrivere il campo riservato a Staff e Admin — REV-033
 
 🧑 **Fabio**
 - Niente
@@ -474,6 +474,37 @@ spostati in Fase 1, non richiedono di aspettare la schermata di primo avvio).*
 > produzione l'Admin c'è già, quindi è di fatto chiusa da subito.
 
 **Chiusura**: nessun endpoint sensibile raggiungibile senza autenticazione.
+✅ **FASE 4 CHIUSA il 03/09/2026.** `dotnet test` 74/74 (erano 70), `tsc --noEmit` e
+`npm run build` puliti, `eslint` 0 errori. **Nessuna migration.**
+
+**Come è stata realizzata**
+
+- REV-007 → nuovo `SetupController` pubblico (`GET /api/Setup/stato`, `POST /api/Setup/admin`),
+  `POST /AuthenticationUser/seed-admin` **rimosso**; lato frontend `SetupPage`, hook `useSetup` e
+  `SetupGuard` su `/login` e `/register`. Nessun login automatico dopo la creazione: si entra con
+  le credenziali appena scelte, così si verificano davanti a chi dà l'assistenza.
+- REV-025 → nuova `ForbiddenException` mappata a 403. Il frontend era **già corretto** (logout
+  solo su 401 con token presente): il difetto era interamente nel mapping backend.
+- REV-033 → campo ignorato in creazione e lasciato invariato in modifica per il Cliente
+  self-service. Ignorato in silenzio, non 403: il form del Cliente non espone il campo.
+- REV-070 → 7 punti di log ripuliti; sui tentativi falliti resta l'IP, sui casi con utente noto
+  si usa `UserId`.
+
+**Verifiche**
+
+Il primo avvio non è verificabile in produzione (l'Admin esiste già, e questo è il comportamento
+voluto): provato su un **DB locale ricreato da zero** — `/setup` all'ingresso, creazione
+dell'Admin, redirect al login, `/setup` che si richiude da sola. REV-070 verificato nei log (solo
+IP, nessuna email), REV-025 verificato da Postman con token Cliente su prenotazione altrui
+(**403** con il messaggio, non più 401).
+
+> **Trappola incontrata**: droppare il DB locale non basta a rimetterlo com'era. Le tabelle
+> `QRTZ_` **non stanno nelle migration EF** ma in `Scripts/quartz_postgres.sql`: senza rilanciare
+> quello script dopo `dotnet ef database update`, l'app non arriva ad avviarsi.
+
+> **Nota per il rilascio**: la rimozione di `seed-admin` è un **breaking change** di API.
+> Innocuo in produzione (l'Admin c'è già e l'endpoint era autobloccato), ma da sapere se si
+> decide il `v1.0.1` qui sotto.
 
 ---
 

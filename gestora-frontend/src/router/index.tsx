@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute'
+import SetupGuard from './SetupGuard'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import AppLayout from '@/layouts/AppLayout'
@@ -10,11 +11,14 @@ import PostazionePage from '@/pages/PostazionePage'
 import FasciaOrariaPage from '@/pages/FasciaOrariaPage'
 import AdminUtentiPage from '@/pages/AdminUtentiPage'
 import UnauthorizedPage from '@/pages/UnauthorizedPage'
+import SetupPage from '@/pages/SetupPage'
 
 export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace /> },
-  { path: '/login', element: <LoginPage /> },
-  { path: '/register', element: <RegisterPage /> },
+  // REV-007: finche' non esiste un amministratore, l'unica pagina raggiungibile e' /setup.
+  { path: '/setup', element: <SetupPage /> },
+  { path: '/login', element: <SetupGuard><LoginPage /></SetupGuard> },
+  { path: '/register', element: <SetupGuard><RegisterPage /></SetupGuard> },
   { path: '/unauthorized', element: <UnauthorizedPage /> },
 
   {

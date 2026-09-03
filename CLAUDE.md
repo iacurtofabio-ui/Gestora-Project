@@ -3,14 +3,67 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 03/09/2026
-Ultima cosa fatta: **FASE 3 CHIUSA**. La doppia prenotazione sullo stesso tavolo non è più
-possibile: vincolo reale a database (REV-003), più REV-026 completo e REV-032 parziale.
-`dotnet test` **70/70**, `npm run build` verde, migration applicata in produzione, **test di
-concorrenza superato in produzione** (due richieste simultanee → `201` + `409` con il messaggio
-di conflitto sullo slot). Nessuna modifica al frontend.
-Il 03/09 si è chiusa formalmente: commit e push (`a07fda0` su `dev`, `b09e583` su `main`),
-**storia Git ripulita** dai backup con dati finiti in un repo pubblico e **`JwtSettings__Secret`
-ruotato**. Prossimo passo: **Fase 4**.
+Ultima cosa fatta: **FASE 4 CHIUSA** (stessa giornata in cui si è chiusa la Fase 3, vedi più
+sotto). Nessun endpoint sensibile è più raggiungibile senza autenticazione: `seed-admin` pubblico
+è **rimosso** e sostituito da una schermata di primo avvio (REV-007), un permesso negato non
+provoca più il logout (REV-025), il Cliente non scrive un campo riservato a Staff/Admin
+(REV-033), l'email è fuori dai log di accesso (REV-070).
+`dotnet test` **74/74**, `tsc --noEmit` e `npm run build` puliti, `eslint` 0 errori.
+**Nessuna migration.** Il primo avvio è stato verificato end-to-end su un DB locale **ricreato da
+zero**; in produzione l'Admin esiste già, quindi la schermata è chiusa da sé.
+Prossimo passo: **Fase 5 — test del backend**. Prima però va **decisa** l'eventuale release
+intermedia `v1.0.1` (vedi sotto).
+
+### Fase 4 — riepilogo
+
+- **REV-007** — nuovo `SetupController` **pubblico**: `GET /api/Setup/stato` risponde solo
+  sì/no sull'esistenza di un Admin (niente dettagli sugli utenti, l'endpoint è aperto) e
+  `POST /api/Setup/admin` crea il primo amministratore, poi si chiude per sempre (409).
+  `POST /api/AuthenticationUser/seed-admin` **rimosso**. Tre scelte non ovvie:
+  la creazione è serializzata da un `SemaphoreSlim` **statico** (il check "esiste già un Admin?"
+  e la creazione non sono atomici — basta a istanza singola, **non** con più repliche: lì
+  servirebbe un vincolo a database come in REV-003); se `AddToRoleAsync` fallisce l'utente
+  appena creato viene **cancellato** (altrimenti username occupato + zero Admin bloccherebbero
+  il setup per sempre); gli errori di Identity sono tradotti in `ValidationException` per avere
+  la stessa forma di risposta del resto dell'API, altrimenti il frontend mostrerebbe un generico
+  "riprova" invece di "questa email è già in uso".
+- **REV-007 (frontend)** — `SetupPage` + hook `useSetup` + `SetupGuard` che avvolge `/login` e
+  `/register`: finché non esiste un Admin ogni ingresso porta a `/setup`, appena esiste la
+  guardia è trasparente e la pagina si autoredirige al login. **Nessun login automatico** dopo
+  la creazione: si entra con le credenziali appena scelte, così si verificano subito. Se la
+  chiamata di stato fallisce si prosegue al login, per non dirottare tutti sul primo avvio per
+  un problema di rete.
+- **REV-025** — nuova `ForbiddenException` (stesso schema di `ConflictException`) mappata a
+  **403**; i 3 casi di permesso negato su prenotazione altrui non producono più un 401.
+  `UnauthorizedAccessException` resta solo per le richieste **non autenticate**.
+  Il frontend era **già corretto** (l'interceptor fa logout solo su 401 *con token presente*, e
+  gli hook mostrano già `data.message`): il difetto era interamente nel mapping backend, nessuna
+  modifica frontend necessaria.
+- **REV-033** — `NomeCliente` è un campo di Staff/Admin (annotazione per le prenotazioni prese
+  al telefono): ignorato in creazione e **lasciato invariato** in modifica quando a scrivere è un
+  Cliente self-service, che quindi non può né impostarlo né cancellare l'annotazione dello Staff.
+  Ignorato in silenzio invece di un 403, perché il form del Cliente non espone il campo.
+- **REV-070** — 7 punti di log ripuliti in `AuthenticationUserController`: sui tentativi
+  **falliti** resta solo l'IP (su un login fallito l'email non è detto sia di un nostro utente,
+  e con un attacco a dizionario i log si riempirebbero di indirizzi di terzi), sui casi con
+  utente noto si usa `UserId`. Email tolta anche dal messaggio dell'audit log di registrazione,
+  dove `user.Id` è già il primo parametro.
+- Test: +4 (`NomeCliente` scritto/ignorato in creazione e modifica), i 3 test sui permessi
+  aggiornati a `ForbiddenException`. **74/74.**
+
+> **Reset del DB locale — procedura**: `dotnet ef database drop` (senza `--force`, così stampa il
+> database bersaglio e chiede conferma: è la rete di sicurezza) -> `dotnet ef database update` ->
+> **`psql -U postgres -d gestora_db -f Scripts\quartz_postgres.sql`**. Quest'ultimo passo non è
+> opzionale: le tabelle `QRTZ_` **non stanno nelle migration EF**, senza di loro l'app non parte.
+> Il backend va **spento** prima del drop, altrimenti la connessione aperta lo blocca.
+
+> **Da ricordare — nomi delle tabelle Identity**: in questo progetto sono rinominate in
+> `Utenti` e `Ruoli`, **non** `AspNetUsers`/`AspNetRoles`.
+
+> **Da ricordare — psql da PowerShell**: PowerShell 5.1 **mangia i doppi apici** negli argomenti
+> passati a un eseguibile nativo, quindi `-c 'SELECT ... FROM "Utenti";'` arriva a psql senza
+> virgolette e Postgres ripiega l'identificatore in minuscolo (`utenti` -> "relazione non
+> esiste"). Vanno pre-escapate col backslash, dentro gli apici singoli.
 
 ### Fase 3 — riepilogo
 
@@ -122,12 +175,23 @@ negli appunti** (`Set-Clipboard`, mai a video né in chat) e sostituiti su Railw
   Nota: una zona di test **attiva** compare nelle disponibilità reali; se dà fastidio va
   disattivata, non eliminata.
 
-### Poi — Fase 4 (sicurezza e primo avvio)
+### Prima della Fase 5 — decisione su `v1.0.1`
 
-Schermata di primo avvio al posto di `seed-admin` pubblico (REV-007), email fuori dai log di
-accesso (REV-070), distinzione 401/403 senza logout (REV-025), campo riservato non scrivibile dal
-Cliente (REV-033). Nessun task 🧑 previsto. A fine Fase 4 va **decisa** l'eventuale release
-intermedia `v1.0.1` (proposta facoltativa in `ROADMAP_REVISIONE.md`).
+Con la Fase 4 chiusa il grosso del valore della roadmap è pronto (fondamenta di deploy, logica di
+dominio, concorrenza, sicurezza) ma **è tutto fermo su `dev`**: in produzione girano ancora le
+Fasi 1-3. Va deciso se fare un merge `dev`->`main` con tag **`v1.0.1`** ora, oppure proseguire
+fino alla Fase 11 con un unico rilascio finale. La proposta (facoltativa) è in
+`ROADMAP_REVISIONE.md`. Non è una decisione tecnica ma di rilascio: la prende Fabio.
+
+> Attenzione se si rilascia: la rimozione di `seed-admin` è un **breaking change** di API. In
+> produzione è innocuo (l'Admin esiste già, l'endpoint era comunque autobloccato), ma va saputo.
+
+### Poi — Fase 5 (test del backend)
+
+Coprire il percorso che il prodotto esiste per fare: oggi i 74 test verdi **non toccano** la
+creazione di una prenotazione. Test su creazione e modifica (REV-051), sull'assegnazione reale
+del tavolo — oggi è coperto solo un metodo gemello, non quello usato (REV-052), su disponibilità,
+dashboard e ruoli (REV-053), sui due job notturni (REV-054). Nessun task 🧑 previsto.
 
 ### Checkpoint 2c — riepilogo (codice chiuso 01/09/2026)
 
@@ -149,6 +213,11 @@ Tre commit su `dev`:
   `IClock`. Job Quartz: log timestamp normalizzati a UTC. `TestClock` nel progetto test.
   I ~30 `DateTime.Now` nelle stringhe di log dei controller **non** toccati (rumore di logging,
   non "orologio di dominio") — candidati Fase 9.
+
+> **Evidenza raccolta il 03/09**: in un log di login fallito si legge `[12:59:48 WRN] ... -
+> 09/03/2026 10:59:48`. Il primo è il timestamp di Serilog (ora locale), il secondo è il
+> `DateTime.UtcNow` scritto a mano dentro il messaggio: **stesso evento, due orari a due ore di
+> distanza**. Non è solo ridondanza cosmetica, confonde chi legge i log.
 
 > **Nota debito**: `PrenotazioniService` ha ancora il secondo costruttore fantasma con
 > `object1..object7` (REV-010, assegnato a Fase 9). Non è un bug attivo — la DI sceglie sempre il

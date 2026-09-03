@@ -87,7 +87,9 @@ namespace GestoraWebApi.Services.Prenotazioni
             {
                 await ValidatePrenotazioneAsync(dto);
 
-                if (IsSelfServiceCliente())
+                var selfService = IsSelfServiceCliente();
+
+                if (selfService)
                     await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione);
 
                 var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto);
@@ -98,7 +100,11 @@ namespace GestoraWebApi.Services.Prenotazioni
                     DataPrenotazione = (DateOnly)dto.DataPrenotazione,
                     NumeroCoperti = dto.NumeroCoperti,
                     FasciaOrariaId = dto.FasciaOrariaId,
-                    NomeCliente = dto.NomeCliente,
+                    // REV-033: NomeCliente serve a Staff/Admin per annotare a nome di chi e' la
+                    // prenotazione presa al telefono. Nel self-service il cliente e' l'utente
+                    // autenticato, quindi il campo si ignora invece di rifiutare la richiesta:
+                    // il form del Cliente non lo espone, un 403 sarebbe solo rumore.
+                    NomeCliente = selfService ? null : dto.NomeCliente,
                     Note = dto.Note,
                     Stato = StatoPrenotazione.Attiva,
                 };
@@ -140,7 +146,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             // Admin/Staff nessun limite.
             if (IsSelfServiceCliente()
                 && !string.Equals(prenotazione.UserId, GetAuthenticatedUserId(), StringComparison.OrdinalIgnoreCase))
-                throw new UnauthorizedAccessException("Non hai i permessi per visualizzare questa prenotazione.");
+                throw new ForbiddenException("Non hai i permessi per visualizzare questa prenotazione.");
 
             return _mapper.Map<PrenotazioneDTO>(prenotazione);
         }
@@ -165,7 +171,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (IsSelfServiceCliente())
             {
                 if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
-                    throw new UnauthorizedAccessException("Non hai i permessi per modificare questa prenotazione.");
+                    throw new ForbiddenException("Non hai i permessi per modificare questa prenotazione.");
 
                 GuardCutoffAsync(prenotazione);
             }
@@ -182,8 +188,12 @@ namespace GestoraWebApi.Services.Prenotazioni
                 prenotazione.DataPrenotazione = (DateOnly)dto.DataPrenotazione;
                 prenotazione.NumeroCoperti = dto.NumeroCoperti;
                 prenotazione.FasciaOrariaId = dto.FasciaOrariaId;
-                prenotazione.NomeCliente = dto.NomeCliente;
                 prenotazione.Note = dto.Note;
+
+                // REV-033: in self-service il campo resta com'e', il Cliente non puo' ne'
+                // impostarlo ne' cancellarlo modificando la propria prenotazione.
+                if (!IsSelfServiceCliente())
+                    prenotazione.NomeCliente = dto.NomeCliente;
 
                 if (prenotazione.PrenotazioniPostazioni != null && prenotazione.PrenotazioniPostazioni.Any())
                 {
@@ -264,7 +274,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             {
                 var userId = GetAuthenticatedUserId();
                 if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
-                    throw new UnauthorizedAccessException("Non hai i permessi per annullare questa prenotazione.");
+                    throw new ForbiddenException("Non hai i permessi per annullare questa prenotazione.");
 
                 GuardCutoffAsync(prenotazione);
             }

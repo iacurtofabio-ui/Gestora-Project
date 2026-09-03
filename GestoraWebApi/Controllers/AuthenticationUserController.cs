@@ -1,4 +1,4 @@
-using GestoraWebApi.Auth;
+﻿using GestoraWebApi.Auth;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
 using GestoraWebApi.Services.Auth.DTOs;
@@ -34,6 +34,9 @@ namespace GestoraWebApi.Controllers
             _logActivityService = logActivityService;
         }
 
+        private string? GetIpAddress()
+            => HttpContext.Connection.RemoteIpAddress?.ToString();
+
         /// <summary>Registrazione pubblica — assegna automaticamente il ruolo Cliente</summary>
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDTO request)
@@ -43,9 +46,11 @@ namespace GestoraWebApi.Controllers
 
             if (!result.Succeeded)
             {
-                _logger.LogWarning("[{Controller}] - [{Method}]: Registrazione fallita per {Email} - {Errors} - {Data}",
+                // REV-070: nessun identificativo personale nei log. Su una registrazione fallita
+                // l'email non appartiene nemmeno a un nostro utente: restano il motivo e l'IP.
+                _logger.LogWarning("[{Controller}] - [{Method}]: Registrazione fallita da {Ip} - {Errors} - {Data}",
                     nameof(AuthenticationUserController), nameof(Register),
-                    request.Email, string.Join(", ", result.Errors.Select(e => e.Description)), DateTime.Now);
+                    GetIpAddress(), string.Join(", ", result.Errors.Select(e => e.Description)), DateTime.Now);
 
                 return BadRequest(result.Errors);
             }
@@ -53,11 +58,12 @@ namespace GestoraWebApi.Controllers
             // Ogni nuovo utente registrato riceve il ruolo Cliente di default
             await _userManager.AddToRoleAsync(user, Roles.Cliente);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Registrazione riuscita per {Email} - {Data}",
-                nameof(AuthenticationUserController), nameof(Register), request.Email, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Registrazione riuscita per {UserId} - {Data}",
+                nameof(AuthenticationUserController), nameof(Register), user.Id, DateTime.Now);
 
-            await _logActivityService.LogAsync(user.Id, $"Registrazione nuovo utente: {user.Email}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+            // L'audit log su database identifica gia' l'utente con user.Id (primo parametro):
+            // ripetere l'email nel testo del messaggio la duplicherebbe senza aggiungere nulla.
+            await _logActivityService.LogAsync(user.Id, "Registrazione nuovo utente", GetIpAddress());
 
             return Ok($"Registrazione di '{user.UserName}' avvenuta con successo.");
         }
@@ -67,14 +73,18 @@ namespace GestoraWebApi.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
-            _logger.LogInformation("[{Controller}] - [{Method}]: Tentativo di login per {Email} - {Timestamp}",
-                nameof(AuthenticationUserController), nameof(Login), request.Email, DateTime.UtcNow);
+            // REV-070: l'email non entra nei log. Su un login fallito e' l'indirizzo di chi
+            // prova, non necessariamente di un nostro utente: registrarla significa conservare
+            // dati personali di terzi a ogni tentativo, anche di un attacco a dizionario.
+            // Per correlare i tentativi basta l'IP; a login riuscito si usa l'UserId.
+            _logger.LogInformation("[{Controller}] - [{Method}]: Tentativo di login da {Ip} - {Timestamp}",
+                nameof(AuthenticationUserController), nameof(Login), GetIpAddress(), DateTime.UtcNow);
 
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
             {
-                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato per {Email} - {Timestamp}",
-                    nameof(AuthenticationUserController), nameof(Login), request.Email, DateTime.UtcNow);
+                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato da {Ip} (utente inesistente) - {Timestamp}",
+                    nameof(AuthenticationUserController), nameof(Login), GetIpAddress(), DateTime.UtcNow);
 
                 return Unauthorized("Credenziali non valide.");
             }
@@ -85,8 +95,8 @@ namespace GestoraWebApi.Controllers
 
             if (signInResult.IsLockedOut)
             {
-                _logger.LogWarning("[{Controller}] - [{Method}]: Account bloccato per troppi tentativi falliti - {Timestamp}",
-                    nameof(AuthenticationUserController), nameof(Login), DateTime.UtcNow);
+                _logger.LogWarning("[{Controller}] - [{Method}]: Account {UserId} bloccato per troppi tentativi falliti (da {Ip}) - {Timestamp}",
+                    nameof(AuthenticationUserController), nameof(Login), user.Id, GetIpAddress(), DateTime.UtcNow);
 
                 return StatusCode(StatusCodes.Status423Locked,
                     "Account temporaneamente bloccato per troppi tentativi falliti. Riprova più tardi.");
@@ -94,8 +104,8 @@ namespace GestoraWebApi.Controllers
 
             if (!signInResult.Succeeded)
             {
-                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato per {Email} - {Timestamp}",
-                    nameof(AuthenticationUserController), nameof(Login), request.Email, DateTime.UtcNow);
+                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato per {UserId} (password errata, da {Ip}) - {Timestamp}",
+                    nameof(AuthenticationUserController), nameof(Login), user.Id, GetIpAddress(), DateTime.UtcNow);
 
                 return Unauthorized("Credenziali non valide.");
             }
@@ -103,39 +113,12 @@ namespace GestoraWebApi.Controllers
             var roles = await _userManager.GetRolesAsync(user);
             var token = _tokenGenerator.GenerateToken(user.Id, user.Email!, roles);
 
-            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-            await _logActivityService.LogAsync(user.Id, "Login", ipAddress);
+            await _logActivityService.LogAsync(user.Id, "Login", GetIpAddress());
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Login riuscito per {Email} - {Timestamp}",
-                nameof(AuthenticationUserController), nameof(Login), request.Email, DateTime.UtcNow);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Login riuscito per {UserId} - {Timestamp}",
+                nameof(AuthenticationUserController), nameof(Login), user.Id, DateTime.UtcNow);
 
             return Ok(new { Email = user.Email, Token = token });
-        }
-
-        /// <summary>
-        /// Crea il primo utente Admin del sistema — pubblico, ma si blocca se esiste già almeno un Admin.
-        /// Usare esclusivamente al primo avvio su un DB pulito.
-        /// </summary>
-        [HttpPost("seed-admin")]
-        public async Task<IActionResult> SeedAdmin([FromBody] RegisterDTO request)
-        {
-            // Blocca se esiste già almeno un utente con ruolo Admin
-            var admins = await _userManager.GetUsersInRoleAsync(Roles.Admin);
-            if (admins.Any())
-                return Conflict("Un utente Admin esiste già nel sistema. Endpoint disabilitato.");
-
-            var user = new ApplicationUser { UserName = request.Username, Email = request.Email };
-            var result = await _userManager.CreateAsync(user, request.Password);
-
-            if (!result.Succeeded)
-                return BadRequest(result.Errors);
-
-            await _userManager.AddToRoleAsync(user, Roles.Admin);
-
-            _logger.LogWarning("[{Controller}] - [{Method}]: Primo Admin '{Email}' creato via seed-admin - {Data}",
-                nameof(AuthenticationUserController), nameof(SeedAdmin), request.Email, DateTime.Now);
-
-            return Ok($"Utente Admin '{user.UserName}' creato con successo. Effettua il login per ottenere il token.");
         }
 
         /// <summary>Assegna un ruolo a un utente — solo Admin</summary>

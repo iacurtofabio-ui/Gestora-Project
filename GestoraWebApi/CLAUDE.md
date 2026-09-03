@@ -47,9 +47,13 @@ Utile per verificare un flusso automatizzato a comando o per rieseguirlo manualm
 necessità operativa. Aggiunto il 27/08/2026, presente solo in locale — valutare se portarlo anche
 in produzione.
 
-Auth: `POST register`, `POST login`, `POST seed-admin` (si autoblocca dopo il primo Admin),
-`POST assign-role`, `DELETE remove-role`, `GET get-users`, `GET get-user/{id}`,
-`PUT update-user/{id}`, `DELETE delete-user/{id}`, `POST reset-password/{id}`.
+Auth: `POST register`, `POST login`, `POST assign-role`, `DELETE remove-role`, `GET get-users`,
+`GET get-user/{id}`, `PUT update-user/{id}`, `DELETE delete-user/{id}`, `POST reset-password/{id}`.
+
+Setup (REV-007, `SetupController`, pubblico): `GET stato` — dice solo se esiste già un Admin —
+e `POST admin` — crea il primo amministratore dell'installazione, aperto finché quell'Admin non
+esiste, poi 409 per sempre. Sostituisce `POST seed-admin`, **rimosso**. Serializzato da un
+`SemaphoreSlim` statico: basta per un'app a istanza singola, non per più repliche.
 
 Dashboard: `GET giornaliera?data=`, `GET settimanale?dataInizio=`.
 

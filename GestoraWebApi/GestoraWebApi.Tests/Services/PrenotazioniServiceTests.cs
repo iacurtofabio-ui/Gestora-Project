@@ -182,7 +182,7 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _service.AnnullaPrenotazioneAsync(1));
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.AnnullaPrenotazioneAsync(1));
     }
 
     [Fact]
@@ -332,7 +332,7 @@ public class PrenotazioniServiceTests
         SetUserAsCliente("user-test-123");
         var (_, dto) = ArrangeUpdateValido(ownerUserId: "altro-utente");
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _service.UpdateAsync(1, dto));
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.UpdateAsync(1, dto));
     }
 
     // ─── GetByIdAsync — REV-034 (dettaglio al Cliente proprietario) ────────────
@@ -344,7 +344,7 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1))
                              .ReturnsAsync(new Prenotazione { Id = 1, NumeroCoperti = 2, UserId = "altro-utente" });
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => _service.GetByIdAsync(1));
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.GetByIdAsync(1));
     }
 
     [Fact]
@@ -505,5 +505,67 @@ public class PrenotazioniServiceTests
                         .ThrowsAsync(new Exception("log ko"));
 
         await Assert.ThrowsAsync<Exception>(() => _service.AddAsync(dto));
+    }
+
+    // --- REV-033 - NomeCliente e' un campo di Staff/Admin ---
+
+    [Fact]
+    public async Task AddAsync_IgnoraNomeCliente_QuandoAScrivereEIlCliente()
+    {
+        SetUserAsCliente("user-test-123");
+        var dto = ArrangeAddValido();
+        dto.NomeCliente = "Nome iniettato";
+        Prenotazione? salvata = null;
+        _prenotazioniRepoMock.Setup(r => r.AddAsync(It.IsAny<Prenotazione>()))
+                             .Callback<Prenotazione>(p => salvata = p)
+                             .Returns(Task.CompletedTask);
+
+        await _service.AddAsync(dto);
+
+        Assert.Null(salvata!.NomeCliente);
+    }
+
+    [Fact]
+    public async Task AddAsync_ScriveNomeCliente_QuandoAScrivereEStaff()
+    {
+        // principal di default = Staff
+        var dto = ArrangeAddValido();
+        dto.NomeCliente = "Rossi (al telefono)";
+        Prenotazione? salvata = null;
+        _prenotazioniRepoMock.Setup(r => r.AddAsync(It.IsAny<Prenotazione>()))
+                             .Callback<Prenotazione>(p => salvata = p)
+                             .Returns(Task.CompletedTask);
+
+        await _service.AddAsync(dto);
+
+        Assert.Equal("Rossi (al telefono)", salvata!.NomeCliente);
+    }
+
+    /// <summary>
+    /// Il Cliente non deve poter nemmeno cancellare il nome annotato dallo Staff modificando
+    /// la propria prenotazione: il campo resta esattamente com'era.
+    /// </summary>
+    [Fact]
+    public async Task UpdateAsync_NonToccaNomeCliente_QuandoAModificareEIlCliente()
+    {
+        SetUserAsCliente("proprietario");
+        var (prenotazione, dto) = ArrangeUpdateValido(ownerUserId: "proprietario");
+        prenotazione.NomeCliente = "Annotato dallo Staff";
+        dto.NomeCliente = "Nome iniettato";
+
+        await _service.UpdateAsync(1, dto);
+
+        Assert.Equal("Annotato dallo Staff", prenotazione.NomeCliente);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ScriveNomeCliente_QuandoAModificareEStaff()
+    {
+        var (prenotazione, dto) = ArrangeUpdateValido(ownerUserId: "cliente-diverso");
+        dto.NomeCliente = "Bianchi";
+
+        await _service.UpdateAsync(1, dto);
+
+        Assert.Equal("Bianchi", prenotazione.NomeCliente);
     }
 }
