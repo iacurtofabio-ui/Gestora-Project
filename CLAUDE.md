@@ -11,8 +11,8 @@ provoca più il logout (REV-025), il Cliente non scrive un campo riservato a Sta
 `dotnet test` **74/74**, `tsc --noEmit` e `npm run build` puliti, `eslint` 0 errori.
 **Nessuna migration.** Il primo avvio è stato verificato end-to-end su un DB locale **ricreato da
 zero**; in produzione l'Admin esiste già, quindi la schermata è chiusa da sé.
-Prossimo passo: **Fase 5 — test del backend**. Prima però va **decisa** l'eventuale release
-intermedia `v1.0.1` (vedi sotto).
+**Rilasciata la `v1.0.1`** lo stesso giorno: merge `dev`→`main` (commit `66e7f5c`), tag
+`v1.0.1` su GitHub, Railway e Vercel ridistribuiti. Prossimo passo: **Fase 5 — test del backend**.
 
 ### Fase 4 — riepilogo
 
@@ -165,6 +165,14 @@ negli appunti** (`Set-Clipboard`, mai a video né in chat) e sostituiti su Railw
 - **`git gc --prune=now`** da rilanciare a freddo (dopo un riavvio): il repack di `filter-repo` è
   stato interrotto, restano oggetti orfani **locali**. Solo spazio su disco, nessun impatto sul
   remoto.
+- **Tag `v1.0.0` disallineato fra locale e remoto** (scoperto il 03/09 preparando la `v1.0.1`):
+  in locale punta a `807cca9`, su GitHub a `6430cc8`. È l'effetto della riscrittura con
+  `git-filter-repo`: il tag locale ha seguito i nuovi SHA, quello remoto è rimasto agganciato al
+  commit **vecchio**, che non appartiene più a nessun branch e prima o poi verrà raccolto dalla
+  garbage collection di GitHub. Per questo `git fetch --tags` risponde
+  `! [rejected] v1.0.0 (would clobber existing tag)`. Si riallinea con
+  `git push --force origin refs/tags/v1.0.0` — contenuto identico, cambia solo lo SHA. La `v1.0.1`
+  **non** ha questo problema: è nata dopo la riscrittura.
 - **`Personali\Gestora_BACKUP_20260903`** — copia di sicurezza pre-riscrittura. Da cancellare
   quando si è tranquilli.
 - **NEW-005 — pulizia generale del DB di produzione a fine progetto.** I dati di test (zona
@@ -175,16 +183,24 @@ negli appunti** (`Set-Clipboard`, mai a video né in chat) e sostituiti su Railw
   Nota: una zona di test **attiva** compare nelle disponibilità reali; se dà fastidio va
   disattivata, non eliminata.
 
-### Prima della Fase 5 — decisione su `v1.0.1`
+### ✅ Rilascio v1.0.1 (03/09/2026)
 
-Con la Fase 4 chiusa il grosso del valore della roadmap è pronto (fondamenta di deploy, logica di
-dominio, concorrenza, sicurezza) ma **è tutto fermo su `dev`**: in produzione girano ancora le
-Fasi 1-3. Va deciso se fare un merge `dev`->`main` con tag **`v1.0.1`** ora, oppure proseguire
-fino alla Fase 11 con un unico rilascio finale. La proposta (facoltativa) è in
-`ROADMAP_REVISIONE.md`. Non è una decisione tecnica ma di rilascio: la prende Fabio.
+Decisa e fatta: le Fasi 1-4 sono in produzione. Merge `dev`→`main` in fast-forward (`main` era un
+antenato diretto di `dev`, nessun conflitto possibile), commit `66e7f5c`, tag **`v1.0.1`**
+pubblicato su GitHub sulla punta di `main`. Railway e Vercel si sono ridistribuiti da soli sul
+push. **Nessuna migration**, quindi nessun backup né finestra di manutenzione: deploy di solo
+codice.
 
-> Attenzione se si rilascia: la rimozione di `seed-admin` è un **breaking change** di API. In
-> produzione è innocuo (l'Admin esiste già, l'endpoint era comunque autobloccato), ma va saputo.
+Verificato in produzione dopo il deploy: `GET /health` → `Healthy`,
+`GET /api/Setup/stato` → `{"setupCompletato":true}`,
+`POST /api/AuthenticationUser/seed-admin` → **404** (endpoint rimosso).
+
+> Il merge ha portato in produzione anche `094d146` ("Fase 3 fix + pulizia"), che era rimasto su
+> `dev`: unico contenuto di codice, la correzione degli accenti nel messaggio di
+> `ConflictException`. Nessun buco funzionale, la Fase 3 era già completa in produzione.
+
+> La rimozione di `seed-admin` è un **breaking change** di API, innocuo qui (l'Admin esisteva già
+> e l'endpoint era comunque autobloccato) ma da ricordare.
 
 ### Poi — Fase 5 (test del backend)
 
@@ -483,9 +499,10 @@ Tutte in `GestoraWebApi/Program.cs` salvo dove indicato:
 - login in produzione → token JWT valido (373 caratteri)
 - chiamata autenticata al DB → risposta dal service (404 su lista vuota, vedi FIX-007)
 
-> Nota: la rotta base dei controller è `/api/[nome classe controller]`, quindi gli endpoint di
-> autenticazione stanno sotto `/api/AuthenticationUser/...`, non `/api/Auth/...` come scritto in
-> vecchia documentazione.
+> Nota: la rotta base è `/api/[controller]`, dove `[controller]` è il nome della classe **senza
+> il suffisso `Controller`**. Quindi `AuthenticationUserController` risponde su
+> `/api/AuthenticationUser/...` — **non** `/api/AuthenticationUserController/...` (errore facile,
+> capitato il 03/09) e non `/api/Auth/...` come scritto in vecchia documentazione.
 
 ### Trovato durante la verifica: FIX-007 (registrato in BACKEND_FIX_TODO.md)
 

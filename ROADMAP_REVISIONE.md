@@ -451,6 +451,12 @@ Decisione da prendere **a quel punto**, non ora: se le Fasi 1-4 sono verdi e ver
 un merge `dev`→`main` con tag `v1.0.1`, prima di proseguire con test/pulizia/UX (Fasi 5-11). Non è
 un obbligo — se preferisci un unico rilascio finale, si salta e si prosegue.
 
+✅ **DECISO E FATTO il 03/09/2026.** Merge `dev`→`main` in fast-forward (commit `66e7f5c`), tag
+`v1.0.1` pubblicato su GitHub sulla punta di `main`, Railway e Vercel ridistribuiti sul push.
+Nessuna migration, quindi nessun backup né finestra di manutenzione. Verificato subito dopo:
+`/health` → `Healthy`, `/api/Setup/stato` → `{"setupCompletato":true}`, `seed-admin` → 404.
+Le Fasi 1-4 sono in produzione; si prosegue con la Fase 5.
+
 ---
 
 ## Fase 4 — Sicurezza e primo avvio
