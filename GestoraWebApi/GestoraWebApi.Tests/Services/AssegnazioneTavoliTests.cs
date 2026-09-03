@@ -7,7 +7,7 @@ namespace GestoraWebApi.Tests.Services;
 /// Test del motore di assegnazione (<see cref="AssegnazioneTavoli"/>): logica pura,
 /// nessun mock necessario.
 /// </summary>
-public class PostazioneAssignmentServiceTests
+public class AssegnazioneTavoliTests
 {
     private static Postazione Tavolo(long id, int capienza, long zonaId = 1) =>
         new Postazione { Id = id, Numero = (int)id, CapienzaMassima = capienza, ZonaId = zonaId };

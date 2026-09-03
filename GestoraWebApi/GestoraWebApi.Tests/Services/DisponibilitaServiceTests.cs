@@ -183,4 +183,73 @@ public class DisponibilitaServiceTests
         Assert.True(fascia.DisponibilePerRichiesta);
         Assert.All(fascia.Postazioni, p => Assert.NotEqual(1, p.PostazioneId));
     }
+
+    // ── REV-053 — completamento della copertura ──────────────────────────────
+
+    /// <summary>
+    /// L'endpoint è pubblico e non passa da un validator: una richiesta a 0 (o negativa) va
+    /// normalizzata a 1, altrimenti il motore riceverebbe un numero di coperti assurdo.
+    /// </summary>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public async Task CopertiNonPositivi_VengonoTrattatiComeUnoSolo(int richiesti)
+    {
+        Setup(
+            fasce: new[] { Fascia(1, maxCoperti: 50) },
+            postazioniAttive: new[] { Tavolo(1, 2) },
+            prenotazioni: Array.Empty<Prenotazione>());
+
+        var res = await CreateService().CheckDisponibilitaAsync(new CheckDisponibilitaDTO
+        {
+            DataPrenotazione = Lunedi,
+            NumeroCoperti = richiesti
+        });
+
+        var fascia = Fascia(res, 1);
+        Assert.True(fascia.DisponibilePerRichiesta);
+        Assert.Single(fascia.Postazioni);
+    }
+
+    /// <summary>Giorno di chiusura: nessuna fascia, risposta vuota e non un errore.</summary>
+    [Fact]
+    public async Task NessunaFasciaNelGiorno_RestituisceRispostaVuota()
+    {
+        Setup(
+            fasce: Array.Empty<FasciaOraria>(),
+            postazioniAttive: new[] { Tavolo(1, 4) },
+            prenotazioni: Array.Empty<Prenotazione>());
+
+        var res = await CreateService().CheckDisponibilitaAsync(new CheckDisponibilitaDTO
+        {
+            DataPrenotazione = Lunedi,
+            NumeroCoperti = 2
+        });
+
+        Assert.Empty(res.Fasce);
+    }
+
+    /// <summary>
+    /// Quando la fascia non è disponibile non si propone nessun tavolo: una lista popolata
+    /// insieme a <c>DisponibilePerRichiesta = false</c> darebbe al frontend un'indicazione
+    /// contraddittoria.
+    /// </summary>
+    [Fact]
+    public async Task FasciaNonDisponibile_NonPropostoNessunTavolo()
+    {
+        Setup(
+            fasce: new[] { Fascia(1, maxCoperti: 50) },
+            postazioniAttive: new[] { Tavolo(1, 4) },
+            prenotazioni: new[] { Prenotazione(fasciaId: 1, coperti: 4, (1, 4)) });
+
+        var res = await CreateService().CheckDisponibilitaAsync(new CheckDisponibilitaDTO
+        {
+            DataPrenotazione = Lunedi,
+            NumeroCoperti = 4
+        });
+
+        var fascia = Fascia(res, 1);
+        Assert.False(fascia.DisponibilePerRichiesta);
+        Assert.Empty(fascia.Postazioni);
+    }
 }

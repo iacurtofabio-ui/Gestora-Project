@@ -533,6 +533,44 @@ prenotazione.*
 - Niente
 
 **Chiusura**: il flusso di prenotazione è coperto end-to-end e tutti i test passano.
+✅ **FASE 5 CHIUSA il 03/09/2026.** `dotnet test` **165/165** (erano 74), `dotnet build` 0
+errori/0 warning.
+
+**Come è stata realizzata**
+
+- REV-052 → separato ciò che il vecchio `PostazioneAssignmentServiceTests` confondeva sotto un
+  unico nome: il file è stato rinominato in `AssegnazioneTavoliTests` (motore puro, invariato) e
+  ricreato da zero un nuovo `PostazioneAssignmentServiceTests` (16 test) su
+  `AssegnaPostazioneDisponibileAsync`, il metodo davvero usato in produzione — filtro zone
+  disattivate (REV-024), zona preferita, slot già occupati (stessa data+fascia, esclusione self
+  in modifica), distribuzione coperti sui tavoli dell'unione (REV-001).
+- REV-051 → +45 test in `PrenotazioniServiceTests`: tetto `MaxCoperti` della fascia, giorno e
+  stato della fascia, zona preferita, limite "una prenotazione al giorno" (solo self-service),
+  preavviso minimo 2h in modifica, contenuto effettivamente scritto da `AddAsync`/`UpdateAsync`
+  (incluso `NumeroPosti`, rimasto a 0 fino al checkpoint 2b senza che nessun test se ne
+  accorgesse).
+- REV-054 → 13 test sulla logica dei job (`AutomaticCompletPrenotazioniAsync`,
+  `AutomaticDeletePrenotazioniAsync`) con orologio fisso, più il nuovo `JobsNotturniTests` sui
+  gusci Quartz veri: verifica che un'eccezione del service non esca dal job (altrimenti Quartz
+  la tratta da misfire).
+- REV-053 → `DashboardServiceTests` 1→17 test (contatori, coperti al netto delle annullate,
+  occupazione senza doppi conteggi, tasso no-show/annullamento), +3 test su
+  `DisponibilitaService` (coperti non positivi, giorno senza fasce, fascia non disponibile), +7
+  su `PrenotazioneCreateDTOValidator`, +6 sui ruoli (**Admin testato per la prima volta**, prima
+  solo Staff; Cliente-senza-ruolo sul ramo self-service; utente non autenticato → 401), nuovo
+  `PrenotazioniRepositoryTests` (filtro annullate e giorno/fascia, prima verificato solo dai mock
+  — cioè da un contratto assunto, non dal codice reale del repository).
+
+**Verifiche**
+
+I test nuovi sono stati controllati per davvero, non solo letti: rotti temporaneamente due punti
+(filtro zone disattivate su REV-052, limite giornaliero su REV-051) e verificato che **solo** i
+test attesi fallissero, poi ripristinato. Nessun falso verde.
+
+> **Trappola incontrata**: due arranger di `PrenotazioniServiceTests` usavano una data fissa
+> `new DateOnly(2026, 9, 7)`. Con l'orologio reale del test sarebbe diventata "ieri" col passare
+> del tempo, e il test di cutoff avrebbe iniziato a fallire da solo senza nessuna modifica di
+> codice. Sostituita con un lunedì calcolato dinamicamente (`ProssimoLunedi()`).
 
 ---
 

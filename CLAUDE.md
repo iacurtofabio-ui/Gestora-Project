@@ -3,16 +3,40 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 03/09/2026
-Ultima cosa fatta: **FASE 4 CHIUSA** (stessa giornata in cui si è chiusa la Fase 3, vedi più
-sotto). Nessun endpoint sensibile è più raggiungibile senza autenticazione: `seed-admin` pubblico
-è **rimosso** e sostituito da una schermata di primo avvio (REV-007), un permesso negato non
-provoca più il logout (REV-025), il Cliente non scrive un campo riservato a Staff/Admin
-(REV-033), l'email è fuori dai log di accesso (REV-070).
-`dotnet test` **74/74**, `tsc --noEmit` e `npm run build` puliti, `eslint` 0 errori.
-**Nessuna migration.** Il primo avvio è stato verificato end-to-end su un DB locale **ricreato da
-zero**; in produzione l'Admin esiste già, quindi la schermata è chiusa da sé.
-**Rilasciata la `v1.0.1`** lo stesso giorno: merge `dev`→`main` (commit `66e7f5c`), tag
-`v1.0.1` su GitHub, Railway e Vercel ridistribuiti. Prossimo passo: **Fase 5 — test del backend**.
+Ultima cosa fatta: **FASE 5 CHIUSA** (stesso giorno di apertura). Il flusso di prenotazione è
+ora coperto end-to-end da test automatici: creazione/modifica (REV-051), assegnazione reale del
+tavolo — non più solo il motore puro (REV-052), disponibilità/dashboard/ruoli (REV-053), i due
+job notturni (REV-054). `dotnet test` **165/165** (erano 74), `dotnet build` 0 errori/0 warning.
+**Nessuna migration, nessuna azione richiesta a Fabio** (fase solo di test automatici).
+Prossimo passo: **Fase 6 — bug del frontend**.
+
+### Fase 5 — riepilogo
+
+- **REV-052** — il vecchio `PostazioneAssignmentServiceTests` testava solo il motore puro
+  `AssegnazioneTavoli` (rinominato in `AssegnazioneTavoliTests`, contenuto invariato). Ricreato
+  da zero un `PostazioneAssignmentServiceTests` che testa il metodo davvero usato in produzione,
+  `AssegnaPostazioneDisponibileAsync`: filtro zone disattivate (REV-024), zona preferita, slot
+  già occupati (stessa data+fascia, esclusione self in modifica), distribuzione coperti
+  sull'unione (REV-001). 16 test.
+- **REV-051** — +45 test in `PrenotazioniServiceTests`: tetto `MaxCoperti`, giorno/stato della
+  fascia, zona preferita, limite "una prenotazione al giorno" (solo self-service), preavviso
+  minimo 2h in modifica, contenuto scritto da `AddAsync`/`UpdateAsync` — incluso `NumeroPosti`,
+  rimasto a 0 fino al checkpoint 2b senza che nessun test se ne accorgesse.
+- **REV-054** — 13 test sulla logica dei job con orologio fisso, più nuovo `JobsNotturniTests`
+  sui gusci Quartz veri: un'eccezione del service non deve uscire dal job (altrimenti Quartz la
+  tratta da misfire).
+- **REV-053** — `DashboardServiceTests` 1→17, +3 su `DisponibilitaService`, +7 sul validator, +6
+  sui ruoli (**Admin testato per la prima volta**, prima solo Staff), nuovo
+  `PrenotazioniRepositoryTests` (filtro annullate e giorno/fascia, prima verificato solo dai mock
+  — un contratto assunto, non il codice reale del repository).
+- **Controllo di qualità**: rotti temporaneamente due punti del codice (filtro zone disattivate,
+  limite giornaliero) e verificato che solo i test attesi fallissero — nessun falso verde,
+  ripristinato subito.
+
+> **Trappola incontrata**: due arranger di `PrenotazioniServiceTests` usavano una data fissa
+> `new DateOnly(2026, 9, 7)`. Con l'orologio reale del test sarebbe diventata "ieri" col tempo,
+> facendo fallire da solo il test di cutoff senza nessuna modifica di codice. Sostituita con un
+> lunedì calcolato dinamicamente (`ProssimoLunedi()`).
 
 ### Fase 4 — riepilogo
 
