@@ -2,13 +2,15 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 02/09/2026
-Ultima cosa fatta: **FASE 3 — codice e verifiche completi, chiusura formale in sospeso**
-(mancano commit/push e la pulizia dei dati di test in produzione: vedi "DA FARE PER PRIMA COSA"). La doppia prenotazione sullo stesso tavolo non è più
+Ultima sessione: 03/09/2026
+Ultima cosa fatta: **FASE 3 CHIUSA**. La doppia prenotazione sullo stesso tavolo non è più
 possibile: vincolo reale a database (REV-003), più REV-026 completo e REV-032 parziale.
 `dotnet test` **70/70**, `npm run build` verde, migration applicata in produzione, **test di
 concorrenza superato in produzione** (due richieste simultanee → `201` + `409` con il messaggio
 di conflitto sullo slot). Nessuna modifica al frontend.
+Il 03/09 si è chiusa formalmente: commit e push (`a07fda0` su `dev`, `b09e583` su `main`),
+**storia Git ripulita** dai backup con dati finiti in un repo pubblico e **`JwtSettings__Secret`
+ruotato**. Prossimo passo: **Fase 4**.
 
 ### Fase 3 — riepilogo
 
@@ -70,38 +72,55 @@ di conflitto sullo slot). Nessuna modifica al frontend.
 - **REV-099** — `PostazioneService.UpdateAsync` blocca l'aggiornamento se esiste una qualsiasi
   riga in `PrenotazioniPostazioni`, anche di prenotazioni concluse: **un tavolo usato una volta
   non è più modificabile né disattivabile**. Proposta: Fase 7.
-- Password del database di produzione e token Admin **esposti in chat il 02/09**: da ruotare.
+- **NEW-004** — l'hook `useDeletePrenotazione` esiste in `usePrenotazioni.ts` ma **nessun
+  componente lo usa**: nel frontend c'è solo "Annulla", non "Elimina". Stesso schema di NEW-001
+  (la modifica). Emerso il 03/09: eliminare una prenotazione passa solo da Postman. Fase 6.
+- Password del database e token Admin esposti in chat il 02/09: **entrambi ruotati** (password il
+  02/09, `JwtSettings__Secret` il 03/09).
 
-### ⚠️ DA FARE PER PRIMA COSA — coda aperta del 02/09/2026
+### ✅ Chiuso il 03/09/2026 — sicurezza repository e credenziali
 
-**1. Il lavoro di oggi non è ancora committato.** Working tree con: `CLAUDE.md`,
-`ROADMAP_REVISIONE.md`, `REVISIONE_END_TO_END.md`, `TrackAttività_Gestora.xlsx`,
-`PrenotazioniService.cs` (accenti nel messaggio di conflitto) e la cancellazione dei tre file di
-backup. Messaggio di commit pronto, chiederlo a Claude. Prima del commit vanno aggiunte a
-`.gitignore` le righe `backup_*.csv`, `backup_*.dump`, `*.dump`.
+**1. Storia Git ripulita dai backup con dati.** I tre file (`backup_Prenotazioni_20260902.csv`,
+`backup_PrenotazioniPostazioni_20260902.csv`, `backup_20260902_pre_slot.dump`) erano nel commit
+`15f98a0`, già pushato su `dev` e `main` di un repository **pubblico**. Riscritta la storia con
+`git-filter-repo` (`--invert-paths --paths-from-file`, 80 commit riparsati) e **force push** su
+`dev` (`a07fda0`) e `main` (`b09e583`). Verificato: `git rev-list --objects --all | grep backup_`
+non trova nulla, `raw.githubusercontent.../main/backup_...csv` → 404. I dati erano **inventati**,
+quindi nessun ticket a GitHub Support.
 
-**2. Backup con dati reali in un repository PUBBLICO.** I file `backup_Prenotazioni_20260902.csv`,
-`backup_PrenotazioniPostazioni_20260902.csv` e `backup_20260902_pre_slot.dump` sono finiti nel
-commit `15f98a0`, già pushato su `origin/dev` e `origin/main` di
-`https://github.com/iacurtofabio-ui/Gestora-Project` (repository **pubblico**, verificato).
-Toglierli dalla versione corrente non basta: restano scaricabili dalla cronologia. Serve
-`git filter-repo` (`python -m pip install git-filter-repo`), copia di sicurezza della cartella,
-riscrittura della storia sui tre path, riaggancio del remote e **force push su `dev` e `main`**.
-Non ancora fatto. **Domanda ancora senza risposta**: le 20 prenotazioni sono dati inventati o
-nomi di persone reali? Se reali, dopo il force push va chiesto anche a GitHub Support di purgare
-gli oggetti orfani.
+> ⚠️ **Da sapere**: dopo il force push il vecchio commit resta raggiungibile **per SHA diretto**
+> (oggetto orfano lato GitHub) finché non fanno garbage collection. Con dati realmente sensibili
+> non basta il force push: serve chiedere la purga a GitHub Support.
 
-**3. Pulizia dei dati di test in produzione** — zona "Test concorrenza", il tavolo da 2 al suo
-interno e le prenotazioni delle prove. Ordine obbligato: prima le prenotazioni (Admin,
-`DELETE /delete-prenotazione`, solo su Attiva o Annullata), poi la postazione, poi la zona —
-finché la postazione ha righe join non è né modificabile né eliminabile (REV-099).
+> **Trappole incontrate**: `git filter-repo` non è un comando git nativo, va installato
+> (`python -m pip install git-filter-repo`) e su Windows si invoca meglio come
+> `python -m git_filter_repo`, perché lo script non finisce nel PATH. Il comando lungo va passato
+> **da file** (`--paths-from-file`): incollato in PowerShell si spezza a metà. Il `repack` finale
+> è andato in loop su una cartella `.git/objects` lockata da Windows: interrotto con Ctrl+C senza
+> danni, la storia era già scritta (`git fsck` pulito).
 
-**4. Facoltativo**: ruotare `JwtSettings__Secret` per invalidare subito il token Admin esposto in
-chat (scade comunque da solo). Costo: tutti gli utenti devono rifare login.
+**2. `.gitignore`**: aggiunte `backup_*.csv`, `backup_*.dump`, `*.dump` al file di **root**.
+Erano finite prima in `GestoraWebApi/.gitignore` (file sbagliato) e con **spazi iniziali**, che in
+gitignore fanno parte del pattern e rendono la regola inefficace. Verificato con `git check-ignore`.
 
-**Fatto oggi su questo fronte**: password del database ruotata dal tab Config di Railway,
-`ConnectionStrings__DefaultConnection` ricostruita **per riferimenti**, `/health` → `Healthy`
-verificato.
+**3. `JwtSettings__Secret` ruotato**: 64 byte da `RandomNumberGenerator` generati **direttamente
+negli appunti** (`Set-Clipboard`, mai a video né in chat) e sostituiti su Railway. `/health` →
+`Healthy`, login dal frontend ok: il token esposto il 02/09 è invalidato.
+
+### Code aperte da questa sessione
+
+- **`git gc --prune=now`** da rilanciare a freddo (dopo un riavvio): il repack di `filter-repo` è
+  stato interrotto, restano oggetti orfani **locali**. Solo spazio su disco, nessun impatto sul
+  remoto.
+- **`Personali\Gestora_BACKUP_20260903`** — copia di sicurezza pre-riscrittura. Da cancellare
+  quando si è tranquilli.
+- **NEW-005 — pulizia generale del DB di produzione a fine progetto.** I dati di test (zona
+  "Test concorrenza", tavolo da 2, prenotazione del 09/09) sono stati **lasciati apposta**: la
+  produzione è anche l'ambiente di test. Ordine obbligato quando si farà: prima le prenotazioni
+  (Admin, `DELETE /delete-prenotazione`, solo su `Attiva` o `Annullata`), poi le postazioni, poi
+  le zone — finché la postazione ha righe join non è né modificabile né eliminabile (REV-099).
+  Nota: una zona di test **attiva** compare nelle disponibilità reali; se dà fastidio va
+  disattivata, non eliminata.
 
 ### Poi — Fase 4 (sicurezza e primo avvio)
 

@@ -346,9 +346,11 @@ diverse, nessun conflitto da rilevare a quel livello. La garanzia reale va messa
 - Provare a prenotare lo stesso tavolo da due browser diversi contemporaneamente
 
 **Chiusura**: la doppia prenotazione sullo stesso tavolo non è più possibile, né in locale né in
-produzione. ⏳ **Codice e verifiche completi il 02/09/2026; la fase si chiude formalmente con il
-commit/push (Definition of Done, punto 5) e con la pulizia dei dati di test rimasti in
-produzione** — vedi in fondo a questo blocco.
+produzione. ✅ **FASE 3 CHIUSA il 03/09/2026**: codice e verifiche completi il 02/09, chiusura
+formale il 03/09 con commit e push (`a07fda0` su `dev`, `b09e583` su `main` — DoD punto 5).
+La pulizia dei dati di test in produzione è stata **volutamente rimandata**: la produzione resta
+l'ambiente di test fino a fine progetto, si farà una pulizia generale del database prima della
+consegna (tracciata come **NEW-005** nel foglio "Fix e Bug").
 
 > **Esito dei task 🧑 (Definition of Done, punto 3) — 02/09/2026**
 >
@@ -374,15 +376,23 @@ produzione** — vedi in fondo a questo blocco.
 > rollback automatico. È successo in produzione: il risultato è stato corretto, ma senza rete di
 > sicurezza. Il file in `Scripts/` è stato ripulito dal BOM e porta la nota in testa.
 >
-> **Ancora da fare per chiudere formalmente (02/09/2026, fine sessione)**
-> 1. **Commit e push** del lavoro documentale e del fix agli accenti — punto 5 della DoD, non
->    ancora fatto.
-> 2. **Pulizia dei dati di test in produzione**: la zona "Test concorrenza", il tavolo da 2 creato
->    dentro di essa e le prenotazioni generate dalle prove. Ordine obbligato per via dei vincoli:
->    prima si eliminano le prenotazioni (Admin, `DELETE /delete-prenotazione`, ammesso solo su
->    stato Attiva o Annullata), poi la postazione, poi la zona. Nota: finché una postazione ha
->    righe in `PrenotazioniPostazioni` non è modificabile né eliminabile (è REV-099), quindi
->    l'ordine non è opzionale.
+> **Chiusura formale — fatto il 03/09/2026**
+> 1. **Commit e push** eseguiti (DoD punto 5): `a07fda0` su `dev`, `b09e583` su `main`.
+> 2. **Sicurezza del repository**: i tre backup con i dati delle prenotazioni erano finiti nel
+>    commit `15f98a0` di un repository **pubblico**. Storia riscritta con `git-filter-repo`
+>    (`--invert-paths`, 80 commit riparsati) e force push su `dev` e `main`; regole `.gitignore`
+>    aggiunte perché non si ripeta. Dati confermati inventati → nessuna richiesta di purga a
+>    GitHub Support. Da sapere: il vecchio commit resta raggiungibile **per SHA diretto** finché
+>    GitHub non fa garbage collection — con dati sensibili il force push da solo non basta.
+> 3. **`JwtSettings__Secret` ruotato** su Railway (segreto da 64 byte generato in clipboard, mai
+>    a video): il token Admin esposto in chat il 02/09 è invalidato. `/health` → `Healthy`,
+>    login verificato.
+> 4. **Pulizia dei dati di test in produzione: rimandata per scelta** (NEW-005). Zona "Test
+>    concorrenza", tavolo da 2 e prenotazione del 09/09 restano in produzione, che continua a
+>    fare anche da ambiente di test. Quando si farà, l'ordine è obbligato per via dei vincoli:
+>    prima le prenotazioni (Admin, `DELETE /delete-prenotazione`, ammesso solo su stato Attiva o
+>    Annullata), poi le postazioni, poi le zone — finché una postazione ha righe in
+>    `PrenotazioniPostazioni` non è modificabile né eliminabile (REV-099).
 >
 > **Emersi durante i test, registrati come REV-098 e REV-099** (vedi `REVISIONE_END_TO_END.md`):
 > la modifica prenotazione non esiste nel frontend, e un tavolo con prenotazioni storiche non è
