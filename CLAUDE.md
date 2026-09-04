@@ -9,10 +9,40 @@ NEW-004). Le prove in browser sono state eseguite con Playwright sull'ambiente l
 fatto emergere **quattro difetti**, tutti corretti e riverificati (dettaglio sotto). `eslint` 0
 errori, `tsc -b` e `vite build` puliti, `dotnet test` **168/168** (erano 165: +3 sul profilo di
 mapping). **Una modifica al backend**, senza migration.
-Resta da fare: le prove sui dati reali **in produzione** dopo il merge, e la conferma della
-variabile `VITE_API_URL` su Vercel.
-Prossimo passo: commit/push, merge, verifica in produzione, chiusura Fase 6, poi
-**Fase 7 — robustezza del backend**.
+Resta da fare: le prove sui dati reali **in produzione**, e la conferma della variabile
+`VITE_API_URL` su Vercel.
+Prossimo passo: verifica in produzione, chiusura Fase 6, poi **Fase 7 — robustezza del backend**.
+
+### Rilascio del 04/09/2026 — fatto, da verificare in produzione
+
+Commit **`c25c66e`** su `dev`, merge su `main` in **fast-forward**, entrambi pushati
+(`origin/dev` e `origin/main` allineati). **Nessun tag**: a differenza della `v1.0.1` questo
+rilascio non è stato taggato — da decidere alla ripresa se creare una `v1.0.2` sulla punta di
+`main`. Railway e Vercel si ridistribuiscono da soli sul push di `main`. **Nessuna migration**:
+l'unica modifica al backend è il mapping di `ZonaId`, che non tocca lo schema.
+
+**Già verificato subito dopo il push** (04/09, prima della pausa): `GET /health` → `Healthy`,
+`GET /api/Setup/stato` → `{"setupCompletato":true}`, `GET /api/Zona/get-zone-attive` senza token
+→ **401** (autenticazione attiva), frontend Vercel `/login` → **200**. Il deploy di entrambi i
+servizi è quindi andato a buon fine; resta la sola verifica **manuale sui dati**.
+
+> **Alla ripresa, prima di aprire la Fase 7 — confermare:**
+> 1. **Log Railway** puliti dopo il redeploy (il deploy in sé è già verificato, vedi sopra).
+> 2. **Prove sui dati reali** (le uniche non ancora fatte): scelta della zona in creazione,
+>    modal di modifica, pulsante Elimina — quest'ultimo va provato **con i tre ruoli**, perché
+>    compare solo all'Admin e solo su `Attiva`/`Annullata`.
+> 3. **`VITE_API_URL` presente su Vercel** — il task 🧑 previsto per questa fase. Se manca, ora
+>    il sito mostra la schermata "Configurazione mancante" invece di errori incomprensibili: è
+>    proprio il caso REV-017, e va sistemato sul pannello Vercel seguito da un nuovo build.
+>
+> Solo dopo quelle risposte la Fase 6 si chiude. Sul tracker le righe di fase sono ancora
+> **"In corso"** e vanno portate a "Completato" **dopo** la conferma, non prima:
+> Appunti e Step **R215**, Roadmap **R37**, Piano di Sviluppo **R25** (con la data di fine),
+> Fix e Bug **R48**. Se qualcosa non passa, si riapre da lì invece di andare avanti.
+
+> **Ambiente locale lasciato acceso alla pausa**: backend su `:5099` (`dotnet run`) e dev server
+> Vite su `:5173`, entrambi avviati durante le prove. Se serve chiuderli, sono i processi in
+> ascolto su quelle due porte.
 
 ### Fase 6 — riepilogo
 
