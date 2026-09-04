@@ -10,7 +10,12 @@ export type AuthUser = {
 export type AuthContextType = {
   user: AuthUser | null
   isAuthenticated: boolean
-  login: (token: string) => void
+  /**
+   * Restituisce l'utente decodificato dal token, cosi' chi effettua l'accesso non deve
+   * ridecodificarlo per conto proprio (REV-014). Solleva un'eccezione se il token e' illeggibile
+   * o gia' scaduto.
+   */
+  login: (token: string) => AuthUser
   logout: () => void
 }
 

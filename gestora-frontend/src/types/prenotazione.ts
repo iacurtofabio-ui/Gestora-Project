@@ -1,6 +1,9 @@
 export type PostazioneAssegnataDTO = {
     numero: number
     nomeZona: string | null
+    // NEW-001: serve a precompilare la zona nel modal di modifica. Il backend lo restituiva gia',
+    // era il tipo del frontend a non dichiararlo.
+    zonaId: number
 }
 
 export type PrenotazioneDTO = {
@@ -13,6 +16,8 @@ export type PrenotazioneDTO = {
     nomeCliente: string | null
     oraInizio: string | null
     oraFine: string | null
+    // NEW-001: come sopra, gia' presente nel PrenotazioneDTO lato backend.
+    fasciaOrariaId: number
     postazioni: PostazioneAssegnataDTO[]
 }
 

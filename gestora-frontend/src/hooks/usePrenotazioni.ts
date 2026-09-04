@@ -57,6 +57,32 @@ export function useCreaPrenotazione() {
     })
 }
 
+/**
+ * NEW-001 — la modifica esisteva solo lato backend: nessun hook, nessun pulsante, quindi il fix
+ * REV-002 (Admin e Staff modificano la prenotazione di un cliente) non era raggiungibile
+ * dall'applicazione. Il corpo e' lo stesso PrenotazioneCreateDTO della creazione, l'id viaggia in
+ * query string come negli altri endpoint di questo controller.
+ */
+export function useModificaPrenotazione() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ id, data }: { id: number; data: PrenotazioneCreateDTO }) =>
+            apiClient.put(`/Prenotazione/update-prenotazione?id=${id}`, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+            toast.success('Prenotazione modificata con successo')
+        },
+        onError: (error: AxiosError<ApiErrorResponse>) => {
+            const data = error.response?.data
+            const errors = data?.errors ?? []
+            const msg = errors.length > 0
+                ? errors.map((e) => e.error).join(', ')
+                : (data?.message ?? 'Errore durante la modifica')
+            toast.error(msg)
+        },
+    })
+}
+
 export function useConfermaPrenotazione() {
     const queryClient = useQueryClient()
     return useMutation({

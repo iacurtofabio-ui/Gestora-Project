@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form'
   import { z } from 'zod'
   import { zodResolver } from '@hookform/resolvers/zod'
   import { useNavigate, Link } from 'react-router-dom'
+  import { isAxiosError } from 'axios'
   import { useAuth } from '@/hooks/useAuth'
   import apiClient from '@/lib/axios'
   import { Button } from '@/components/ui/button'
@@ -27,14 +28,18 @@ import { useForm } from 'react-hook-form'
     async function onSubmit(data: LoginForm) {
       try {
         const response = await apiClient.post('/AuthenticationUser/login', data)
-        const token = response.data.token
-        login(token)
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        const roles: string | string[] = payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
-        const soloCliente = Array.isArray(roles) ? roles.every((r) => r === 'Cliente') : roles === 'Cliente'
+        // REV-014: il token non si ridecodifica qui. Ci pensa il context, che e' anche l'unico
+        // punto in cui la decodifica e' protetta; qui si usa il risultato gia' pronto.
+        const utente = login(response.data.token)
+        const soloCliente = utente.roles.length > 0 && utente.roles.every((r) => r === 'Cliente')
         navigate(soloCliente ? '/prenotazioni' : '/dashboard')
-      } catch {
-        setError('root', { message: 'Credenziali non valide' })
+      } catch (errore) {
+        // Un token illeggibile non e' un problema di credenziali: dirlo com'e', altrimenti si
+        // manda l'utente a riprovare all'infinito una password che era giusta.
+        const messaggio = isAxiosError(errore)
+          ? 'Credenziali non valide'
+          : 'Accesso non riuscito: la risposta del server non risulta utilizzabile.'
+        setError('root', { message: messaggio })
       }
     }
 

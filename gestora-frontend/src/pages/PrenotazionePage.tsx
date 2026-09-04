@@ -5,10 +5,11 @@ import {
     useConfermaPrenotazione,
     useCompletaPrenotazione,
     useAnnullaPrenotazione,
+    useDeletePrenotazione,
 } from '@/hooks/usePrenotazioni'
 import PrenotazioneModal from '@/components/PrenotazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { STATI_PRENOTAZIONE, STATO_LABELS } from '@/types/prenotazione'
+import { STATI_PRENOTAZIONE, STATO_LABELS, type PrenotazioneDTO } from '@/types/prenotazione'
 import { useAuth } from '@/hooks/useAuth'
 
 const OPZIONI_STATO = [
@@ -23,10 +24,31 @@ export default function PrenotazionePage() {
 
     const { user } = useAuth()
     const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
+    // NEW-004: l'eliminazione e' riservata all'Admin (l'endpoint e' [Authorize(Roles = Admin)]).
+    const isAdmin = user?.roles.includes('Admin')
     const [filtroData, setFiltroData] = useState('')
     const [filtroStato, setFiltroStato] = useState('')
     const [isModalOpen, setIsModalOpen] = useState(false)
+    // NEW-001: lo stesso modal serve creazione e modifica. Se questa e' valorizzata il modal si
+    // apre precompilato e salva con PUT, altrimenti crea.
+    const [prenotazioneDaModificare, setPrenotazioneDaModificare] = useState<PrenotazioneDTO | undefined>(undefined)
     const [idDaAnnullare, setIdDaAnnullare] = useState<number | undefined>(undefined)
+    const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
+
+    function apriNuovaPrenotazione() {
+        setPrenotazioneDaModificare(undefined)
+        setIsModalOpen(true)
+    }
+
+    function apriModificaPrenotazione(p: PrenotazioneDTO) {
+        setPrenotazioneDaModificare(p)
+        setIsModalOpen(true)
+    }
+
+    function chiudiModal() {
+        setIsModalOpen(false)
+        setPrenotazioneDaModificare(undefined)
+    }
 
     const prenotazioni = usePrenotazioni({
         data: filtroData || undefined,
@@ -37,6 +59,7 @@ export default function PrenotazionePage() {
     const conferma = useConfermaPrenotazione()
     const completa = useCompletaPrenotazione()
     const annulla = useAnnullaPrenotazione()
+    const elimina = useDeletePrenotazione()
 
     if (prenotazioni.isLoading) return <div>Caricamento...</div>
     if (prenotazioni.isError) {
@@ -76,7 +99,7 @@ export default function PrenotazionePage() {
                     )}
                     <button
                         className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                        onClick={() => setIsModalOpen(true)}
+                        onClick={apriNuovaPrenotazione}
                     >
                         + Aggiungi
                     </button>
@@ -128,6 +151,17 @@ export default function PrenotazionePage() {
                                         Completa
                                     </button>
                                 )}
+                                {/* NEW-001: la modifica esisteva solo lato backend. Si offre sulle
+                                    prenotazioni ancora Attive; per il Cliente il preavviso minimo di
+                                    2h e' verificato dal backend e l'eventuale rifiuto arriva come toast. */}
+                                {p.stato === STATI_PRENOTAZIONE.ATTIVA && (
+                                    <button
+                                        className="text-blue-500 hover:underline text-sm"
+                                        onClick={() => apriModificaPrenotazione(p)}
+                                    >
+                                        Modifica
+                                    </button>
+                                )}
                                 {/* RBAC-002: il Cliente può annullare una propria prenotazione (la lista che
                                     vede è già filtrata solo sulle sue), entro il cutoff verificato dal backend —
                                     l'errore oltre soglia arriva come toast dalla mutation. */}
@@ -140,6 +174,20 @@ export default function PrenotazionePage() {
                                             Annulla
                                         </button>
                                     )}
+                                {/* NEW-004: l'hook useDeletePrenotazione esisteva ma nessun
+                                    componente lo usava, quindi eliminare passava solo da Postman.
+                                    Il backend accetta l'eliminazione solo su Attiva o Annullata:
+                                    fuori da quegli stati il pulsante non si mostra, invece di far
+                                    scoprire il limite con un 409. Eliminare e' definitivo, per
+                                    questo resta separato da Annulla, che e' la via normale. */}
+                                {isAdmin && (p.stato === STATI_PRENOTAZIONE.ATTIVA || p.stato === STATI_PRENOTAZIONE.ANNULLATA) && (
+                                    <button
+                                        className="text-gray-500 hover:underline hover:text-red-600 text-sm"
+                                        onClick={() => setIdDaEliminare(p.id)}
+                                    >
+                                        Elimina
+                                    </button>
+                                )}
                             </td>
                         </tr>
                     ))}
@@ -148,13 +196,22 @@ export default function PrenotazionePage() {
 
             <PrenotazioneModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={chiudiModal}
+                prenotazione={prenotazioneDaModificare}
             />
             <ConfirmDialog
                 open={idDaAnnullare !== undefined}
-                descrizione="Sei sicuro di voler annullare questa prenotazione?"
+                titolo="Conferma annullamento"
+                testoConferma="Annulla prenotazione"
+                descrizione="Sei sicuro di voler annullare questa prenotazione? I tavoli assegnati tornano disponibili."
                 onConfirm={() => { annulla.mutate(idDaAnnullare!); setIdDaAnnullare(undefined) }}
                 onCancel={() => setIdDaAnnullare(undefined)}
+            />
+            <ConfirmDialog
+                open={idDaEliminare !== undefined}
+                descrizione="La prenotazione viene eliminata definitivamente e non sara' piu' recuperabile. Per liberare i tavoli mantenendo lo storico usa invece Annulla."
+                onConfirm={() => { elimina.mutate(idDaEliminare!); setIdDaEliminare(undefined) }}
+                onCancel={() => setIdDaEliminare(undefined)}
             />
         </div>
     )

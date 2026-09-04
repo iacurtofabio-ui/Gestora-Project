@@ -1,17 +1,11 @@
 import { useDashboardGiornaliera, useDashboardSettimanale } from '@/hooks/useDashboard'
-
-function getLunediSettimanaCorrente(): string {
-  const oggi = new Date()
-  const giorno = oggi.getDay()
-  const lunedi = new Date(oggi)
-  lunedi.setDate(oggi.getDate() - (giorno === 0 ? 6 : giorno - 1))
-  return lunedi.toISOString().split('T')[0]
-}
+import { oggiInItalia, lunediSettimanaCorrenteInItalia } from '@/lib/date'
 
 export default function DashboardPage() {
-  const oggi = new Date().toISOString().split('T')[0]
-  const giornaliera = useDashboardGiornaliera(oggi)
-  const settimanale = useDashboardSettimanale(getLunediSettimanaCorrente())
+  // REV-016: entrambe le date erano calcolate in UTC (toISOString), quindi fra mezzanotte e le
+  // due la Dashboard mostrava la giornata precedente e il "lunedi' corrente" scivolava a domenica.
+  const giornaliera = useDashboardGiornaliera(oggiInItalia())
+  const settimanale = useDashboardSettimanale(lunediSettimanaCorrenteInItalia())
 
   if (giornaliera.isLoading || settimanale.isLoading) return <div>Caricamento...</div>
   if (giornaliera.isError || settimanale.isError) return <div>Errore nel caricamento</div>

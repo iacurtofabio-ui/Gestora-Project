@@ -12,6 +12,22 @@ export function useZone() {
   })
 }
 
+/**
+ * Zone selezionabili in una prenotazione.
+ *
+ * Non si puo' usare useZone: get-all-zone e' riservato ad Admin e Staff, quindi per il Cliente
+ * rispondeva 403 e la select della zona restava vuota - il campo era inutilizzabile proprio per
+ * chi prenota da solo. get-zone-attive e' aperto anche al Cliente e, restituendo le sole zone
+ * attive, e' anche la lista giusta: una zona disattivata non e' prenotabile (REV-024 la esclude
+ * dall'assegnazione), quindi non ha senso proporla nel form.
+ */
+export function useZoneAttive() {
+  return useQuery<ZonaDTO[]>({
+    queryKey: ['zone', 'attive'],
+    queryFn: () => apiClient.get('/Zona/get-zone-attive').then(r => r.data),
+  })
+}
+
 export function useCreaZona() {
   const queryClient = useQueryClient()
   return useMutation({

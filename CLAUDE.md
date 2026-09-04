@@ -2,13 +2,140 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 03/09/2026
-Ultima cosa fatta: **FASE 5 CHIUSA** (stesso giorno di apertura). Il flusso di prenotazione è
-ora coperto end-to-end da test automatici: creazione/modifica (REV-051), assegnazione reale del
-tavolo — non più solo il motore puro (REV-052), disponibilità/dashboard/ruoli (REV-053), i due
-job notturni (REV-054). `dotnet test` **165/165** (erano 74), `dotnet build` 0 errori/0 warning.
-**Nessuna migration, nessuna azione richiesta a Fabio** (fase solo di test automatici).
-Prossimo passo: **Fase 6 — bug del frontend**.
+Ultima sessione: 04/09/2026
+Ultima cosa fatta: **Fase 6 — codice completo e verificato in locale, fase NON ancora chiusa.**
+Sette punti implementati (REV-014, REV-015, REV-016, REV-017, REV-025 lato frontend, NEW-001,
+NEW-004). Le prove in browser sono state eseguite con Playwright sull'ambiente locale e hanno
+fatto emergere **quattro difetti**, tutti corretti e riverificati (dettaglio sotto). `eslint` 0
+errori, `tsc -b` e `vite build` puliti, `dotnet test` **168/168** (erano 165: +3 sul profilo di
+mapping). **Una modifica al backend**, senza migration.
+Resta da fare: le prove sui dati reali **in produzione** dopo il merge, e la conferma della
+variabile `VITE_API_URL` su Vercel.
+Prossimo passo: commit/push, merge, verifica in produzione, chiusura Fase 6, poi
+**Fase 7 — robustezza del backend**.
+
+### Fase 6 — riepilogo
+
+- **REV-014 — schermata bianca.** `AuthContext` decodificava il token con
+  `JSON.parse(atob(...))` **senza protezione**, dentro l'inizializzatore di `useState` del
+  provider che avvolge l'intero router: un token troncato in `localStorage` faceva esplodere il
+  primo render e **nemmeno `/login` era raggiungibile**, si usciva solo svuotando localStorage dai
+  devtools. Ora il token illeggibile viene scartato e ripulito (si riparte anonimi), **incluso
+  quello già scaduto** (claim `exp`), senza aspettare il primo 401. Aggiunto
+  `components/ErrorBoundary.tsx` **sopra** `AuthProvider` come rete di sicurezza (Ricarica /
+  Torna al login) — è l'unico componente a classe del progetto, React non offre un equivalente
+  con gli hook. Rimossa anche la **seconda** decodifica non protetta, che stava in `LoginPage`:
+  `login()` ora restituisce l'utente già decodificato.
+  **Difetto emerso in prova (4/4)**: quell'ErrorBoundary **non intercetta gli errori dentro le
+  route** — React Router v7 ha un proprio error boundary che li cattura prima e mostra
+  "Unexpected Application Error!" con lo stack trace in pagina. Copre il caso REV-014 vero (che
+  sta fuori dal router), non le pagine. Aggiunto `router/RouteErrorPage.tsx` come `errorElement`
+  su tutte le route di primo livello; la schermata è ora condivisa in `components/ErrorScreen`.
+- **REV-015 — scelta della zona.** La select non era registrata in react-hook-form: era gestita a
+  mano con `onChange` + `setValue`. Il valore *arrivava* al submit, ma il campo restava fuori dal
+  controllo del form, quindi `reset()` alla chiusura del modal non ripuliva il DOM: riaprendo si
+  vedeva ancora la zona di prima mentre il form era tornato a "nessuna preferenza". Ora è un campo
+  registrato, con `setValueAs` che traduce la stringa vuota in `null`.
+  **Difetto emerso in prova (1/4)**: `useZone()` chiamava `/Zona/get-all-zone`, riservato ad
+  Admin e Staff, quindi **per il Cliente la select era sempre vuota** (403 ripetuto) — il campo
+  che REV-015 doveva sistemare, per chi prenota da solo non funzionava affatto. Aggiunto
+  `useZoneAttive()` su `/Zona/get-zone-attive`, aperto anche al Cliente e per di più la lista
+  giusta: una zona disattivata non è prenotabile (REV-024 la esclude dall'assegnazione).
+- **NEW-001 — modal di modifica.** Nuovo hook `useModificaPrenotazione` (PUT
+  `update-prenotazione`), prop opzionale `prenotazione` su `PrenotazioneModal` con
+  precompilazione, pulsante **Modifica** in colonna Azioni sulle prenotazioni `Attiva`.
+  **Difetto emerso in prova (2/4) — qui l'assunzione iniziale era sbagliata**: `FasciaOrariaId`
+  era davvero già mappato, ma `PostazioneAssegnataDTO.ZonaId` **era dichiarato nel DTO e mai
+  valorizzato**, usciva sempre `0` — lo stesso identico schema di REV-001 (`NumeroPosti` rimasto
+  a 0). Con `zonaId: 0` la select non trovava alcuna opzione corrispondente e restava **senza
+  selezione**. Corretto in `PrenotazioneMappingProfile` (unica modifica al backend di questa
+  fase) e presidiato con `Mappings/PrenotazioneMappingProfileTests` (3 test): il profilo di
+  mapping non era coperto da niente, ed è il secondo bug della stessa famiglia. Lato frontend lo
+  `0` è ora trattato come assenza di zona, per non ricadere nello stesso stato.
+- **NEW-004 — eliminazione dall'interfaccia.** L'hook `useDeletePrenotazione` esisteva ma nessun
+  componente lo usava: eliminare passava solo da Postman. Aggiunto il pulsante **Elimina**,
+  riservato all'**Admin** (l'endpoint è `[Authorize(Roles = Admin)]`) e mostrato **solo sugli
+  stati che il backend accetta**, `Attiva` e `Annullata` — fuori da quelli il pulsante non
+  compare, invece di far scoprire il limite con un 409. `ConfirmDialog` ora accetta `titolo` e
+  `testoConferma` (default invariati, gli altri quattro usi non cambiano): prima annullare ed
+  eliminare avrebbero mostrato lo stesso "Conferma eliminazione / Elimina", due azioni diverse
+  con la stessa faccia.
+- **REV-016 — dashboard e fuso orario.** Non era "solo da verificare": **il bug era vivo lato
+  client**. `DashboardPage` calcolava sia la data di oggi sia il lunedì corrente con
+  `toISOString()`, cioè **in UTC**: fra mezzanotte e le due mostrava la giornata precedente e il
+  lunedì scivolava a domenica — esattamente ciò che `IClock.TodayInRome` aveva risolto lato
+  backend. Nuovo `lib/date.ts` (`oggiInItalia`, `lunediSettimanaCorrenteInItalia`) con fuso
+  `Europe/Rome` **fissato nel codice**: il locale è del ristorante, non del dispositivo di chi
+  guarda.
+- **REV-017 — indirizzo del server.** Con `VITE_API_URL` non impostata `baseURL` restava
+  `undefined` e Axios chiamava URL **relativi**: le richieste finivano sull'host del frontend, che
+  risponde con l'HTML della SPA, e si vedevano errori di parsing incomprensibili. Ora `lib/axios.ts`
+  si ferma all'avvio con un messaggio esplicito.
+  **Difetto emerso in prova (3/4)**: la prima versione lanciava un `throw` a livello di modulo. Il
+  messaggio finiva in console, ma l'eccezione impediva il caricamento del bundle e la pagina
+  restava **bianca** — lo stesso sintomo che questa fase doveva eliminare, e nessun Error Boundary
+  può intercettarlo perché l'app non arriva a montarsi. Ora la mancanza è un dato
+  (`configurazioneMancante`) e `main.tsx` mostra `ConfigurazioneMancante`, che spiega a schermo
+  cosa manca e come rimediare.
+- **REV-025 (frontend) — scadenza sessione.** L'interceptor faceva
+  `window.location.href = '/login'`: reload a pagina intera, nessun messaggio, sembrava un crash.
+  Nuovo `lib/session.ts` come ponte fra l'interceptor (che vive **fuori** da React) e i
+  componenti; `AppLayout` si registra e reagisce con `logout()` + `queryClient.clear()` + toast
+  "Sessione scaduta" + navigazione senza reload. Il redirect duro resta come **fallback** se
+  nessuno è in ascolto. Anche il logout manuale ora svuota la cache delle query.
+
+> **Verifiche eseguite in locale il 04/09 (Playwright, backend :5099 + frontend :5173)**
+> 1. **REV-014** — token `abc`, token `a.b.c` e token con `exp` nel passato: in tutti e tre i casi
+>    si apre il **login**, pagina non bianca, token ripulito da localStorage. ✅
+> 2. **ErrorBoundary / errorElement** — errore iniettato di proposito in `LoginPage`: prima usciva
+>    la schermata di React Router con lo stack trace, dopo il fix esce la schermata leggibile con
+>    Ricarica / Torna al login. Errore di prova rimosso. ✅
+> 3. **REV-015** — zona scelta, modal chiuso e riaperto: torna a "Nessuna preferenza". Controprova
+>    sui dati: con zona *Esterno* (tavolo già occupato quel giorno) → **409** "non ci sono
+>    postazioni libere", con zona *Sala* → **201** e tavolo di Sala assegnato. È la prova che la
+>    preferenza arriva davvero al backend: se si perdesse, avrebbe assegnato Sala in entrambi i
+>    casi. Verificato anche che un errore **non svuota** il form. ✅
+> 4. **NEW-001** — modal in modifica precompilato (data, fascia, zona, coperti), `PUT` → 200,
+>    coperti 2→3 in tabella, tavolo mantenuto. ✅
+> 5. **NEW-004** — pulsante Elimina assente per Cliente e per Staff, presente per Admin solo su
+>    `Attiva`/`Annullata`. Verificato dai ruoli in UI. ✅
+> 6. **REV-016** — `lib/date.ts` eseguito con orologio fissato alle 22:30 UTC (= 00:30 italiane):
+>    nuovo `2026-09-05` / lunedì `2026-08-31`, vecchio `2026-09-04` / "lunedì" `2026-08-30`, che
+>    era **una domenica**. End-to-end la Dashboard chiama `giornaliera?data=2026-09-04` e
+>    `settimanale?dataInizio=2026-08-31`, entrambe 200. ✅
+> 7. **REV-017** — `.env.local` rimosso e dev server riavviato: schermata "Configurazione
+>    mancante" a video (prima: pagina bianca, vedi difetto 3/4). File ripristinato. ✅
+> 8. **REV-025** — firma del token alterata (il payload no: altrimenti lo scarterebbe il client
+>    senza passare dall'interceptor) e chiamata all'API: toast "Sessione scaduta", ritorno a
+>    `/login`, token rimosso e **nessun reload** — provato con un marcatore su `window` che
+>    sopravvive alla navigazione. ✅
+
+> **Ancora da provare in produzione** (dopo commit, push e merge su `main`, che è il branch da cui
+> pubblica Vercel): REV-015, NEW-001 e NEW-004 sui dati reali, e soprattutto la conferma che su
+> Vercel esista la variabile **`VITE_API_URL`** — il task 🧑 di Fabio previsto per questa fase.
+> Il caso REV-017 **non** va ripetuto in produzione: toglierebbe la variabile al sito pubblico.
+
+> **Ambiente locale — cose lasciate lì il 04/09, da ripulire quando si vuole**
+> - utente di prova `testfase6` / `testfase6@local.test`, creato via `/register` e poi promosso a
+>   **Staff** con un `INSERT` diretto in `AspNetUserRoles` per poter aprire la Dashboard;
+> - una prenotazione di prova del **07/09** (tavolo 1, Sala), creata e poi modificata a 3 coperti.
+>
+> Per rimuoverli, da `GestoraWebApi/` con `PGPASSWORD` preso dagli User Secrets:
+> `DELETE FROM "AspNetUserRoles" WHERE "UserId" IN (SELECT "Id" FROM "Utenti" WHERE "UserName"='testfase6');`
+> poi la prenotazione e infine l'utente. Riguarda **solo il database locale**, la produzione non
+> è stata toccata.
+
+> **Nota sui warning di build**: la build incrementale del solo `GestoraWebApi` mostra 5 warning
+> (CS8603 in `PostazioneRepository`, `FasciaOrariaService` ×2, `PostazioneService`; CS8602 in
+> `PrenotazioniService:383`) più un CS8620 nei test; una **ricompilazione completa** (`-t:Rebuild`)
+> ne mostra **53**, quasi tutti CS8618/CS0108 sui modelli. Non sono regressioni: la riga della
+> Fase 5 sul tracker diceva "0 warning" ed è stata corretta il 04/09.
+
+> **Trappola incontrata — build incrementale e timestamp**: ripristinare un sorgente da un backup
+> con `mv` gli ridà il **timestamp del backup**, più vecchio della dll già compilata: MSBuild non
+> ricompila e i test continuano a girare sul codice precedente. Sono costati tre esecuzioni a
+> vuoto, con un test che falliva mentre l'API rispondeva correttamente. Se un test contraddice il
+> comportamento a runtime, sospettare la build prima del codice: `dotnet build -t:Rebuild`.
 
 ### Fase 5 — riepilogo
 

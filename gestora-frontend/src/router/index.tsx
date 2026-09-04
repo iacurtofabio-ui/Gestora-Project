@@ -12,14 +12,21 @@ import FasciaOrariaPage from '@/pages/FasciaOrariaPage'
 import AdminUtentiPage from '@/pages/AdminUtentiPage'
 import UnauthorizedPage from '@/pages/UnauthorizedPage'
 import SetupPage from '@/pages/SetupPage'
+import RouteErrorPage from './RouteErrorPage'
+
+// REV-014: senza errorElement, un'eccezione dentro una pagina finisce all'error boundary interno
+// di React Router, che mostra "Unexpected Application Error!" con lo stack trace. Va agganciato a
+// ogni route di primo livello: l'ErrorBoundary di main.tsx copre solo cio' che sta fuori dal
+// router (AuthProvider), non le pagine.
+const errorElement = <RouteErrorPage />
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/login" replace /> },
+  { path: '/', element: <Navigate to="/login" replace />, errorElement },
   // REV-007: finche' non esiste un amministratore, l'unica pagina raggiungibile e' /setup.
-  { path: '/setup', element: <SetupPage /> },
-  { path: '/login', element: <SetupGuard><LoginPage /></SetupGuard> },
-  { path: '/register', element: <SetupGuard><RegisterPage /></SetupGuard> },
-  { path: '/unauthorized', element: <UnauthorizedPage /> },
+  { path: '/setup', element: <SetupPage />, errorElement },
+  { path: '/login', element: <SetupGuard><LoginPage /></SetupGuard>, errorElement },
+  { path: '/register', element: <SetupGuard><RegisterPage /></SetupGuard>, errorElement },
+  { path: '/unauthorized', element: <UnauthorizedPage />, errorElement },
 
   {
     element: (
@@ -27,6 +34,7 @@ export const router = createBrowserRouter([
         <AppLayout />
       </ProtectedRoute>
     ),
+    errorElement,
     children: [
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/zone', element: <ZonePage /> },
@@ -40,6 +48,7 @@ export const router = createBrowserRouter([
         <AppLayout />
       </ProtectedRoute>
     ),
+    errorElement,
     children: [
       { path: '/prenotazioni', element: <PrenotazionePage /> },
     ],
@@ -50,6 +59,7 @@ export const router = createBrowserRouter([
         <AppLayout />
       </ProtectedRoute>
     ),
+    errorElement,
     children: [
       { path: '/admin-utenti', element: <AdminUtentiPage /> },
     ],
