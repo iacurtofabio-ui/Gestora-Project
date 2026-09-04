@@ -113,10 +113,17 @@ namespace GestoraWebApi.Context
                     .HasColumnName("NomeCliente")
                     .HasMaxLength(200);
 
+                // REV-038: era Cascade, cioe' eliminare un utente cancellava in silenzio tutto
+                // il suo storico di prenotazioni. Lo storico non appartiene solo all'utente: e'
+                // il dato su cui si contano coperti, presenze e mancate presentazioni, quindi
+                // cancellarlo falsa a ritroso numeri gia' letti e non e' recuperabile.
+                // Con Restrict il database rifiuta l'eliminazione finche' esistono prenotazioni,
+                // e l'API la traduce in un messaggio esplicito (vedi DeleteUser): l'Admin sa
+                // perche' non puo' procedere, invece di distruggere dati senza accorgersene.
                 entity.HasOne(p => p.User)
                     .WithMany(u => u.Prenotazioni)
                     .HasForeignKey(p => p.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);//Tutti le prenotazioni associate a quell'utente vengono automaticamente eliminati
+                    .OnDelete(DeleteBehavior.Restrict);
 
 
                 entity.HasOne(p => p.FasciaOraria)
@@ -187,6 +194,38 @@ namespace GestoraWebApi.Context
                 entity.HasMany(z => z.Postazioni)
                     .WithOne(p => p.Zona)
                     .HasForeignKey(p => p.ZonaId);
+            });
+
+            //AUDIT LOG
+            // REV-037: la tabella non aveva ne' indici ne' limiti di lunghezza. E' l'unica che
+            // cresce a ogni singola operazione dell'applicazione e non viene mai ripulita:
+            // qualunque domanda ("cosa e' successo ieri", "cosa ha fatto questo utente") si
+            // risolveva leggendola tutta. Le colonne restano testo libero senza tetto, quindi
+            // una stringa anomala poteva occupare spazio senza alcun limite.
+            modelBuilder.Entity<Logging>(entity =>
+            {
+                entity.ToTable("LogActivities");
+
+                entity.Property(l => l.UserId)
+                    .IsRequired()
+                    .HasMaxLength(450);   // stessa lunghezza della chiave di Identity
+
+                entity.Property(l => l.Action)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                // Un IPv6 con scope arriva a 45-46 caratteri: 45 e' il massimo utile.
+                entity.Property(l => l.IPAddress)
+                    .HasMaxLength(45);
+
+                // Le due interrogazioni reali sono "gli ultimi eventi" e "gli eventi di un
+                // utente, dal piu' recente". Il secondo indice e' composto proprio per servire
+                // anche l'ordinamento, non solo il filtro.
+                entity.HasIndex(l => l.Timestamp)
+                      .HasDatabaseName("IX_LogActivities_Timestamp");
+
+                entity.HasIndex(l => new { l.UserId, l.Timestamp })
+                      .HasDatabaseName("IX_LogActivities_UserId_Timestamp");
             });
         }
 

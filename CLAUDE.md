@@ -3,46 +3,143 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 04/09/2026
-Ultima cosa fatta: **Fase 6 — codice completo e verificato in locale, fase NON ancora chiusa.**
-Sette punti implementati (REV-014, REV-015, REV-016, REV-017, REV-025 lato frontend, NEW-001,
-NEW-004). Le prove in browser sono state eseguite con Playwright sull'ambiente locale e hanno
-fatto emergere **quattro difetti**, tutti corretti e riverificati (dettaglio sotto). `eslint` 0
-errori, `tsc -b` e `vite build` puliti, `dotnet test` **168/168** (erano 165: +3 sul profilo di
-mapping). **Una modifica al backend**, senza migration.
-Resta da fare: le prove sui dati reali **in produzione**, e la conferma della variabile
-`VITE_API_URL` su Vercel.
-Prossimo passo: verifica in produzione, chiusura Fase 6, poi **Fase 7 — robustezza del backend**.
+Ultima cosa fatta: **Fase 6 chiusa e verificata in produzione (tag `v1.0.2`), poi Fase 7 —
+robustezza del backend — codice completo e verde in locale, NON ancora rilasciata.**
+Tutti e 14 i punti implementati. `dotnet test` **224/224** (erano 168), rebuild completa 0 errori.
+**C'è una migration da applicare**: `20260904134750_AuditLogIndiciEStoricoUtenteProtetto`.
+Prossimo passo: applicare la migration in locale, prove manuali, poi rilascio e **Fase 8 —
+robustezza del frontend**.
 
-### Rilascio del 04/09/2026 — fatto, da verificare in produzione
+### Stato di dev e main
 
-Commit **`c25c66e`** su `dev`, merge su `main` in **fast-forward**, entrambi pushati
-(`origin/dev` e `origin/main` allineati). **Nessun tag**: a differenza della `v1.0.1` questo
-rilascio non è stato taggato — da decidere alla ripresa se creare una `v1.0.2` sulla punta di
-`main`. Railway e Vercel si ridistribuiscono da soli sul push di `main`. **Nessuna migration**:
-l'unica modifica al backend è il mapping di `ZonaId`, che non tocca lo schema.
+- `main` = `c25c66e`, tag **`v1.0.2`** = ciò che è in produzione ora.
+- `dev` è avanti: documentazione della Fase 6 (`0fe19b9`) + tutto il lavoro della Fase 7.
+- Per **decisione di Fabio del 04/09** il commit di documentazione della Fase 6 non è stato
+  portato su `main` da solo: sale insieme alla Fase 7, per non fare un deploy di sola
+  documentazione. Trovare `main` indietro è quindi normale, non un disallineamento da correggere.
 
-**Già verificato subito dopo il push** (04/09, prima della pausa): `GET /health` → `Healthy`,
-`GET /api/Setup/stato` → `{"setupCompletato":true}`, `GET /api/Zona/get-zone-attive` senza token
-→ **401** (autenticazione attiva), frontend Vercel `/login` → **200**. Il deploy di entrambi i
-servizi è quindi andato a buon fine; resta la sola verifica **manuale sui dati**.
+### ⚠️ Fase 7 — cosa manca prima di poter rilasciare
 
-> **Alla ripresa, prima di aprire la Fase 7 — confermare:**
-> 1. **Log Railway** puliti dopo il redeploy (il deploy in sé è già verificato, vedi sopra).
-> 2. **Prove sui dati reali** (le uniche non ancora fatte): scelta della zona in creazione,
->    modal di modifica, pulsante Elimina — quest'ultimo va provato **con i tre ruoli**, perché
->    compare solo all'Admin e solo su `Attiva`/`Annullata`.
-> 3. **`VITE_API_URL` presente su Vercel** — il task 🧑 previsto per questa fase. Se manca, ora
->    il sito mostra la schermata "Configurazione mancante" invece di errori incomprensibili: è
->    proprio il caso REV-017, e va sistemato sul pannello Vercel seguito da un nuovo build.
->
-> Solo dopo quelle risposte la Fase 6 si chiude. Sul tracker le righe di fase sono ancora
-> **"In corso"** e vanno portate a "Completato" **dopo** la conferma, non prima:
-> Appunti e Step **R215**, Roadmap **R37**, Piano di Sviluppo **R25** (con la data di fine),
-> Fix e Bug **R48**. Se qualcosa non passa, si riapre da lì invece di andare avanti.
+1. **Migration in locale**: da `GestoraWebApi/`, `dotnet ef database update` (backend **spento**).
+2. **Migration in produzione**: procedura manuale in testa a `ROADMAP_REVISIONE.md`. **Prima**
+   di applicarla, controllare che nessun dato superi i nuovi limiti di lunghezza:
+   `SELECT max(length("UserId")), max(length("Action")), max(length("IPAddress")) FROM "LogActivities";`
+   → attesi ben sotto 450 / 500 / 45. La nota completa è nel commento in testa alla migration.
+3. **Prove manuali** (nessuna è automatizzabile): elenco utenti Admin ancora corretto dopo il fix
+   dell'N+1; eliminazione di un utente **con** prenotazioni → 409 leggibile; `GET
+   /api/LogActivity/get-log` con token Admin; dashboard con due fasce nello stesso giorno.
+4. **Verifica dell'IP reale in produzione**: dopo il deploy, una riga nuova di `LogActivities`
+   deve portare l'IP del client, non più sempre lo stesso indirizzo del proxy. È la prova che
+   `UseForwardedHeaders` funziona davvero dietro Railway — in locale non è verificabile.
 
-> **Ambiente locale lasciato acceso alla pausa**: backend su `:5099` (`dotnet run`) e dev server
-> Vite su `:5173`, entrambi avviati durante le prove. Se serve chiuderli, sono i processi in
-> ascolto su quelle due porte.
+### Fase 7 — cosa è stato fatto (04/09/2026)
+
+Quattro blocchi, `dotnet test` verde alla chiusura di ognuno.
+
+- **Blocco 1 — correttezza.** REV-019 (`?page=0` produceva `Skip(-20)` e faceva fallire la
+  query: ora il valore fuori range rientra nei limiti). REV-020 (l'ordinamento della
+  paginazione era per sola `DataPrenotazione`, cioè **non totale**: fra righe dello stesso
+  giorno il database non promette nulla, quindi navigando le pagine si vedevano duplicati e si
+  perdevano righe; aggiunto `ThenBy(Id)`, e l'`OrderBy` che veniva riapplicato dentro ogni ramo
+  del filtro — perdendo i criteri successivi — è stato spostato dopo i `Where`). REV-018 (il
+  `DeleteAsync` delle fasce invalidava solo `FasceAttive` e non la chiave per giorno: la fascia
+  eliminata restava prenotabile per 30 minuti). REV-031 (404 su collezione vuota rimosso dagli
+  ultimi due punti: `get-prenotazioni-by-data` e `check-disponibilita`). REV-027 (nuovo
+  `CheckDisponibilitaDTOValidator` sull'**unico endpoint pubblico**, che era anche l'unico DTO
+  senza validator; stessi limiti del validator di creazione, più un orizzonte massimo di 365
+  giorni). **REV-099/NEW-003**: `HasPrenotazioniAsync` → `HasPrenotazioniFutureAsync(id, daData)`
+  — un tavolo non è più congelato per sempre dalla sua prima prenotazione conclusa.
+- **Blocco 2 — prestazioni.** REV-021 (elenco utenti: era 1 + N query per via di
+  `GetRolesAsync` dentro il ciclo; ora due query fisse). REV-022 (i due job notturni scrivevano
+  una riga per volta, con una query di ricarica e un `SaveChanges` per ognuna: **1 + 2N** viaggi
+  al database; ora sono due query in tutto, tramite i nuovi `AggiornaStatoAsync` e
+  `EliminaPerIdAsync` del repository). REV-023 (l'`Include` dello storico nel percorso caldo
+  dell'assegnazione: `GetPostazioniAttiveAsync` non lo carica più, e chi ha davvero bisogno delle
+  righe join usa `GetPostazioniAttiveConPrenotazioniAsync`).
+- **Blocco 3 — dati e audit.** REV-029 (`UseForwardedHeaders`). REV-038 (FK a `Restrict`).
+  REV-037 (indici e `MaxLength` su `LogActivities` + nuovo `LogActivityController`, solo Admin).
+  REV-032 residuo (nuovo `Common/IEsecutoreTransazione`, applicato ai 12 punti di scrittura di
+  Zone, Postazioni e Fasce). **È il blocco che porta la migration.**
+- **Blocco 4 — dashboard e documentazione.** REV-039 (i tavoli occupati si contano **per
+  fascia**: un tavolo usato a pranzo tornava occupato anche a cena). REV-028 (solo commento in
+  `Program.cs`: Quartz non è in cluster mode, va abilitato prima di aggiungere repliche).
+
+> **Due effetti collaterali scoperti strada facendo, più importanti del punto che li ha rivelati:**
+> 1. **REV-029 non riguardava solo i log.** Il rate limit del login partiziona su
+>    `RemoteIpAddress`, che dietro il proxy è uguale per tutti: era di fatto un limite **globale**
+>    di 5 tentativi al minuto per l'intera applicazione — non fermava chi attacca un singolo
+>    account e poteva bloccare gli utenti legittimi. Il fix lo rende di nuovo per-client.
+>    `ForwardLimit = 1` è ciò che impedisce a un client di falsificare l'header per aggirarlo.
+> 2. **REV-023 non era del tutto come descritto.** L'`Include` sembrava inutile ovunque, ma
+>    `PostazioneService.GetPostazioniAttiveAsync` lo usa per popolare
+>    `PostazioneDTO.PrenotazioneId`: toglierlo dalla query condivisa avrebbe svuotato quel campo
+>    **in silenzio**. Da qui i due metodi separati. Nota per la Fase 9: quel campo il frontend lo
+>    legge solo per rimandarlo indietro nell'update, non lo mostra mai — buon candidato alla
+>    rimozione.
+
+> **Difetto mio, trovato da un test esistente**: calcolando il picco di tavoli occupati sull'elenco
+> delle **fasce configurate**, le prenotazioni prese su una fascia poi disattivata o eliminata
+> sparivano dal conteggio e la sala risultava libera con i tavoli occupati. Il picco si calcola
+> raggruppando le **prenotazioni** per fascia. Presidiato da
+> `Giornaliera_ContaITavoli_ancheSeLaFasciaNonEPiuAttiva`.
+
+> **Controprova sui test (come in Fase 5)**: rotti di proposito due punti (l'invalidazione della
+> cache per giorno e il `ThenBy(Id)`) e verificato che fallissero **esattamente** i due test
+> attesi, poi ripristinati.
+
+> **Attenzione a un rischio di test vacui**: cambiando i job da `UpdateAsync` per riga a una
+> scrittura in blocco, i test "non deve toccare nulla" che verificavano
+> `UpdateAsync(...) Times.Never` sarebbero passati **sempre**, controllando un metodo ormai mai
+> chiamato. Sono stati riscritti sul metodo nuovo. Vale come regola: quando si cambia il metodo
+> che una classe usa, controllare anche i test negativi, non solo quelli che falliscono.
+
+### Scelte di prodotto prese con Fabio il 04/09
+
+- **REV-038**: eliminazione utente **bloccata** (`Restrict`) se ha prenotazioni, con 409
+  esplicito. Scartate le alternative "sganciare le prenotazioni" e "sostituire l'eliminazione con
+  una disattivazione" (quest'ultima resta un'idea sensata per il futuro, ma è una funzionalità
+  nuova e usciva dal perimetro della fase).
+- **REV-037**: in questa fase **solo l'endpoint API**, nessuna pagina. La consultazione grafica
+  del registro va valutata in Fase 8 o 10, insieme al resto del lavoro frontend — chiuderebbe
+  anche la nota di `AppuntiFix.txt` sulla lettura dei log.
+
+### Fase 7 — cosa si è scelto di NON fare
+
+- **Paginazione dell'elenco utenti** (citata in REV-021): cambierebbe la forma della risposta e
+  romperebbe `useAdminUtenti` nel frontend. Risolto il solo N+1, che era il problema di
+  prestazioni. La paginazione va affrontata insieme a REV-043 in Fase 8.
+- **Test sull'elenco utenti**: è logica dentro un controller, e il progetto per convenzione non
+  testa i controller (la logica di auth non è estratta in un service). Da rivedere se quella
+  logica verrà spostata in un service.
+- **`PostazioneService.DeleteAsync`** continua a rifiutare l'eliminazione di un tavolo con
+  *qualsiasi* riga join, storico compreso — a differenza di `UpdateAsync` (REV-099). È voluto:
+  eliminare il tavolo distruggerebbe o orfanerebbe lo storico, che è esattamente ciò che REV-038
+  protegge sul versante utenti.
+
+### Ambiente locale — residui da ripulire quando si vuole
+
+Utente di prova `testfase6` (promosso a **Staff** con un `INSERT` diretto in `AspNetUserRoles`) e
+una prenotazione di prova del **07/09** (tavolo 1, Sala). Riguarda **solo il database locale**.
+Per rimuoverli, da `GestoraWebApi/` con `PGPASSWORD` preso dagli User Secrets:
+`DELETE FROM "AspNetUserRoles" WHERE "UserId" IN (SELECT "Id" FROM "Utenti" WHERE "UserName"='testfase6');`
+poi la prenotazione e infine l'utente.
+
+> **Nota sul tracker**: il protocollo in questo file indica il verde `#C6EFCE`, ma tutte le celle
+> "Completato" già presenti nel file usano `#C6E7CE`. Le righe nuove sono state allineate al
+> **file**. Da decidere quale dei due è quello buono e correggere l'altro.
+
+### Fase 6 — chiusa e verificata in produzione (04/09/2026) ✅
+
+Prove sui dati reali superate (zona in creazione, modal di modifica, pulsante Elimina con i tre
+ruoli). Controlli automatici: `/health` 200, `Setup/stato` con `setupCompletato: true`,
+`get-zone-attive` senza token 401, frontend Vercel 200.
+
+**`VITE_API_URL` su Vercel — confermata senza aprire il pannello.** Nel bundle pubblicato la
+`baseURL` compare come **stringa letterale** verso Railway e la schermata `ConfigurazioneMancante`
+**non c'è**: Vite sostituisce `import.meta.env.VITE_API_URL` a build time, quindi con la variabile
+impostata quel ramo diventa codice morto e sparisce nel tree-shaking. La sua **assenza** dal
+bundle è la prova che la variabile c'era. Tecnica riutilizzabile per verificare dall'esterno
+qualsiasi variabile Vite in produzione.
 
 ### Fase 6 — riepilogo
 

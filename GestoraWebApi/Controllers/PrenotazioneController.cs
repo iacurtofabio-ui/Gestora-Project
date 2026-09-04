@@ -160,10 +160,11 @@ namespace GestoraWebApi.Controllers
         {
             var disponibilita = await _disponibilitaService.CheckDisponibilitaAsync(dto);
 
-            if (disponibilita == null || !disponibilita.Fasce.Any())
-                return NotFound(new { message = $"Nessuna fascia trovata per la data {dto.DataPrenotazione}." });
-
-            return Ok(disponibilita);
+            // REV-031: "in quella data non c'e' nessuna fascia" e' una risposta legittima della
+            // verifica di disponibilita', non una risorsa mancante: il locale puo' essere chiuso
+            // quel giorno. Restituendo 404 il chiamante - qui anche un client pubblico non
+            // autenticato - doveva distinguere un giorno di chiusura da un errore vero.
+            return Ok(disponibilita ?? new DisponibilitaResponseDTO());
         }
     }
 }

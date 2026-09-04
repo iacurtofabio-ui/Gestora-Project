@@ -319,4 +319,114 @@ public class DashboardServiceTests
         Assert.Equal("Mercoledì", mercoledi.GiornoNome);
         Assert.Equal(2, mercoledi.NumeroCoperti);
     }
+    // ─── REV-039 — i tavoli occupati si contano per fascia, non per giornata ─
+
+    [Fact]
+    public async Task Giornaliera_UnTavoloUsatoAPranzo_RisultaLiberoACena()
+    {
+        // E' il caso che dava il numero sbagliato: due servizi nello stesso giorno, lo stesso
+        // tavolo usato solo a pranzo. Prima veniva contato fra gli occupati dell'intera
+        // giornata, quindi la cena risultava con un tavolo in meno di quelli realmente liberi.
+        using var ctx = NewContext();
+        ctx.Postazioni.AddRange(
+            new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 },
+            new Postazione { Id = 2, Numero = 2, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
+        ctx.FasciaOrarie.AddRange(
+            Fascia(1, 50, oraInizio: 12),   // pranzo
+            Fascia(2, 50, oraInizio: 19));  // cena
+        ctx.Prenotazioni.Add(
+            Prenotazione(1, StatoPrenotazione.Attiva, 2, Lunedi, fasciaId: 1, postazioniIds: 1));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardGiornalieroAsync(Lunedi);
+
+        var pranzo = res.CopertiPerFascia.Single(f => f.FasciaOrariaId == 1);
+        var cena = res.CopertiPerFascia.Single(f => f.FasciaOrariaId == 2);
+
+        Assert.Equal(1, pranzo.PostazioniOccupate);
+        Assert.Equal(1, pranzo.PostazioniLibere);
+
+        Assert.Equal(0, cena.PostazioniOccupate);
+        Assert.Equal(2, cena.PostazioniLibere);
+    }
+
+    [Fact]
+    public async Task Giornaliera_TotaleOccupate_EIlPiccoFraLeFasce_NonLaSomma()
+    {
+        // Tavolo 1 a pranzo, tavolo 2 a cena: in nessun momento sono impegnati due tavoli
+        // insieme. Il vecchio conteggio per giornata ne avrebbe detti 2.
+        using var ctx = NewContext();
+        ctx.Postazioni.AddRange(
+            new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 },
+            new Postazione { Id = 2, Numero = 2, CapienzaMassima = 4, Attiva = true, ZonaId = 1 },
+            new Postazione { Id = 3, Numero = 3, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
+        ctx.FasciaOrarie.AddRange(Fascia(1, 50, oraInizio: 12), Fascia(2, 50, oraInizio: 19));
+        ctx.Prenotazioni.AddRange(
+            Prenotazione(1, StatoPrenotazione.Attiva, 2, Lunedi, fasciaId: 1, postazioniIds: 1),
+            Prenotazione(2, StatoPrenotazione.Attiva, 2, Lunedi, fasciaId: 2, postazioniIds: 2));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardGiornalieroAsync(Lunedi);
+
+        Assert.Equal(1, res.PostazioniOccupate);
+        Assert.Equal(2, res.PostazioniLibere);
+    }
+
+    [Fact]
+    public async Task Giornaliera_ConUnaSolaFascia_IlTotaleCoincideConQuelloDellaFascia()
+    {
+        // Controprova: dove non c'e' piu' di un servizio, il numero non cambia rispetto a prima.
+        using var ctx = NewContext();
+        ctx.Postazioni.AddRange(
+            new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 },
+            new Postazione { Id = 2, Numero = 2, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
+        ctx.FasciaOrarie.Add(Fascia(1, 50, oraInizio: 19));
+        ctx.Prenotazioni.AddRange(
+            Prenotazione(1, StatoPrenotazione.Attiva, 2, Lunedi, fasciaId: 1, postazioniIds: 1),
+            Prenotazione(2, StatoPrenotazione.InCorso, 2, Lunedi, fasciaId: 1, postazioniIds: 2));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardGiornalieroAsync(Lunedi);
+
+        Assert.Equal(2, res.PostazioniOccupate);
+        Assert.Equal(0, res.PostazioniLibere);
+        Assert.Equal(2, res.CopertiPerFascia.Single().PostazioniOccupate);
+    }
+
+    [Fact]
+    public async Task Giornaliera_LeAnnullateNonOccupanoIlTavolo()
+    {
+        using var ctx = NewContext();
+        ctx.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
+        ctx.FasciaOrarie.Add(Fascia(1, 50, oraInizio: 19));
+        ctx.Prenotazioni.Add(
+            Prenotazione(1, StatoPrenotazione.Annullata, 2, Lunedi, fasciaId: 1, postazioniIds: 1));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardGiornalieroAsync(Lunedi);
+
+        Assert.Equal(0, res.PostazioniOccupate);
+        Assert.Equal(0, res.CopertiPerFascia.Single().PostazioniOccupate);
+    }
+    // Caso emerso mentre si scriveva REV-039: se il picco si calcolasse sull'elenco delle fasce
+    // configurate, le prenotazioni prese su una fascia poi disattivata o eliminata sparirebbero
+    // dal conteggio e la sala risulterebbe libera mentre i tavoli sono occupati.
+    [Fact]
+    public async Task Giornaliera_ContaITavoli_ancheSeLaFasciaNonEPiuAttiva()
+    {
+        using var ctx = NewContext();
+        ctx.Postazioni.AddRange(
+            new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 },
+            new Postazione { Id = 2, Numero = 2, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
+        // Nessuna fascia attiva configurata per quel giorno.
+        ctx.Prenotazioni.Add(
+            Prenotazione(1, StatoPrenotazione.Attiva, 4, Lunedi, fasciaId: 99, postazioniIds: 1));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardGiornalieroAsync(Lunedi);
+
+        Assert.Empty(res.CopertiPerFascia);
+        Assert.Equal(1, res.PostazioniOccupate);
+        Assert.Equal(1, res.PostazioniLibere);
+    }
 }

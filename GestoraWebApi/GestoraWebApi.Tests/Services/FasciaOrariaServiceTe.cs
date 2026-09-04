@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Services.FasciaOrarie;
@@ -25,6 +25,7 @@ namespace GestoraWebApi.Tests.Services
         private readonly IMemoryCache _cache;
         private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
         private readonly Mock<ILogActivityService> _logActivityMock;
+        private readonly EsecutoreTransazioneFinto _transazione;
         private readonly FasciaOrariaService _service;
 
         public FasciaOrariaServiceTests()
@@ -38,8 +39,10 @@ namespace GestoraWebApi.Tests.Services
                 User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, "test-user-id") }))
             });
             _logActivityMock = new Mock<ILogActivityService>();
+            _transazione = new EsecutoreTransazioneFinto();
             _service = new FasciaOrariaService(_repoMock.Object,
-            _mapperMock.Object, _cache, _httpContextAccessorMock.Object, _logActivityMock.Object);
+            _mapperMock.Object, _cache, _httpContextAccessorMock.Object, _logActivityMock.Object,
+            _transazione);
         }
 
         [Fact]
@@ -208,6 +211,67 @@ namespace GestoraWebApi.Tests.Services
 
             // Assert
             Assert.False(_cache.TryGetValue(cacheKey, out _));
+        }
+        // REV-018: DeleteAsync invalidava la sola chiave FasceAttive. La chiave derivata per
+        // giorno restava servita dalla cache fino alla scadenza naturale (30 minuti), quindi una
+        // fascia appena eliminata continuava a comparire in fasce-per-giorno e si poteva provare
+        // a prenotare su una fascia che non esiste piu'.
+        [Fact]
+        public async Task DeleteAsync_InvalidaAncheLaChiaveDelGiorno()
+        {
+            // Arrange
+            var fascia = new FasciaOraria
+            {
+                Id = 5,
+                Attiva = true,
+                GiornoSettimana = DayOfWeek.Wednesday,
+                OrarioInizio = new TimeOnly(12, 0),
+                OrarioFine = new TimeOnly(14, 0),
+                MaxCoperti = 30
+            };
+
+            var chiaveGiorno = GestoraWebApi.Common.CacheKeys.FascePerGiorno + (int)DayOfWeek.Wednesday;
+
+            _repoMock.Setup(r => r.GetByIdAsync(5)).ReturnsAsync(fascia);
+            _repoMock.Setup(r => r.IsFasciaUsataAsync(5)).ReturnsAsync(false);
+
+            _cache.Set(GestoraWebApi.Common.CacheKeys.FasceAttive, new List<FasciaOrariaDTO> { new() });
+            _cache.Set(chiaveGiorno, new List<FasciaOrariaDTO> { new() });
+
+            // Act
+            await _service.DeleteAsync(5);
+
+            // Assert
+            Assert.False(_cache.TryGetValue(GestoraWebApi.Common.CacheKeys.FasceAttive, out _));
+            Assert.False(_cache.TryGetValue(chiaveGiorno, out _));
+        }
+
+        // Controprova: se la fascia e' usata da una prenotazione l'eliminazione viene rifiutata e
+        // la cache non va toccata - invalidarla li' sarebbe lavoro inutile su un'operazione che
+        // non ha modificato nulla.
+        [Fact]
+        public async Task DeleteAsync_NonToccaLaCache_QuandoLaFasciaEUsata()
+        {
+            var fascia = new FasciaOraria
+            {
+                Id = 6,
+                Attiva = true,
+                GiornoSettimana = DayOfWeek.Thursday,
+                OrarioInizio = new TimeOnly(19, 0),
+                OrarioFine = new TimeOnly(21, 0),
+                MaxCoperti = 30
+            };
+
+            var chiaveGiorno = GestoraWebApi.Common.CacheKeys.FascePerGiorno + (int)DayOfWeek.Thursday;
+
+            _repoMock.Setup(r => r.GetByIdAsync(6)).ReturnsAsync(fascia);
+            _repoMock.Setup(r => r.IsFasciaUsataAsync(6)).ReturnsAsync(true);
+
+            _cache.Set(chiaveGiorno, new List<FasciaOrariaDTO> { new() });
+
+            await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(6));
+
+            Assert.True(_cache.TryGetValue(chiaveGiorno, out _));
         }
     }
 }

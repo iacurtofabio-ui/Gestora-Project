@@ -33,6 +33,15 @@
         public int CopertiPrenotati { get; set; }
         public int CopertiDisponibili { get; set; }
         public int NumeroPrenotazioni { get; set; }
+
+        /// <summary>
+        /// REV-039: tavoli impegnati <b>in questa fascia</b>. Il conteggio giornaliero da solo
+        /// non basta: un tavolo occupato a pranzo risultava occupato anche a cena.
+        /// </summary>
+        public int PostazioniOccupate { get; set; }
+
+        /// <summary>Tavoli attivi ancora liberi in questa fascia.</summary>
+        public int PostazioniLibere { get; set; }
     }
 
     // Risposta panoramica settimanale 

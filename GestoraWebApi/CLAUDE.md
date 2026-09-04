@@ -57,6 +57,13 @@ esiste, poi 409 per sempre. Sostituisce `POST seed-admin`, **rimosso**. Serializ
 
 Dashboard: `GET giornaliera?data=`, `GET settimanale?dataInizio=`.
 
+LogActivity (REV-037, Fase 7, **solo Admin**): `GET get-log` — lettura paginata dell'audit trail,
+dal piu' recente. Filtri opzionali via `LogActivityQueryParams`: `userId`, `da`/`a` (istanti UTC,
+estremi inclusi), `azione` (ricerca libera nel testo), `page`, `pageSize` (max 200). Restituisce
+un `PagedResult<LogActivityDTO>`; il `userName` puo' essere null, perche' l'audit trail
+sopravvive volutamente all'utente. Nessuna interfaccia frontend: e' un endpoint da usare con
+Postman o da agganciare in una fase successiva.
+
 Zona: `GET get-zone-attive`, `GET get-all-zone`, `GET get-zona/{id}`, `POST crea-zona`,
 `PUT update-zona`, `PATCH update-stato/{id}?attiva=`, `DELETE delete-zona/{id}`.
 
@@ -178,6 +185,37 @@ test usare `TestClock` (istante fisso).
   (`.HasConversion<int>()`). Attenzione se si scrive SQL a mano (query dirette, seed, fix
   manuali su Railway): usare il valore giusto per la colonna giusta, non assumere che tutti gli
   enum del progetto seguano la stessa convenzione.
+- **Transazioni (REV-032, Fase 7)**: `Common/IEsecutoreTransazione` avvolge scrittura + audit log
+  in una sola operazione atomica. Lo usano `ZonaService`, `PostazioneService` e
+  `FasciaOrariaService` (4 punti ciascuno). `PrenotazioniService` **non** lo usa: ha il proprio
+  `EseguiInTransazioneAsync`, che in piu' traduce la violazione dell'unique index sullo slot in
+  un 409. Regola: la cache si invalida **dopo** il commit, mai dentro il blocco. Nei test si usa
+  `EsecutoreTransazioneFinto`, che con `Esegui = false` permette di dimostrare cosa sta dentro il
+  blocco atomico (quello che non parte, era dentro).
+- **Indirizzo IP reale (REV-029, Fase 7)**: `UseForwardedHeaders` e' registrato **per primo** in
+  `Program.cs`, con `KnownNetworks`/`KnownProxies` svuotati (il proxy della piattaforma non e' su
+  loopback) e `ForwardLimit = 1`. Quest'ultimo non e' un dettaglio: prende solo l'ultimo anello
+  della catena `X-Forwarded-For`, quello scritto dal proxy, quindi un client non puo' falsificare
+  l'header. Oltre all'audit trail, il fix rimette in sesto il **rate limit del login**, che
+  partiziona su `RemoteIpAddress`: prima era di fatto un limite globale di 5 tentativi al minuto
+  per tutta l'applicazione.
+- **Storico e utenti (REV-038, Fase 7)**: la FK `Prenotazioni → Utenti` e' `Restrict`, non piu'
+  `Cascade`. Un utente con prenotazioni **non si elimina**: `DELETE delete-user/{id}` risponde
+  409 con un messaggio esplicito. E' voluto: lo storico regge i conteggi di coperti e presenze.
+- **Quartz e repliche (REV-028)**: lo scheduler **non** e' in cluster mode. Con una sola istanza
+  va bene; prima di aggiungere repliche va abilitato `store.UseClustering()`, altrimenti ogni job
+  parte su ogni istanza — innocuo per `PrenotazioniJob`, una corsa fra DELETE per
+  `PrenotazioniCleanupJob`. Il dettaglio e' commentato in `Program.cs`.
+- **Liste vuote (REV-031)**: una collezione vuota si restituisce come `200 []`, mai 404. Il 404
+  resta per la singola entita' non trovata.
+- **Paginazione (REV-019, REV-020)**: `Page` e `PageSize` fuori range vengono riportati dentro i
+  limiti, non generano errore. L'ordinamento delle liste paginate deve sempre essere **totale**
+  (`.OrderBy(...).ThenBy(x => x.Id)`): senza un criterio che spezzi le parita', il database non
+  garantisce l'ordine fra righe di pari chiave e navigando le pagine si vedono duplicati e si
+  perdono righe.
+- **Tavoli e prenotazioni future (REV-099)**: `IPostazioneRepository.HasPrenotazioniFutureAsync`
+  guarda solo da oggi in avanti. Non reintrodurre controlli sull'intero storico: rendevano un
+  tavolo immutabile per sempre dopo la sua prima prenotazione.
 - Cache: chiavi in `Common/CacheKeys.cs` — attenzione a invalidare **tutte** le chiavi
   derivate (es. `FascePerGiorno+giorno`), non solo quella base. `FasciaOrariaService` e
   `PostazioneService` lo fanno correttamente (CACHE-001 risolto 13/08/2026); se si aggiungono
@@ -225,7 +263,7 @@ test usare `TestClock` (istante fisso).
 (`FasciaOrariaServiceTe.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
 `PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`, `DisponibilitaServiceTests.cs`,
 `DashboardServiceTests.cs`) più `Validators/PrenotazioneCreateDTOValidatorTests.cs` e
-`Infrastructure/DbExceptionTranslatorTests.cs`. **70 test totali** (02/09/2026).
+`Infrastructure/DbExceptionTranslatorTests.cs`. **224 test totali** (04/09/2026, Fase 7).
 Nota: `PrenotazioniServiceTests` configura il contesto InMemory con
 `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — l'InMemory non
 supporta le transazioni e senza quella riga il service, che ora ne apre una, farebbe fallire

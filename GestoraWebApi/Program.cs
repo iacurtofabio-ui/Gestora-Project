@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using GestoraWebApi.Auth;
 using GestoraWebApi.Background;
 using GestoraWebApi.Context;
@@ -99,7 +100,22 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new TimeSpanToStringConverter());
     });
 
-// Configura Quartz con persistenza su PostgreSQL
+// Configura Quartz con persistenza su PostgreSQL.
+//
+// REV-028 — ⚠️ lo scheduler NON e' in cluster mode (manca store.UseClustering()).
+// Oggi non e' un problema: la piattaforma esegue una sola istanza del servizio, quindi c'e' un
+// solo scheduler e ogni job parte una volta. Diventa un problema nel momento in cui le repliche
+// diventano due o piu': senza clustering ogni istanza legge le stesse tabelle QRTZ_ ma non
+// concorre per acquisire il trigger, quindi lo stesso job partirebbe su ognuna. Le conseguenze
+// non sono simmetriche fra i due job:
+//   - PrenotazioniJob completa prenotazioni gia' scadute: rieseguirlo e' innocuo, la seconda
+//     passata non trova piu' nulla da fare;
+//   - PrenotazioniCleanupJob cancella fisicamente righe: due esecuzioni in parallelo sugli
+//     stessi Id sono una corsa fra DELETE, con errori nei log per righe gia' sparite.
+// Se un giorno si aggiungono repliche, prima di farlo va abilitato il clustering
+// (store.UseClustering(...) e un SchedulerId distinto per istanza). Non si anticipa qui perche'
+// il clustering ha un costo — heartbeat e lock a database a ogni ciclo — che oggi si pagherebbe
+// senza alcun ritorno.
 builder.Services.AddQuartz(q =>
 {
     q.UsePersistentStore(store =>
@@ -193,6 +209,11 @@ builder.Services.AddOpenApi();
 // Un solo orologio per tutto il progetto (REV-016 / REV-092)
 builder.Services.AddSingleton<GestoraWebApi.Common.IClock, GestoraWebApi.Common.SystemClock>();
 
+// REV-032: helper condiviso per eseguire scrittura + audit log in una sola transazione.
+// Scoped come il DbContext: deve essere lo stesso contesto della richiesta, altrimenti la
+// transazione non avvolgerebbe le scritture dei repository.
+builder.Services.AddScoped<GestoraWebApi.Common.IEsecutoreTransazione, GestoraWebApi.Common.EsecutoreTransazione>();
+
 //REPOSITORY
 builder.Services.AddScoped<ILogActivityRepository, LogActivityRepository>();
 builder.Services.AddScoped<IPostazioneRepository, PostazioneRepository>();
@@ -246,6 +267,32 @@ using (var scope = app.Services.CreateScope())
         startupLogger.LogWarning(ex, "Impossibile verificare l'allineamento delle migration all'avvio.");
     }
 }
+
+// REV-029: l'applicazione gira dietro il proxy della piattaforma, quindi senza questo middleware
+// Connection.RemoteIpAddress e' l'indirizzo del proxy, uguale per chiunque. Due conseguenze,
+// entrambe presenti fino a oggi:
+//   1. l'audit trail registrava sempre lo stesso indirizzo, cioe' non registrava nulla di utile;
+//   2. il rate limit del login (LoginPolicy) partiziona proprio su quell'indirizzo: era di fatto
+//      un limite globale di 5 tentativi al minuto per l'intera applicazione, che invece di
+//      fermare chi attacca poteva bloccare gli utenti legittimi.
+//
+// Va registrato per primo: tutto cio' che viene dopo deve gia' vedere l'indirizzo corretto.
+//
+// KnownProxies/KnownNetworks vanno svuotati perche' il proxy non e' su loopback e il suo
+// indirizzo non e' noto in anticipo; senza questo l'header verrebbe semplicemente ignorato.
+// ForwardLimit = 1 e' cio' che rende la cosa sicura: si prende solo l'ultimo anello della
+// catena X-Forwarded-For, quello scritto dal proxy della piattaforma. Un client che si
+// inventasse l'header lo vedrebbe scavalcato dal valore aggiunto dal proxy, quindi non puo'
+// spacciarsi per un altro indirizzo per aggirare il rate limit.
+var forwardedHeaders = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardLimit = 1
+};
+forwardedHeaders.KnownNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+
+app.UseForwardedHeaders(forwardedHeaders);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

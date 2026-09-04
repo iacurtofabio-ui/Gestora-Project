@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using GestoraWebApi.Common;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Models;
@@ -17,6 +17,7 @@ namespace GestoraWebApi.Services.Zone
         private readonly IMemoryCache _cache;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogActivityService _logActivity;
+        private readonly IEsecutoreTransazione _transazione;
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
@@ -24,13 +25,15 @@ namespace GestoraWebApi.Services.Zone
                             IMapper mapper,
                             IMemoryCache cache,
                             IHttpContextAccessor httpContextAccessor,
-                            ILogActivityService logActivity)
+                            ILogActivityService logActivity,
+                            IEsecutoreTransazione transazione)
         {
             _zonaRepository = zonaRepository;
             _mapper = mapper;
             _cache = cache;
             _httpContextAccessor = httpContextAccessor;
             _logActivity = logActivity;
+            _transazione = transazione;
         }
 
         public async Task AddAsync(ZonaDTO entity)
@@ -42,10 +45,17 @@ namespace GestoraWebApi.Services.Zone
                 throw new ConflictException("Esiste già una zona con questo nome.");
 
             var zona = _mapper.Map<Zona>(entity);
-            await _zonaRepository.AddAsync(zona);
 
+            // REV-032: scrittura e traccia nell'audit trail sono una sola operazione.
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _zonaRepository.AddAsync(zona);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata zona '{zona.Nome}'", GetIpAddress());
+            });
+
+            // La cache si invalida dopo il commit: prima non avrebbe senso, perche' la modifica
+            // potrebbe ancora non esserci.
             InvalidateZoneCache();
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata zona '{zona.Nome}'", GetIpAddress());
         }
 
         public async Task DeleteAsync(long zonaId)
@@ -62,10 +72,13 @@ namespace GestoraWebApi.Services.Zone
             if (usata)
                 throw new ConflictException("Non è possibile cancellare la zona perché è assegnata ad almeno una postazione.");
 
-            await _zonaRepository.DeleteAsync(zona);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _zonaRepository.DeleteAsync(zona);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata zona '{zona.Nome}' (ID {zonaId})", GetIpAddress());
+            });
 
             InvalidateZoneCache();
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata zona '{zona.Nome}' (ID {zonaId})", GetIpAddress());
         }
 
         public async Task<List<ZonaDTO>> GetAllZoneAsync()
@@ -125,10 +138,13 @@ namespace GestoraWebApi.Services.Zone
             existingZona.Nome = entity.Nome;
             existingZona.Attiva = entity.Attiva;
 
-            await _zonaRepository.UpdateAsync(existingZona);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _zonaRepository.UpdateAsync(existingZona);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata zona '{existingZona.Nome}' (ID {existingZona.Id})", GetIpAddress());
+            });
 
             InvalidateZoneCache();
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata zona '{existingZona.Nome}' (ID {existingZona.Id})", GetIpAddress());
         }
 
         public async Task UpdateStatoZonaAsync(long zonaId, bool attiva)
@@ -138,11 +154,14 @@ namespace GestoraWebApi.Services.Zone
             if (zona == null)
                 throw new KeyNotFoundException($"Zona con ID {zonaId} non trovata.");
 
-            await _zonaRepository.UpdateStatoZonaAsync(zonaId, attiva);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _zonaRepository.UpdateStatoZonaAsync(zonaId, attiva);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                    $"Zona '{zona.Nome}' (ID {zonaId}) impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
+            });
 
             InvalidateZoneCache();
-            await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                $"Zona '{zona.Nome}' (ID {zonaId}) impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
         }
 
         private void InvalidateZoneCache()

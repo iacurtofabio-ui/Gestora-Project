@@ -49,6 +49,42 @@ namespace GestoraWebApi.Repositories.Prenotazioni
             await _context.SaveChangesAsync();
         }
 
+        // REV-022: le entita' vengono caricate tracciate in un'unica query e salvate con un solo
+        // SaveChanges. Si evita di proposito UpdateRange su entita' staccate: quel metodo marca
+        // Modified l'intero grafo raggiungibile, quindi riscriverebbe anche le fasce orarie
+        // caricate con Include. Qui si tocca solo la colonna che cambia davvero.
+        public async Task<int> AggiornaStatoAsync(IReadOnlyCollection<long> ids, StatoPrenotazione nuovoStato)
+        {
+            if (ids.Count == 0)
+                return 0;
+
+            var prenotazioni = await _context.Prenotazioni
+                .Where(p => ids.Contains(p.Id))
+                .ToListAsync();
+
+            foreach (var prenotazione in prenotazioni)
+                prenotazione.Stato = nuovoStato;
+
+            await _context.SaveChangesAsync();
+
+            return prenotazioni.Count;
+        }
+
+        public async Task<int> EliminaPerIdAsync(IReadOnlyCollection<long> ids)
+        {
+            if (ids.Count == 0)
+                return 0;
+
+            var prenotazioni = await _context.Prenotazioni
+                .Where(p => ids.Contains(p.Id))
+                .ToListAsync();
+
+            _context.Prenotazioni.RemoveRange(prenotazioni);
+            await _context.SaveChangesAsync();
+
+            return prenotazioni.Count;
+        }
+
         public async Task<Prenotazione?> GetTrackedByIdAsync(long id)
         {
             return await _context.Prenotazioni

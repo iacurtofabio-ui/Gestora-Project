@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using GestoraWebApi.Auth;
 using GestoraWebApi.Common;
 using GestoraWebApi.Context;
@@ -307,9 +307,9 @@ namespace GestoraWebApi.Services.Prenotazioni
                 .AsNoTracking()
                 .ToListAsync();
 
-            if (!prenotazioni.Any())
-                throw new KeyNotFoundException("Nessuna prenotazione trovata per la data specificata.");
-
+            // REV-031: nessuna prenotazione in quella data non e' un errore, e' un risultato.
+            // Il 404 su collezione vuota costringeva il chiamante a trattare uno stato normale
+            // come eccezione: si restituisce una lista vuota.
             return _mapper.Map<List<PrenotazioneDTO>>(prenotazioni);
         }
 
@@ -331,20 +331,26 @@ namespace GestoraWebApi.Services.Prenotazioni
 
         public async Task<PagedResult<PrenotazioneDTO>> GetAllPrenotazioniAsync(PrenotazioniQueryParams query)
         {
-            var queryable = _prenotazioniRepository.GetAllQueryableAsync()
-                .OrderBy(p => p.DataPrenotazione);
+            var queryable = _prenotazioniRepository.GetAllQueryableAsync();
 
             if (query.Data.HasValue)
-                queryable = queryable.Where(p => p.DataPrenotazione == query.Data.Value)
-                                     .OrderBy(p => p.DataPrenotazione);
+                queryable = queryable.Where(p => p.DataPrenotazione == query.Data.Value);
 
             if (query.Stato.HasValue)
-                queryable = queryable.Where(p => p.Stato == query.Stato.Value)
-                                     .OrderBy(p => p.DataPrenotazione);
+                queryable = queryable.Where(p => p.Stato == query.Stato.Value);
 
             var totalCount = await queryable.CountAsync();
 
+            // REV-020: l'ordinamento era per sola DataPrenotazione. Con piu' prenotazioni nello
+            // stesso giorno - il caso normale - il database non garantisce un ordine stabile fra
+            // righe di pari chiave: le stesse righe possono cadere in pagine diverse a ogni
+            // richiesta, quindi navigando le pagine si vedono duplicati e si perdono righe mai
+            // mostrate. Id come ultimo criterio rende l'ordine totale e quindi deterministico.
+            // L'ordinamento va applicato dopo i Where: prima veniva riapplicato dentro ogni
+            // ramo del filtro, il che lo faceva ripartire da capo perdendo i criteri successivi.
             var items = await queryable
+                .OrderBy(p => p.DataPrenotazione)
+                .ThenBy(p => p.Id)
                 .Include(p => p.User)
                 .Include(p => p.FasciaOraria)
                 .Include(p => p.PrenotazioniPostazioni)
@@ -369,22 +375,32 @@ namespace GestoraWebApi.Services.Prenotazioni
             var today = DateOnly.FromDateTime(now);
             var oraAttuale = TimeOnly.FromTimeSpan(now.TimeOfDay);
 
-            var prenotazioniInCorso = await _prenotazioniRepository
+            // REV-022: si legge il solo Id. Prima si caricavano le entita' intere e poi, per
+            // ognuna, si faceva una seconda query (GetTrackedByIdAsync) e un SaveChanges
+            // dedicato: 1 + 2N viaggi al database per una notte di prenotazioni. Ora sono due
+            // query in tutto, indipendenti da quante righe ci sono.
+            var idsDaCompletare = await _prenotazioniRepository
                 .GetAllQueryableAsync()
                 .Include(p => p.FasciaOraria)
                 .Where(p => p.Stato == StatoPrenotazione.InCorso &&
                       (p.DataPrenotazione < today ||
                       (p.DataPrenotazione == today && oraAttuale > p.FasciaOraria.OrarioFine)))
+                .Select(p => p.Id)
                 .ToListAsync();
 
-            foreach (var prenotazione in prenotazioniInCorso)
+            if (idsDaCompletare.Count == 0)
             {
-                var trackedPrenotazione = await _prenotazioniRepository.GetTrackedByIdAsync(prenotazione.Id);
-                trackedPrenotazione.Stato = StatoPrenotazione.Completata;
-                await _prenotazioniRepository.UpdateAsync(trackedPrenotazione);
-
-                _logger.LogInformation("[PrenotazioniService] Prenotazione {Id} completata automaticamente.", prenotazione.Id);
+                _logger.LogInformation("[PrenotazioniService] Nessuna prenotazione da completare.");
+                return;
             }
+
+            var completate = await _prenotazioniRepository
+                .AggiornaStatoAsync(idsDaCompletare, StatoPrenotazione.Completata);
+
+            // Un solo log riepilogativo invece di uno per riga: gli Id restano tracciati, ma non
+            // riempiono il log della piattaforma con una linea per prenotazione.
+            _logger.LogInformation("[PrenotazioniService] {Count} prenotazioni completate automaticamente: {Ids}",
+                completate, string.Join(", ", idsDaCompletare));
         }
 
         public async Task AutomaticDeletePrenotazioniAsync()
@@ -392,19 +408,25 @@ namespace GestoraWebApi.Services.Prenotazioni
             var now = _clock.NowInRome;
             var cutoffDate = DateOnly.FromDateTime(now).AddMonths(-6);
 
-            var prenotazioniToDelete = await _prenotazioniRepository
+            // REV-022: come sopra, una DELETE con un solo SaveChanges invece di una per riga.
+            // Qui il guadagno e' maggiore: la pulizia gira su sei mesi di storico, quindi e'
+            // proprio il caso in cui le righe sono tante.
+            var idsDaEliminare = await _prenotazioniRepository
                 .GetAllQueryableAsync()
                 .Where(p => p.Stato == StatoPrenotazione.Completata && p.DataPrenotazione <= cutoffDate)
+                .Select(p => p.Id)
                 .ToListAsync();
 
-            foreach (var prenotazione in prenotazioniToDelete)
+            if (idsDaEliminare.Count == 0)
             {
-                await _prenotazioniRepository.DeleteAsync(prenotazione);
-                _logger.LogInformation("[PrenotazioniService] Prenotazione {Id} eliminata automaticamente.", prenotazione.Id);
+                _logger.LogInformation("[PrenotazioniService] Nessuna prenotazione da eliminare.");
+                return;
             }
 
-            if (!prenotazioniToDelete.Any())
-                _logger.LogInformation("[PrenotazioniService] Nessuna prenotazione da eliminare.");
+            var eliminate = await _prenotazioniRepository.EliminaPerIdAsync(idsDaEliminare);
+
+            _logger.LogInformation("[PrenotazioniService] {Count} prenotazioni eliminate automaticamente: {Ids}",
+                eliminate, string.Join(", ", idsDaEliminare));
         }
 
         private string GetAuthenticatedUserId()

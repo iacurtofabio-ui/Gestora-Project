@@ -1,4 +1,5 @@
-﻿using GestoraWebApi.Auth;
+using GestoraWebApi.Auth;
+using GestoraWebApi.Context;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
 using GestoraWebApi.Services.Auth.DTOs;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 
 namespace GestoraWebApi.Controllers
 {
@@ -20,18 +22,21 @@ namespace GestoraWebApi.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogActivityService _logActivityService;
+        private readonly GestoraContext _context;
 
         public AuthenticationUserController(IJwtTokenGenerator tokenGenerator,
                                             ILogger<AuthenticationUserController> logger,
                                             UserManager<ApplicationUser> userManager,
                                             SignInManager<ApplicationUser> signInManager,
-                                            ILogActivityService logActivityService)
+                                            ILogActivityService logActivityService,
+                                            GestoraContext context)
         {
             _tokenGenerator = tokenGenerator;
             _logger = logger;
             _userManager = userManager;
             _signInManager = signInManager;
             _logActivityService = logActivityService;
+            _context = context;
         }
 
         private string? GetIpAddress()
@@ -181,20 +186,35 @@ namespace GestoraWebApi.Controllers
         [HttpGet("get-users")]
         public async Task<IActionResult> GetUsers()
         {
-            var users = _userManager.Users.ToList();
+            // REV-021: prima si caricavano tutti gli utenti e poi si chiamava GetRolesAsync
+            // dentro il ciclo, cioe' una query al database per ogni utente (N+1). Con pochi
+            // utenti non si nota; il costo cresce pero' in modo lineare e questa e' la pagina
+            // che l'Admin apre per gestirli. Ora sono due query fisse: gli utenti, e in un solo
+            // colpo tutte le assegnazioni di ruolo, che poi si accostano in memoria.
+            var users = await _context.Users
+                .AsNoTracking()
+                .Select(u => new { u.Id, u.UserName, u.Email })
+                .ToListAsync();
 
-            var result = new List<UserResponseDTO>();
-            foreach (var user in users)
+            var assegnazioni = await (from ur in _context.UserRoles
+                                      join r in _context.Roles on ur.RoleId equals r.Id
+                                      select new { ur.UserId, RoleName = r.Name })
+                                     .AsNoTracking()
+                                     .ToListAsync();
+
+            var ruoliPerUtente = assegnazioni
+                .GroupBy(a => a.UserId)
+                .ToDictionary(g => g.Key, g => (IList<string>)g.Select(a => a.RoleName!).ToList());
+
+            var result = users.Select(u => new UserResponseDTO
             {
-                var roles = await _userManager.GetRolesAsync(user);
-                result.Add(new UserResponseDTO
-                {
-                    Id = user.Id,
-                    UserName = user.UserName!,
-                    Email = user.Email!,
-                    Roles = roles
-                });
-            }
+                Id = u.Id,
+                UserName = u.UserName!,
+                Email = u.Email!,
+                // Un utente senza alcun ruolo non compare fra le assegnazioni: va reso con una
+                // lista vuota, non saltato, altrimenti sparirebbe dall'elenco dell'Admin.
+                Roles = ruoliPerUtente.TryGetValue(u.Id, out var ruoli) ? ruoli : new List<string>()
+            }).ToList();
 
             return Ok(result);
         }
@@ -256,6 +276,21 @@ namespace GestoraWebApi.Controllers
             var user = await _userManager.FindByIdAsync(id);
             if (user == null)
                 return NotFound($"Utente con ID '{id}' non trovato.");
+
+            // REV-038: la relazione utente -> prenotazioni non e' piu' a cascata, quindi il
+            // database rifiuterebbe comunque l'eliminazione. Il controllo si fa qui per dare un
+            // messaggio comprensibile invece di un errore tecnico di chiave esterna, e perche'
+            // il motivo del rifiuto ("ha delle prenotazioni") e' un'informazione utile.
+            var haPrenotazioni = await _context.Prenotazioni.AnyAsync(p => p.UserId == id);
+            if (haPrenotazioni)
+            {
+                return Conflict(new
+                {
+                    message = "Impossibile eliminare l'utente: ha prenotazioni registrate. " +
+                              "Lo storico delle prenotazioni non va cancellato perché è la base " +
+                              "dei dati di riepilogo."
+                });
+            }
 
             var result = await _userManager.DeleteAsync(user);
             if (!result.Succeeded)

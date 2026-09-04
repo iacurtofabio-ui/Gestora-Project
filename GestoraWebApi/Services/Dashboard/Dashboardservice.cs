@@ -53,15 +53,11 @@ namespace GestoraWebApi.Services.Dashboard
                 .AsNoTracking()
                 .CountAsync(p => p.Attiva);
 
-            // 5. Postazioni occupate oggi: quelle con almeno una prenotazione
-            //    attiva o in corso in questo giorno
-            var idPostazioniOccupate = prenotazioniDelGiorno
+            // 5. Prenotazioni che impegnano davvero un tavolo in giornata.
+            var prenotazioniCheOccupano = prenotazioniDelGiorno
                 .Where(p => p.Stato == StatoPrenotazione.Attiva
                          || p.Stato == StatoPrenotazione.InCorso)
-                .SelectMany(p => p.PrenotazioniPostazioni)
-                .Select(pp => pp.PostazioneId)
-                .Distinct()
-                .Count();
+                .ToList();
 
             // 6. Coperti per fascia: fasce attive del giorno della settimana
             var giornoSettimana = data.DayOfWeek;
@@ -85,6 +81,16 @@ namespace GestoraWebApi.Services.Dashboard
 
                 var copertiPrenotati = prenotazioniFascia.Sum(p => p.NumeroCoperti);
 
+                // REV-039: i tavoli si liberano fra una fascia e l'altra, quindi l'occupazione
+                // va contata dentro la fascia. Un tavolo prenotato a pranzo e' di nuovo
+                // disponibile a cena.
+                var occupateInFascia = prenotazioniCheOccupano
+                    .Where(p => p.FasciaOrariaId == f.Id)
+                    .SelectMany(p => p.PrenotazioniPostazioni)
+                    .Select(pp => pp.PostazioneId)
+                    .Distinct()
+                    .Count();
+
                 return new CopertiFasciaDTO
                 {
                     FasciaOrariaId = f.Id,
@@ -93,9 +99,30 @@ namespace GestoraWebApi.Services.Dashboard
                     MaxCoperti = f.MaxCoperti,
                     CopertiPrenotati = copertiPrenotati,
                     CopertiDisponibili = Math.Max(0, f.MaxCoperti - copertiPrenotati),
-                    NumeroPrenotazioni = prenotazioniFascia.Count
+                    NumeroPrenotazioni = prenotazioniFascia.Count,
+                    PostazioniOccupate = occupateInFascia,
+                    PostazioniLibere = Math.Max(0, totalePostazioni - occupateInFascia)
                 };
             }).ToList();
+
+            // REV-039: il totale di giornata e' il picco, cioe' il massimo numero di tavoli
+            // impegnati nello stesso momento. Prima era il numero di tavoli distinti toccati
+            // nell'arco dell'intera giornata: con due servizi quel valore sommava pranzo e cena
+            // e faceva sembrare la sala piena anche quando non lo era mai stata.
+            // Con una sola fascia i due criteri coincidono.
+            //
+            // Il raggruppamento si fa sulle prenotazioni, non sull'elenco delle fasce attive:
+            // una fascia puo' essere stata disattivata o eliminata dopo che le prenotazioni
+            // erano gia' state prese, e quei tavoli restano occupati. Guardando solo le fasce
+            // configurate quelle prenotazioni sparirebbero dal conteggio.
+            var idPostazioniOccupate = prenotazioniCheOccupano
+                .GroupBy(p => p.FasciaOrariaId)
+                .Select(g => g.SelectMany(p => p.PrenotazioniPostazioni)
+                              .Select(pp => pp.PostazioneId)
+                              .Distinct()
+                              .Count())
+                .DefaultIfEmpty(0)
+                .Max();
 
             return new DashboardGiornalieroDTO
             {

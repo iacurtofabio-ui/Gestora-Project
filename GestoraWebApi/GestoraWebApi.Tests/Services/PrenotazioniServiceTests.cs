@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
@@ -1126,8 +1126,12 @@ public class PrenotazioniServiceTests
 
         await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
 
-        Assert.Equal(StatoPrenotazione.Completata, vecchia.Stato);
-        _prenotazioniRepoMock.Verify(r => r.UpdateAsync(vecchia), Times.Once);
+        // REV-022: il job non aggiorna piu' una riga per volta, passa l'elenco degli Id da
+        // completare a una sola scrittura. Il test verifica quindi la selezione, che e' la
+        // regola vera: quali prenotazioni finiscono in quell'elenco.
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.Is<IReadOnlyCollection<long>>(ids => ids.Count == 1 && ids.Contains(vecchia.Id)),
+            StatoPrenotazione.Completata), Times.Once);
     }
 
     [Fact]
@@ -1139,7 +1143,9 @@ public class PrenotazioniServiceTests
 
         await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
 
-        Assert.Equal(StatoPrenotazione.Completata, finita.Stato);
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.Is<IReadOnlyCollection<long>>(ids => ids.Contains(finita.Id)),
+            StatoPrenotazione.Completata), Times.Once);
     }
 
     /// <summary>Il tavolo è ancora occupato: chiuderlo in anticipo lo libererebbe per errore.</summary>
@@ -1152,8 +1158,8 @@ public class PrenotazioniServiceTests
 
         await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
 
-        Assert.Equal(StatoPrenotazione.InCorso, inCorso.Stato);
-        _prenotazioniRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Prenotazione>()), Times.Never);
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.IsAny<IReadOnlyCollection<long>>(), It.IsAny<StatoPrenotazione>()), Times.Never);
     }
 
     /// <summary>
@@ -1172,7 +1178,8 @@ public class PrenotazioniServiceTests
         await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
 
         Assert.Equal(stato, prenotazione.Stato);
-        _prenotazioniRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Prenotazione>()), Times.Never);
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.IsAny<IReadOnlyCollection<long>>(), It.IsAny<StatoPrenotazione>()), Times.Never);
     }
 
     [Fact]
@@ -1183,7 +1190,8 @@ public class PrenotazioniServiceTests
 
         await ServiceConOrologioFermo(IstanteFermo).AutomaticDeletePrenotazioniAsync();
 
-        _prenotazioniRepoMock.Verify(r => r.DeleteAsync(vecchia), Times.Once);
+        _prenotazioniRepoMock.Verify(r => r.EliminaPerIdAsync(
+            It.Is<IReadOnlyCollection<long>>(ids => ids.Count == 1 && ids.Contains(vecchia.Id))), Times.Once);
     }
 
     [Fact]
@@ -1194,7 +1202,8 @@ public class PrenotazioniServiceTests
 
         await ServiceConOrologioFermo(IstanteFermo).AutomaticDeletePrenotazioniAsync();
 
-        _prenotazioniRepoMock.Verify(r => r.DeleteAsync(It.IsAny<Prenotazione>()), Times.Never);
+        _prenotazioniRepoMock.Verify(r => r.EliminaPerIdAsync(
+            It.IsAny<IReadOnlyCollection<long>>()), Times.Never);
     }
 
     /// <summary>
@@ -1212,6 +1221,154 @@ public class PrenotazioniServiceTests
 
         await ServiceConOrologioFermo(IstanteFermo).AutomaticDeletePrenotazioniAsync();
 
+        _prenotazioniRepoMock.Verify(r => r.EliminaPerIdAsync(
+            It.IsAny<IReadOnlyCollection<long>>()), Times.Never);
+    }
+    // ─── REV-031 — lista vuota invece di 404 ─────────────────────────────────
+
+    [Fact]
+    public async Task GetPrenotazioniByDataAsync_RestituisceListaVuota_QuandoNonCeNessuna()
+    {
+        // Prima veniva lanciata KeyNotFoundException, che il middleware traduce in 404: "quel
+        // giorno non c'e' nessuna prenotazione" veniva presentato al chiamante come una risorsa
+        // inesistente, cioe' come un errore, quando e' semplicemente un giorno libero.
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
+        _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
+                   .Returns(new List<PrenotazioneDTO>());
+
+        var result = await _service.GetPrenotazioniByDataAsync(new DateOnly(2026, 9, 20));
+
+        Assert.NotNull(result);
+        Assert.Empty(result);
+    }
+
+    // ─── REV-020 — ordinamento della paginazione deterministico ──────────────
+
+    [Fact]
+    public async Task GetAllPrenotazioniAsync_PaginaSenzaDuplicatiNeBuchi_ConStessaData()
+    {
+        // Tutte nello stesso giorno: e' il caso normale, ed e' quello in cui l'ordinamento per
+        // sola DataPrenotazione non basta a stabilire un ordine. Gli Id sono volutamente in
+        // ordine sparso in sorgente, come lo sarebbero le righe restituite dal database.
+        //
+        // Nota: questo test gira in memoria, dove l'ordinamento e' comunque stabile; quello che
+        // verifica e' che il criterio applicato sia (Data, Id) e non il solo ordine di arrivo.
+        // La garanzia vera contro righe duplicate o mancanti fra una pagina e l'altra la da'
+        // il database, che senza un ordine totale non promette nulla sulle righe di pari chiave.
+        var data = new DateOnly(2026, 9, 20);
+        var prenotazioni = new List<Prenotazione>
+        {
+            new() { Id = 4, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 },
+            new() { Id = 1, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 },
+            new() { Id = 3, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 },
+            new() { Id = 2, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 },
+        };
+
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(prenotazioni.AsQueryable().BuildMock());
+        _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
+                   .Returns((object src) => ((IEnumerable<Prenotazione>)src)
+                                            .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());
+
+        var pagina1 = await _service.GetAllPrenotazioniAsync(
+            new PrenotazioniQueryParams { Page = 1, PageSize = 2 });
+        var pagina2 = await _service.GetAllPrenotazioniAsync(
+            new PrenotazioniQueryParams { Page = 2, PageSize = 2 });
+
+        Assert.Equal(new long[] { 1, 2 }, pagina1.Items.Select(i => i.Id));
+        Assert.Equal(new long[] { 3, 4 }, pagina2.Items.Select(i => i.Id));
+
+        // Le due pagine insieme coprono tutte le righe, ognuna una volta sola.
+        var visti = pagina1.Items.Concat(pagina2.Items).Select(i => i.Id).ToList();
+        Assert.Equal(4, visti.Distinct().Count());
+        Assert.Equal(4, pagina1.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetAllPrenotazioniAsync_PageZero_RestituisceLaPrimaPagina()
+    {
+        // REV-019 visto dall'esterno: prima ?page=0 produceva Skip(-20) e faceva fallire la
+        // chiamata. Ora il parametro viene riportato dentro i limiti e si ottiene la prima pagina.
+        var data = new DateOnly(2026, 9, 20);
+        var prenotazioni = new List<Prenotazione>
+        {
+            new() { Id = 1, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 },
+            new() { Id = 2, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 },
+        };
+
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(prenotazioni.AsQueryable().BuildMock());
+        _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
+                   .Returns((object src) => ((IEnumerable<Prenotazione>)src)
+                                            .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());
+
+        var result = await _service.GetAllPrenotazioniAsync(
+            new PrenotazioniQueryParams { Page = 0, PageSize = 1 });
+
+        Assert.Equal(1, result.Page);
+        Assert.Equal(new long[] { 1 }, result.Items.Select(i => i.Id));
+    }
+    // ─── REV-022 — i job notturni non scrivono piu' una riga per volta ───────
+
+    [Fact]
+    public async Task AutomaticCompletPrenotazioni_UnaSolaScrittura_PerTutteLeRighe()
+    {
+        // Prima ogni prenotazione costava una query di ricarica piu' un SaveChanges dedicato:
+        // 1 + 2N viaggi al database. Il numero di righe non deve piu' influire sul numero di
+        // scritture, e questo e' il test che lo fissa.
+        var a = PrenotazioneConFascia(1, StatoPrenotazione.InCorso, OggiFermo.AddDays(-1), new TimeOnly(23, 0));
+        var b = PrenotazioneConFascia(2, StatoPrenotazione.InCorso, OggiFermo.AddDays(-2), new TimeOnly(23, 0));
+        var c = PrenotazioneConFascia(3, StatoPrenotazione.InCorso, OggiFermo.AddDays(-3), new TimeOnly(23, 0));
+        ArrangeQueryable(a, b, c);
+
+        await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
+
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.Is<IReadOnlyCollection<long>>(ids => ids.Count == 3
+                                                    && ids.Contains(1L) && ids.Contains(2L) && ids.Contains(3L)),
+            StatoPrenotazione.Completata), Times.Once);
+
+        // La vecchia strada non deve piu' essere percorsa: nessuna ricarica riga per riga.
+        _prenotazioniRepoMock.Verify(r => r.GetTrackedByIdAsync(It.IsAny<long>()), Times.Never);
+        _prenotazioniRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Prenotazione>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AutomaticCompletPrenotazioni_NonScriveNulla_QuandoNonCeNienteDaCompletare()
+    {
+        ArrangeQueryable();
+
+        await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
+
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.IsAny<IReadOnlyCollection<long>>(), It.IsAny<StatoPrenotazione>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AutomaticDeletePrenotazioni_UnaSolaScrittura_PerTutteLeRighe()
+    {
+        // La pulizia gira su sei mesi di storico: e' il job in cui le righe sono davvero tante.
+        var vecchia = OggiFermo.AddMonths(-6).AddDays(-1);
+        var a = PrenotazioneConFascia(1, StatoPrenotazione.Completata, vecchia, new TimeOnly(23, 0));
+        var b = PrenotazioneConFascia(2, StatoPrenotazione.Completata, vecchia.AddDays(-10), new TimeOnly(23, 0));
+        ArrangeQueryable(a, b);
+
+        await ServiceConOrologioFermo(IstanteFermo).AutomaticDeletePrenotazioniAsync();
+
+        _prenotazioniRepoMock.Verify(r => r.EliminaPerIdAsync(
+            It.Is<IReadOnlyCollection<long>>(ids => ids.Count == 2 && ids.Contains(1L) && ids.Contains(2L))),
+            Times.Once);
         _prenotazioniRepoMock.Verify(r => r.DeleteAsync(It.IsAny<Prenotazione>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AutomaticDeletePrenotazioni_NonScriveNulla_QuandoNonCeNienteDaEliminare()
+    {
+        ArrangeQueryable();
+
+        await ServiceConOrologioFermo(IstanteFermo).AutomaticDeletePrenotazioniAsync();
+
+        _prenotazioniRepoMock.Verify(r => r.EliminaPerIdAsync(It.IsAny<IReadOnlyCollection<long>>()), Times.Never);
     }
 }

@@ -26,7 +26,23 @@ namespace GestoraWebApi.Repositories.Postazioni
             await _context.SaveChangesAsync();
         }
 
+        // REV-023: questa query sta nel percorso caldo dell'assegnazione del tavolo e del calcolo
+        // di disponibilita', che la chiamano a ogni prenotazione. L'Include su
+        // PrenotazioniPostazioni tirava dentro l'intero storico di ogni tavolo - un dato che
+        // cresce senza limite e che quei percorsi non guardano nemmeno: le postazioni occupate
+        // le calcolano con una query mirata sullo slot richiesto.
         public async Task<List<Postazione>> GetPostazioniAttiveAsync()
+        {
+            return await _dbSet
+                .Where(p => p.Attiva)
+                .OrderByDescending(p => p.CapienzaMassima)
+                .ToListAsync();
+        }
+
+        // L'unico chiamante che ha bisogno anche delle righe join e' l'elenco per l'interfaccia,
+        // che espone PostazioneDTO.PrenotazioneId. Resta un metodo separato per non far pagare
+        // quel carico a chi non lo usa.
+        public async Task<List<Postazione>> GetPostazioniAttiveConPrenotazioniAsync()
         {
             return await _dbSet
                 .Where(p => p.Attiva)
@@ -42,12 +58,22 @@ namespace GestoraWebApi.Repositories.Postazioni
                            .FirstOrDefaultAsync(p => p.Id == id);
         }
 
-        public async Task<bool> HasPrenotazioniAsync(long postazioneId)
+        // REV-099: prima questo metodo si chiamava HasPrenotazioniAsync e rispondeva "si'" alla
+        // presenza di una qualsiasi riga in PrenotazioniPostazioni, storico compreso. Il risultato
+        // era che un tavolo, dopo la sua prima prenotazione conclusa, non era piu' rinominabile,
+        // spostabile di zona ne' disattivabile: un locale reale ci arriva in pochi giorni. Cio'
+        // che va protetto sono solo gli impegni ancora da onorare, quindi il filtro e' sulla data.
+        //
+        // Basta la data perche' annullare una prenotazione cancella le sue righe join (REV-003):
+        // le righe presenti appartengono sempre a prenotazioni vive. Si usa la copia
+        // denormalizzata DataPrenotazione sulla riga join, la stessa che regge l'unique index
+        // sullo slot, cosi' il controllo non deve risalire alla prenotazione.
+        public async Task<bool> HasPrenotazioniFutureAsync(long postazioneId, DateOnly daData)
         {
             return await _dbSet
                 .Where(p => p.Id == postazioneId)
                 .SelectMany(p => p.PrenotazioniPostazioni)
-                .AnyAsync();
+                .AnyAsync(pp => pp.DataPrenotazione >= daData);
         }
         public async Task UpdateAsync(Postazione postazione)
         {

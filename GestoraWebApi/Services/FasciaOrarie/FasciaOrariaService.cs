@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using GestoraWebApi.Common;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Extensions;
@@ -21,17 +21,20 @@ namespace GestoraWebApi.Services.FasciaOrarie
         private readonly IMemoryCache _cache;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogActivityService _logActivity;
+        private readonly IEsecutoreTransazione _transazione;
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
         public FasciaOrariaService(IFasciaOrariaRepository fasciaRepository, IMapper mapper, IMemoryCache cache,
-                                    IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity)
+                                    IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
+                                    IEsecutoreTransazione transazione)
         {
             _fasciaRepository = fasciaRepository;
             _mapper = mapper;
             _cache = cache;
             _httpContextAccessor = httpContextAccessor;
             _logActivity = logActivity;
+            _transazione = transazione;
         }
         public async Task AddAsync(FasciaOrariaDTO dto)
         {
@@ -50,12 +53,17 @@ namespace GestoraWebApi.Services.FasciaOrarie
                 OrarioFine = TimeOnly.FromTimeSpan(orarioFine)
             };
 
-            await _fasciaRepository.AddAsync(fascia);
+            // REV-032: scrittura e traccia nell'audit trail nella stessa transazione.
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _fasciaRepository.AddAsync(fascia);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                    $"Creata fascia oraria {dto.OrarioInizio}-{dto.OrarioFine} ({dto.GiornoSettimana})", GetIpAddress());
+            });
 
+            // Cache invalidata dopo il commit.
             _cache.Remove(CacheKeys.FasceAttive);
             _cache.Remove(CacheKeys.FascePerGiorno + (int)dto.GiornoSettimana);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                $"Creata fascia oraria {dto.OrarioInizio}-{dto.OrarioFine} ({dto.GiornoSettimana})", GetIpAddress());
         }
 
         /// <summary>
@@ -131,10 +139,19 @@ namespace GestoraWebApi.Services.FasciaOrarie
             if (fasciaUsata)
                 throw new ConflictException("Impossibile eliminare la fascia perchè associata almeno ad una prenotazione!");
 
-            await _fasciaRepository.DeleteAsync(fascia);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _fasciaRepository.DeleteAsync(fascia);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata fascia oraria ID {fasciaId}", GetIpAddress());
+            });
 
             _cache.Remove(CacheKeys.FasceAttive);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata fascia oraria ID {fasciaId}", GetIpAddress());
+            // REV-018: veniva invalidata la sola chiave FasceAttive, non quella derivata per
+            // giorno. La fascia appena eliminata continuava quindi a comparire in
+            // fasce-per-giorno fino alla scadenza naturale della cache (30 minuti), e si poteva
+            // provare a prenotare su una fascia che non esiste piu'. Tutte le altre scritture
+            // del service invalidano gia' entrambe le chiavi: era l'unico punto scoperto.
+            _cache.Remove(CacheKeys.FascePerGiorno + (int)fascia.GiornoSettimana);
         }
 
         public async Task<FasciaOraria> GetByIdAsync(long id)
@@ -243,7 +260,11 @@ namespace GestoraWebApi.Services.FasciaOrarie
             existing.OrarioInizio = TimeOnly.FromTimeSpan(orarioInizio);
             existing.OrarioFine = TimeOnly.FromTimeSpan(orarioFine);
 
-            await _fasciaRepository.UpdateAsync(existing);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _fasciaRepository.UpdateAsync(existing);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata fascia oraria ID {dto.Id}", GetIpAddress());
+            });
 
             _cache.Remove(CacheKeys.FasceAttive);
             _cache.Remove(CacheKeys.FascePerGiorno + (int)giornoPrecedente);
@@ -251,8 +272,6 @@ namespace GestoraWebApi.Services.FasciaOrarie
             {
                 _cache.Remove(CacheKeys.FascePerGiorno + (int)dto.GiornoSettimana);
             }
-
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata fascia oraria ID {dto.Id}", GetIpAddress());
         }
 
         Task<FasciaOrariaDTO> IService<FasciaOrariaDTO>.GetByIdAsync(long id)
@@ -293,12 +312,15 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             fascia.Attiva = attiva;
 
-            await _fasciaRepository.UpdateAsync(fascia);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _fasciaRepository.UpdateAsync(fascia);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                    $"Fascia oraria ID {id} impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
+            });
 
             _cache.Remove(CacheKeys.FasceAttive);
             _cache.Remove(CacheKeys.FascePerGiorno + (int)fascia.GiornoSettimana);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                $"Fascia oraria ID {id} impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
         }
 
         private string GetAuthenticatedUserId()

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using GestoraWebApi.Common;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Extensions;
@@ -25,6 +25,8 @@ namespace GestoraWebApi.Services.Postazioni
         private readonly IMemoryCache _cache;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogActivityService _logActivity;
+        private readonly IClock _clock;
+        private readonly IEsecutoreTransazione _transazione;
 
         // Valori consentiti per la capienza massima
         private static readonly int[] CapienzaConsentita = { 2, 4, 8 };
@@ -32,7 +34,8 @@ namespace GestoraWebApi.Services.Postazioni
 
         public PostazioneService(IPostazioneRepository postazioneRepository, IMapper mapper, IZonaRepository zonaRepository,
                                   IMemoryCache cache, IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
-                                  IFasciaOrariaRepository fasciaOrariaRepository)
+                                  IFasciaOrariaRepository fasciaOrariaRepository, IClock clock,
+                                  IEsecutoreTransazione transazione)
         {
             _postazioneRepository = postazioneRepository;
             _zonaRepository = zonaRepository;
@@ -41,16 +44,24 @@ namespace GestoraWebApi.Services.Postazioni
             _cache = cache;
             _httpContextAccessor = httpContextAccessor;
             _logActivity = logActivity;
+            _clock = clock;
+            _transazione = transazione;
         }
         public async Task AddAsync(PostazioneDTO dto)
         {
             await ValidatePostazioneAsync(dto);
 
             var postazione = _mapper.Map<Postazione>(dto);
-            await _postazioneRepository.AddAsync(postazione);
 
+            // REV-032: scrittura e traccia nell'audit trail nella stessa transazione.
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _postazioneRepository.AddAsync(postazione);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata postazione numero {postazione.Numero}", GetIpAddress());
+            });
+
+            // Cache invalidata dopo il commit.
             _cache.Remove(CacheKeys.PostazioniAttive);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata postazione numero {postazione.Numero}", GetIpAddress());
         }
 
         public async Task DeleteAsync(long postazioneId)
@@ -63,10 +74,13 @@ namespace GestoraWebApi.Services.Postazioni
             if (postazione.PrenotazioniPostazioni != null && postazione.PrenotazioniPostazioni.Any())
                 throw new ConflictException($"Impossibile eliminare la postazione {postazioneId}: ci sono prenotazioni associate.");
 
-            await _postazioneRepository.DeleteAsync(postazione);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _postazioneRepository.DeleteAsync(postazione);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata postazione numero {postazione.Numero} (ID {postazioneId})", GetIpAddress());
+            });
 
             _cache.Remove(CacheKeys.PostazioniAttive);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata postazione numero {postazione.Numero} (ID {postazioneId})", GetIpAddress());
         }
 
         public async Task<Postazione> GetByIdAsync(long id)
@@ -128,9 +142,9 @@ namespace GestoraWebApi.Services.Postazioni
             if (postazione == null)
                 throw new KeyNotFoundException($"Postazione con ID {dto.Id} non trovata.");
 
-            // Controllo prenotazioni
-            if (await _postazioneRepository.HasPrenotazioniAsync(dto.Id))
-                throw new ConflictException("Impossibile aggiornare la postazione: esistono prenotazioni associate.");
+            // Controllo prenotazioni (REV-099: solo quelle da oggi in avanti, non lo storico)
+            if (await _postazioneRepository.HasPrenotazioniFutureAsync(dto.Id, _clock.TodayInRome))
+                throw new ConflictException("Impossibile aggiornare la postazione: esistono prenotazioni future associate.");
 
             // Controllo numero duplicato
             var existingPostazione = await _postazioneRepository
@@ -148,10 +162,13 @@ namespace GestoraWebApi.Services.Postazioni
             // Mappaggio dei campi consentiti con AutoMapper
             _mapper.Map(dto, postazione);
 
-            await _postazioneRepository.UpdateAsync(postazione);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _postazioneRepository.UpdateAsync(postazione);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata postazione numero {postazione.Numero} (ID {postazione.Id})", GetIpAddress());
+            });
 
             _cache.Remove(CacheKeys.PostazioniAttive);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata postazione numero {postazione.Numero} (ID {postazione.Id})", GetIpAddress());
         }
 
         public async Task<List<PostazioneDTO>> GetPostazioniAttiveAsync()
@@ -159,7 +176,8 @@ namespace GestoraWebApi.Services.Postazioni
             if (_cache.TryGetValue(CacheKeys.PostazioniAttive, out List<PostazioneDTO>? cached))
                 return cached!;
 
-            var postazioni = await _postazioneRepository.GetPostazioniAttiveAsync();
+            // Qui serve lo storico: PostazioneDTO espone PrenotazioneId (REV-023).
+            var postazioni = await _postazioneRepository.GetPostazioniAttiveConPrenotazioniAsync();
 
             var result = postazioni.Select(p => new PostazioneDTO
             {
@@ -272,19 +290,25 @@ namespace GestoraWebApi.Services.Postazioni
             if (!postazione.Attiva)
                 throw new ConflictException($"Impossibile associare: la postazione con ID {postazioneId} non è attiva.");
 
-            if (await _postazioneRepository.HasPrenotazioniAsync(postazioneId))
+            // REV-099: come sopra, spostare di zona un tavolo va impedito solo se ha impegni
+            // ancora da onorare - chi ha prenotato si aspetta il tavolo dove gli e' stato detto.
+            // Una prenotazione gia' conclusa non e' un motivo per congelare il tavolo per sempre.
+            if (await _postazioneRepository.HasPrenotazioniFutureAsync(postazioneId, _clock.TodayInRome))
                 throw new ConflictException(
-                    $"Impossibile associare! Esistono prenotazioni associate alla postazione {postazioneId}."
+                    $"Impossibile associare! Esistono prenotazioni future associate alla postazione {postazioneId}."
                 );
             #endregion
 
             postazione.ZonaId = zonaId;
 
-            await _postazioneRepository.UpdateAsync(postazione);
+            await _transazione.EseguiAsync(async () =>
+            {
+                await _postazioneRepository.UpdateAsync(postazione);
+                await _logActivity.LogAsync(GetAuthenticatedUserId(),
+                    $"Postazione numero {postazione.Numero} (ID {postazioneId}) associata alla zona ID {zonaId}", GetIpAddress());
+            });
 
             _cache.Remove(CacheKeys.PostazioniAttive);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                $"Postazione numero {postazione.Numero} (ID {postazioneId}) associata alla zona ID {zonaId}", GetIpAddress());
         }
 
         private string GetAuthenticatedUserId()

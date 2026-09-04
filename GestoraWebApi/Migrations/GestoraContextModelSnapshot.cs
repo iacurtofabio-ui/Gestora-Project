@@ -130,21 +130,30 @@ namespace GestoraWebApi.Migrations
 
                     b.Property<string>("Action")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("IPAddress")
-                        .HasColumnType("text");
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserId")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("LogActivities");
+                    b.HasIndex("Timestamp")
+                        .HasDatabaseName("IX_LogActivities_Timestamp");
+
+                    b.HasIndex("UserId", "Timestamp")
+                        .HasDatabaseName("IX_LogActivities_UserId_Timestamp");
+
+                    b.ToTable("LogActivities", (string)null);
                 });
 
             modelBuilder.Entity("GestoraWebApi.Models.Postazione", b =>
@@ -434,7 +443,7 @@ namespace GestoraWebApi.Migrations
                     b.HasOne("GestoraWebApi.Auth.ApplicationUser", "User")
                         .WithMany("Prenotazioni")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("FasciaOraria");
