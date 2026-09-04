@@ -43,5 +43,47 @@ namespace GestoraWebApi.Controllers
             // errore (REV-031).
             return Ok(risultato);
         }
+
+        /// <summary>
+        /// ⚠️ ENDPOINT TEMPORANEO — da rimuovere una volta tarato <c>ForwardLimit</c> (REV-029).
+        /// <para>
+        /// Serve a misurare quanti proxy ci sono davvero davanti all'applicazione. Il valore di
+        /// <c>ForwardLimit</c> deve corrispondere esattamente a quel numero: troppo basso e si
+        /// registra l'indirizzo del proxy invece di quello del client (il caso che ha fatto
+        /// nascere questa diagnostica), troppo alto e un client potrebbe iniettare un
+        /// <c>X-Forwarded-For</c> fasullo e farsi passare per un altro indirizzo, aggirando il
+        /// rate limit del login.
+        /// </para>
+        /// <para>
+        /// Riservato all'Admin e volutamente limitato alla <b>richiesta corrente</b>: mostra solo
+        /// i dati di chi sta chiamando, non tocca il traffico di altri utenti.
+        /// </para>
+        /// </summary>
+        [HttpGet("diagnostica-inoltro")]
+        public IActionResult DiagnosticaInoltro()
+        {
+            // X-Forwarded-For viene consumato dal middleware: gli anelli gia' elaborati sono
+            // spostati in X-Original-Forwarded-For. Per ricostruire la catena completa servono
+            // entrambi.
+            string? Header(string nome) =>
+                Request.Headers.TryGetValue(nome, out var valore) ? valore.ToString() : null;
+
+            return Ok(new
+            {
+                // Cio' che l'applicazione crede sia l'indirizzo del client: e' il valore usato
+                // dall'audit trail e dalla partizione del rate limit.
+                remoteIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+
+                // La catena residua e quella gia' consumata dal middleware.
+                xForwardedFor = Header("X-Forwarded-For"),
+                xOriginalForwardedFor = Header("X-Original-Forwarded-For"),
+
+                // Header alternativi usati da alcune piattaforme (Envoy, Cloudflare):
+                // se uno di questi contiene l'indirizzo giusto, conviene leggere quello.
+                xEnvoyExternalAddress = Header("X-Envoy-External-Address"),
+                xRealIp = Header("X-Real-IP"),
+                cfConnectingIp = Header("CF-Connecting-IP")
+            });
+        }
     }
 }
