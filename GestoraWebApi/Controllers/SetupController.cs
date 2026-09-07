@@ -1,4 +1,5 @@
 using GestoraWebApi.Auth;
+using GestoraWebApi.Common;
 using GestoraWebApi.Infrastructure.Exceptions;
 using GestoraWebApi.Services.Auth.DTOs;
 using GestoraWebApi.Services.LogActivity;
@@ -149,6 +150,6 @@ namespace GestoraWebApi.Controllers
         }
 
         private string? GetIpAddress()
-            => HttpContext.Connection.RemoteIpAddress?.ToString();
+            => IndirizzoClient.Ottieni(HttpContext);
     }
 }

@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.HttpOverrides;
 using GestoraWebApi.Auth;
 using GestoraWebApi.Background;
 using GestoraWebApi.Context;
@@ -173,7 +172,12 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("LoginPolicy", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            // REV-029: la partizione deve essere il client, non il proxy. Con
+            // Connection.RemoteIpAddress dietro il proxy tutti finivano nella stessa partizione,
+            // quindi questo era di fatto un limite globale di 5 tentativi al minuto per l'intera
+            // applicazione: non fermava chi attacca un singolo account e poteva bloccare gli
+            // utenti legittimi.
+            partitionKey: GestoraWebApi.Common.IndirizzoClient.Ottieni(httpContext) ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 5,
@@ -268,38 +272,22 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// REV-029: l'applicazione gira dietro il proxy della piattaforma, quindi senza questo middleware
-// Connection.RemoteIpAddress e' l'indirizzo del proxy, uguale per chiunque. Due conseguenze,
-// entrambe presenti fino a oggi:
-//   1. l'audit trail registrava sempre lo stesso indirizzo, cioe' non registrava nulla di utile;
-//   2. il rate limit del login (LoginPolicy) partiziona proprio su quell'indirizzo: era di fatto
-//      un limite globale di 5 tentativi al minuto per l'intera applicazione, che invece di
-//      fermare chi attacca poteva bloccare gli utenti legittimi.
+// REV-029 — indirizzo reale del client.
 //
-// Va registrato per primo: tutto cio' che viene dopo deve gia' vedere l'indirizzo corretto.
+// Qui c'era UseForwardedHeaders, la scelta idiomatica, ed e' stata la prima strada tentata. In
+// questo ambiente pero' il middleware non elabora l'header: verificato in produzione con un
+// endpoint diagnostico, X-Forwarded-For arrivava valorizzato con l'indirizzo giusto,
+// X-Original-Forwarded-For restava vuoto - segno che non era stato consumato nulla - e
+// Connection.RemoteIpAddress continuava a essere quello del proxy. Esclusi nell'ordine: le liste
+// di proxy noti (svuotate, quindi il controllo e' disattivato), la posizione nella pipeline (era
+// il primo middleware) e l'assenza di X-Forwarded-Proto (l'header risulta presente, vale
+// "https").
 //
-// KnownProxies/KnownNetworks vanno svuotati perche' il proxy non e' su loopback e il suo
-// indirizzo non e' noto in anticipo; senza questo l'header verrebbe semplicemente ignorato.
-// ForwardLimit = 1 e' cio' che rende la cosa sicura: si prende solo l'ultimo anello della
-// catena X-Forwarded-For, quello scritto dal proxy della piattaforma. Un client che si
-// inventasse l'header lo vedrebbe scavalcato dal valore aggiunto dal proxy, quindi non puo'
-// spacciarsi per un altro indirizzo per aggirare il rate limit.
-// ⚠️ Solo XForwardedFor, di proposito. Chiedendo anche XForwardedProto il middleware elabora
-// un numero di voci pari al MINIMO fra le lunghezze dei due header: se X-Forwarded-Proto non
-// arriva - ed e' il caso qui - quel minimo e' zero e non viene elaborato nulla, nemmeno
-// l'indirizzo. Il sintomo e' subdolo perche' non produce alcun errore: l'header resta intatto,
-// RemoteIpAddress resta quello del proxy e sembra che il middleware non sia registrato.
-// Lo schema http/https non serve comunque a nessuno qui: UseHttpsRedirection resta disattivato
-// perche' TLS lo termina la piattaforma.
-var forwardedHeaders = new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor,
-    ForwardLimit = 1
-};
-forwardedHeaders.KnownNetworks.Clear();
-forwardedHeaders.KnownProxies.Clear();
-
-app.UseForwardedHeaders(forwardedHeaders);
+// La lettura e' quindi fatta esplicitamente in Common/IndirizzoClient, usato sia dall'audit
+// trail sia dalla partizione del rate limit del login. E' meno idiomatico, ma non dipende dal
+// comportamento di un componente che dall'esterno non e' ispezionabile, ed e' coperto da test.
+// Se un domani si volesse tornare al middleware, va prima riprodotto il problema in un ambiente
+// di prova: non ripetere i tentativi a colpi di deploy in produzione, e' costato tre giri.
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

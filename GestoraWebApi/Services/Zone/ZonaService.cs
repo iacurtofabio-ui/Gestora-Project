@@ -175,6 +175,6 @@ namespace GestoraWebApi.Services.Zone
                ?? throw new UnauthorizedAccessException("Utente non autenticato.");
 
         private string? GetIpAddress()
-            => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            => IndirizzoClient.Ottieni(_httpContextAccessor.HttpContext);
     }
 }

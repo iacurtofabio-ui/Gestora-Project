@@ -524,7 +524,7 @@ namespace GestoraWebApi.Services.Prenotazioni
         }
 
         private string? GetIpAddress()
-            => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            => IndirizzoClient.Ottieni(_httpContextAccessor.HttpContext);
 
         private async Task ValidatePrenotazioneAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null)
         {

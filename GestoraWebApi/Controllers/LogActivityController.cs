@@ -1,4 +1,5 @@
 using GestoraWebApi.Auth;
+using GestoraWebApi.Common;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.LogActivity.DTOs;
 using Microsoft.AspNetCore.Authorization;
@@ -45,14 +46,12 @@ namespace GestoraWebApi.Controllers
         }
 
         /// <summary>
-        /// ⚠️ ENDPOINT TEMPORANEO — da rimuovere una volta tarato <c>ForwardLimit</c> (REV-029).
+        /// ⚠️ ENDPOINT TEMPORANEO — da rimuovere una volta confermato REV-029 in produzione.
         /// <para>
-        /// Serve a misurare quanti proxy ci sono davvero davanti all'applicazione. Il valore di
-        /// <c>ForwardLimit</c> deve corrispondere esattamente a quel numero: troppo basso e si
-        /// registra l'indirizzo del proxy invece di quello del client (il caso che ha fatto
-        /// nascere questa diagnostica), troppo alto e un client potrebbe iniettare un
-        /// <c>X-Forwarded-For</c> fasullo e farsi passare per un altro indirizzo, aggirando il
-        /// rate limit del login.
+        /// Mostra affiancati l'indirizzo che l'applicazione usa davvero e gli header di inoltro
+        /// grezzi. Serve perche' la catena di proxy non e' riproducibile in locale: in sviluppo
+        /// questi header non esistono proprio, quindi l'unico modo di verificare la lettura e'
+        /// guardarla dall'ambiente reale.
         /// </para>
         /// <para>
         /// Riservato all'Admin e volutamente limitato alla <b>richiesta corrente</b>: mostra solo
@@ -62,29 +61,31 @@ namespace GestoraWebApi.Controllers
         [HttpGet("diagnostica-inoltro")]
         public IActionResult DiagnosticaInoltro()
         {
-            // X-Forwarded-For viene consumato dal middleware: gli anelli gia' elaborati sono
-            // spostati in X-Original-Forwarded-For. Per ricostruire la catena completa servono
-            // entrambi.
+            // Header grezzi, come arrivano.
             string? Header(string nome) =>
                 Request.Headers.TryGetValue(nome, out var valore) ? valore.ToString() : null;
 
             return Ok(new
             {
-                // Cio' che l'applicazione crede sia l'indirizzo del client: e' il valore usato
-                // dall'audit trail e dalla partizione del rate limit.
+                // ⬅️ Il valore che finisce davvero nell'audit trail e nella partizione del
+                // rate limit: e' quello che deve corrispondere all'indirizzo di chi chiama.
+                indirizzoUsatoDallApplicazione = IndirizzoClient.Ottieni(HttpContext),
+
+                // Quello che vedrebbe l'applicazione senza la lettura esplicita dell'header:
+                // dietro il proxy e' il suo indirizzo, uguale per tutti i client.
                 remoteIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
 
-                // La catena residua e quella gia' consumata dal middleware.
+                // La catena di inoltro: e' da qui che IndirizzoClient prende l'ultimo anello.
                 xForwardedFor = Header("X-Forwarded-For"),
+
+                // Se valorizzato, significa che un middleware ha consumato l'header prima di noi:
+                // e' il caso da tenere d'occhio se un domani si reintroduce UseForwardedHeaders.
                 xOriginalForwardedFor = Header("X-Original-Forwarded-For"),
 
-                // Determinante: se il middleware elabora sia XForwardedFor sia XForwardedProto,
-                // il numero di voci trattate e' il minimo fra i due header. Con questo assente
-                // il minimo e' zero e non viene elaborato nulla, indirizzo compreso.
                 xForwardedProto = Header("X-Forwarded-Proto"),
 
-                // Header alternativi usati da alcune piattaforme (Envoy, Cloudflare):
-                // se uno di questi contiene l'indirizzo giusto, conviene leggere quello.
+                // Header alternativi di alcune piattaforme (Envoy, Cloudflare), tenuti per
+                // riferimento: qui risultano tutti vuoti.
                 xEnvoyExternalAddress = Header("X-Envoy-External-Address"),
                 xRealIp = Header("X-Real-IP"),
                 cfConnectingIp = Header("CF-Connecting-IP")

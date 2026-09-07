@@ -1,4 +1,5 @@
 using GestoraWebApi.Auth;
+using GestoraWebApi.Common;
 using GestoraWebApi.Context;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
@@ -40,7 +41,7 @@ namespace GestoraWebApi.Controllers
         }
 
         private string? GetIpAddress()
-            => HttpContext.Connection.RemoteIpAddress?.ToString();
+            => IndirizzoClient.Ottieni(HttpContext);
 
         /// <summary>Registrazione pubblica — assegna automaticamente il ruolo Cliente</summary>
         [HttpPost("register")]
@@ -150,7 +151,7 @@ namespace GestoraWebApi.Controllers
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Ruolo '{dto.Role}' assegnato a utente ID {dto.UserId}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+                IndirizzoClient.Ottieni(HttpContext));
 
             return Ok(new { message = $"Ruolo '{dto.Role}' assegnato con successo." });
         }
@@ -176,7 +177,7 @@ namespace GestoraWebApi.Controllers
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Ruolo '{dto.Role}' rimosso da utente ID {dto.UserId}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+                IndirizzoClient.Ottieni(HttpContext));
 
             return Ok(new { message = $"Ruolo '{dto.Role}' rimosso con successo." });
         }
@@ -301,7 +302,7 @@ namespace GestoraWebApi.Controllers
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Eliminato utente ID {id}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+                IndirizzoClient.Ottieni(HttpContext));
 
             return Ok(new { message = "Utente eliminato con successo." });
         }
@@ -327,7 +328,7 @@ namespace GestoraWebApi.Controllers
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Password resettata per utente ID {id}",
-                HttpContext.Connection.RemoteIpAddress?.ToString());
+                IndirizzoClient.Ottieni(HttpContext));
 
             return Ok(new { message = "Password resettata con successo." });
         }
