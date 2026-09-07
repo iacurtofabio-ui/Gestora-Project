@@ -78,6 +78,11 @@ namespace GestoraWebApi.Controllers
                 xForwardedFor = Header("X-Forwarded-For"),
                 xOriginalForwardedFor = Header("X-Original-Forwarded-For"),
 
+                // Determinante: se il middleware elabora sia XForwardedFor sia XForwardedProto,
+                // il numero di voci trattate e' il minimo fra i due header. Con questo assente
+                // il minimo e' zero e non viene elaborato nulla, indirizzo compreso.
+                xForwardedProto = Header("X-Forwarded-Proto"),
+
                 // Header alternativi usati da alcune piattaforme (Envoy, Cloudflare):
                 // se uno di questi contiene l'indirizzo giusto, conviene leggere quello.
                 xEnvoyExternalAddress = Header("X-Envoy-External-Address"),

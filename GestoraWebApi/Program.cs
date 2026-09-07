@@ -284,9 +284,16 @@ using (var scope = app.Services.CreateScope())
 // catena X-Forwarded-For, quello scritto dal proxy della piattaforma. Un client che si
 // inventasse l'header lo vedrebbe scavalcato dal valore aggiunto dal proxy, quindi non puo'
 // spacciarsi per un altro indirizzo per aggirare il rate limit.
+// ⚠️ Solo XForwardedFor, di proposito. Chiedendo anche XForwardedProto il middleware elabora
+// un numero di voci pari al MINIMO fra le lunghezze dei due header: se X-Forwarded-Proto non
+// arriva - ed e' il caso qui - quel minimo e' zero e non viene elaborato nulla, nemmeno
+// l'indirizzo. Il sintomo e' subdolo perche' non produce alcun errore: l'header resta intatto,
+// RemoteIpAddress resta quello del proxy e sembra che il middleware non sia registrato.
+// Lo schema http/https non serve comunque a nessuno qui: UseHttpsRedirection resta disattivato
+// perche' TLS lo termina la piattaforma.
 var forwardedHeaders = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor,
     ForwardLimit = 1
 };
 forwardedHeaders.KnownNetworks.Clear();
