@@ -46,12 +46,20 @@ namespace GestoraWebApi.Controllers
         }
 
         /// <summary>
-        /// ⚠️ ENDPOINT TEMPORANEO — da rimuovere una volta confermato REV-029 in produzione.
+        /// Strumento diagnostico per REV-029: mostra affiancati l'indirizzo che l'applicazione
+        /// usa davvero e gli header di inoltro grezzi.
         /// <para>
-        /// Mostra affiancati l'indirizzo che l'applicazione usa davvero e gli header di inoltro
-        /// grezzi. Serve perche' la catena di proxy non e' riproducibile in locale: in sviluppo
-        /// questi header non esistono proprio, quindi l'unico modo di verificare la lettura e'
-        /// guardarla dall'ambiente reale.
+        /// Era nato temporaneo, ed e' stato tenuto di proposito. La costante
+        /// <c>IndirizzoClient.AnelliDaScartare</c> dipende da quanti proxy la piattaforma mette
+        /// davanti all'applicazione: se quel numero cambia, l'indirizzo registrato torna
+        /// silenziosamente sbagliato e l'unico modo di accorgersene e' guardare la catena
+        /// dall'interno dell'ambiente reale — in locale questi header non esistono affatto.
+        /// Senza questo endpoint, rimisurarla richiede di scriverlo e rilasciarlo di nuovo:
+        /// e' esattamente il giro che nel settembre 2026 e' costato tre deploy e tre giorni.
+        /// </para>
+        /// <para>
+        /// Riservato all'Admin e limitato alla <b>richiesta corrente</b>: mostra solo i dati di
+        /// chi sta chiamando, non il traffico di altri utenti.
         /// </para>
         /// <para>
         /// Riservato all'Admin e volutamente limitato alla <b>richiesta corrente</b>: mostra solo

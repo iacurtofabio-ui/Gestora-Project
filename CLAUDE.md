@@ -2,144 +2,155 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 04/09/2026
-Ultima cosa fatta: **Fase 6 chiusa e verificata in produzione (tag `v1.0.2`), poi Fase 7 —
-robustezza del backend — codice completo e verde in locale, NON ancora rilasciata.**
-Tutti e 14 i punti implementati. `dotnet test` **224/224** (erano 168), rebuild completa 0 errori.
-**C'è una migration da applicare**: `20260904134750_AuditLogIndiciEStoricoUtenteProtetto`.
-Prossimo passo: applicare la migration in locale, prove manuali, poi rilascio e **Fase 8 —
-robustezza del frontend**.
+Ultima sessione: 07/09/2026
+Ultima cosa fatta: **Fase 7 completa e verificata in produzione, REV-029 incluso.**
+`dotnet test` **237/237**, rebuild completa 0 errori. Migration applicata in locale e in
+produzione. Resta solo il **tag `v1.0.3`** e la chiusura del tracker.
+Prossimo passo: **Fase 8 — robustezza del frontend**.
 
 ### Stato di dev e main
 
-- `main` = `c25c66e`, tag **`v1.0.2`** = ciò che è in produzione ora.
-- `dev` è avanti: documentazione della Fase 6 (`0fe19b9`) + tutto il lavoro della Fase 7.
-- Per **decisione di Fabio del 04/09** il commit di documentazione della Fase 6 non è stato
-  portato su `main` da solo: sale insieme alla Fase 7, per non fare un deploy di sola
-  documentazione. Trovare `main` indietro è quindi normale, non un disallineamento da correggere.
+- `main` = `dev` = tutto il lavoro della Fase 7 in produzione.
+- Tag pubblicati: `v1.0.0`, `v1.0.1`, **`v1.0.2`** (Fase 6, su `c25c66e`).
+- **`v1.0.3` da creare** sulla punta di `main` dopo l'ultimo commit di REV-029.
 
-### ⚠️ Fase 7 — cosa manca prima di poter rilasciare
+### ⚠️ REV-029 — leggere prima di toccare l'indirizzo IP
 
-1. **Migration in locale**: da `GestoraWebApi/`, `dotnet ef database update` (backend **spento**).
-2. **Migration in produzione**: procedura manuale in testa a `ROADMAP_REVISIONE.md`. **Prima**
-   di applicarla, controllare che nessun dato superi i nuovi limiti di lunghezza:
-   `SELECT max(length("UserId")), max(length("Action")), max(length("IPAddress")) FROM "LogActivities";`
-   → attesi ben sotto 450 / 500 / 45. La nota completa è nel commento in testa alla migration.
-3. **Prove manuali** (nessuna è automatizzabile): elenco utenti Admin ancora corretto dopo il fix
-   dell'N+1; eliminazione di un utente **con** prenotazioni → 409 leggibile; `GET
-   /api/LogActivity/get-log` con token Admin; dashboard con due fasce nello stesso giorno.
-4. **Verifica dell'IP reale in produzione**: dopo il deploy, una riga nuova di `LogActivities`
-   deve portare l'IP del client, non più sempre lo stesso indirizzo del proxy. È la prova che
-   `UseForwardedHeaders` funziona davvero dietro Railway — in locale non è verificabile.
+Il punto è chiuso, ma è costato **tre deploy e tre giorni** per un errore di metodo che vale la
+pena non ripetere.
 
-### Fase 7 — cosa è stato fatto (04/09/2026)
+**Come stanno le cose adesso.** L'indirizzo del client si ricava con `Common/IndirizzoClient`,
+usato da tutti i punti che devono saperlo: i quattro service per l'audit trail, i due controller
+e la partizione del **rate limit del login**. La catena reale, misurata in produzione il
+07/09/2026, è:
 
-Quattro blocchi, `dotnet test` verde alla chiusura di ognuno.
+```
+87.15.141.109  →  79.127.178.81  →  100.64.0.x  →  app
+   client           proxy di frontiera   rete interna
+X-Forwarded-For: "87.15.141.109, 79.127.178.81"
+Connection.RemoteIpAddress: 100.64.0.x
+```
 
-- **Blocco 1 — correttezza.** REV-019 (`?page=0` produceva `Skip(-20)` e faceva fallire la
-  query: ora il valore fuori range rientra nei limiti). REV-020 (l'ordinamento della
-  paginazione era per sola `DataPrenotazione`, cioè **non totale**: fra righe dello stesso
-  giorno il database non promette nulla, quindi navigando le pagine si vedevano duplicati e si
-  perdevano righe; aggiunto `ThenBy(Id)`, e l'`OrderBy` che veniva riapplicato dentro ogni ramo
-  del filtro — perdendo i criteri successivi — è stato spostato dopo i `Where`). REV-018 (il
-  `DeleteAsync` delle fasce invalidava solo `FasceAttive` e non la chiave per giorno: la fascia
-  eliminata restava prenotabile per 30 minuti). REV-031 (404 su collezione vuota rimosso dagli
-  ultimi due punti: `get-prenotazioni-by-data` e `check-disponibilita`). REV-027 (nuovo
-  `CheckDisponibilitaDTOValidator` sull'**unico endpoint pubblico**, che era anche l'unico DTO
-  senza validator; stessi limiti del validator di creazione, più un orizzonte massimo di 365
-  giorni). **REV-099/NEW-003**: `HasPrenotazioniAsync` → `HasPrenotazioniFutureAsync(id, daData)`
-  — un tavolo non è più congelato per sempre dalla sua prima prenotazione conclusa.
-- **Blocco 2 — prestazioni.** REV-021 (elenco utenti: era 1 + N query per via di
-  `GetRolesAsync` dentro il ciclo; ora due query fisse). REV-022 (i due job notturni scrivevano
-  una riga per volta, con una query di ricarica e un `SaveChanges` per ognuna: **1 + 2N** viaggi
-  al database; ora sono due query in tutto, tramite i nuovi `AggiornaStatoAsync` e
-  `EliminaPerIdAsync` del repository). REV-023 (l'`Include` dello storico nel percorso caldo
-  dell'assegnazione: `GetPostazioniAttiveAsync` non lo carica più, e chi ha davvero bisogno delle
-  righe join usa `GetPostazioniAttiveConPrenotazioniAsync`).
-- **Blocco 3 — dati e audit.** REV-029 (`UseForwardedHeaders`). REV-038 (FK a `Restrict`).
-  REV-037 (indici e `MaxLength` su `LogActivities` + nuovo `LogActivityController`, solo Admin).
-  REV-032 residuo (nuovo `Common/IEsecutoreTransazione`, applicato ai 12 punti di scrittura di
-  Zone, Postazioni e Fasce). **È il blocco che porta la migration.**
-- **Blocco 4 — dashboard e documentazione.** REV-039 (i tavoli occupati si contano **per
-  fascia**: un tavolo usato a pranzo tornava occupato anche a cena). REV-028 (solo commento in
-  `Program.cs`: Quartz non è in cluster mode, va abilitato prima di aggiungere repliche).
+Ci sono **due** livelli di proxy, quindi l'helper scarta **un** anello in fondo
+(`AnelliDaScartare`) e prende l'ultimo rimasto. **Non il primo**, che il client può falsificare
+inviando un `X-Forwarded-For` inventato; **non l'ultimo**, che è il proxy.
 
-> **Due effetti collaterali scoperti strada facendo, più importanti del punto che li ha rivelati:**
-> 1. **REV-029 non riguardava solo i log.** Il rate limit del login partiziona su
->    `RemoteIpAddress`, che dietro il proxy è uguale per tutti: era di fatto un limite **globale**
->    di 5 tentativi al minuto per l'intera applicazione — non fermava chi attacca un singolo
->    account e poteva bloccare gli utenti legittimi. Il fix lo rende di nuovo per-client.
->    `ForwardLimit = 1` è ciò che impedisce a un client di falsificare l'header per aggirarlo.
-> 2. **REV-023 non era del tutto come descritto.** L'`Include` sembrava inutile ovunque, ma
->    `PostazioneService.GetPostazioniAttiveAsync` lo usa per popolare
->    `PostazioneDTO.PrenotazioneId`: toglierlo dalla query condivisa avrebbe svuotato quel campo
->    **in silenzio**. Da qui i due metodi separati. Nota per la Fase 9: quel campo il frontend lo
->    legge solo per rimandarlo indietro nell'update, non lo mostra mai — buon candidato alla
->    rimozione.
+**L'errore che è costato i tre giri.** La prima soluzione era `UseForwardedHeaders` con
+`ForwardLimit = 2` — che era **l'ipotesi giusta**. È stata scartata perché la diagnostica mostrava
+`X-Forwarded-For` con un solo valore: ma quel valore era il **residuo dopo il passaggio del
+middleware**, che rimuove dall'header l'anello che elabora. Leggendo un header già consumato
+sembrava esserci un solo proxy.
 
-> **Difetto mio, trovato da un test esistente**: calcolando il picco di tavoli occupati sull'elenco
-> delle **fasce configurate**, le prenotazioni prese su una fascia poi disattivata o eliminata
-> sparivano dal conteggio e la sala risultava libera con i tavoli occupati. Il picco si calcola
-> raggruppando le **prenotazioni** per fascia. Presidiato da
+> ⚠️ **Regola**: per misurare la catena, il middleware che la consuma deve essere **disattivato**.
+> Altrimenti si guarda un dato già modificato e si conclude il contrario del vero.
+
+> ⚠️ **Regola di metodo, più importante**: l'endpoint diagnostico andava messo **subito**, prima
+> di qualunque tentativo. Le prime due correzioni sono state ipotesi sul comportamento interno di
+> un componente non ispezionabile, verificate a colpi di deploy in produzione. Quando un
+> comportamento non è riproducibile in locale, la prima cosa da scrivere è lo strumento che lo
+> rende osservabile.
+
+**`GET /api/LogActivity/diagnostica-inoltro`** (solo Admin) è rimasto in produzione **di
+proposito**: `AnelliDaScartare` dipende da quanti proxy mette la piattaforma, e se quel numero
+cambia l'indirizzo torna silenziosamente sbagliato. Senza quell'endpoint, rimisurare la catena
+richiede di riscriverlo e rilasciarlo — cioè ripetere il giro. Mostra solo la richiesta di chi
+chiama, non il traffico altrui.
+
+**Il fix non riguarda solo i log**: il rate limit del login partiziona sullo stesso valore, quindi
+prima era di fatto un limite **globale** di 5 tentativi al minuto per l'intera applicazione — non
+fermava chi attacca un singolo account e poteva bloccare gli utenti legittimi.
+
+**Verifica finale in produzione (07/09, ore 08:11)**: `indirizzoUsatoDallApplicazione` coincide con
+`api.ipify.org`, e nell'audit trail la riga 205 porta `87.15.141.109` mentre le precedenti
+(203, 204) portano ancora `79.127.178.x` — prima e dopo sugli stessi dati.
+
+### Fase 7 — cosa è stato fatto
+
+Quattro blocchi più REV-029, `dotnet test` verde a ogni chiusura.
+
+- **Blocco 1 — correttezza.** REV-019 (`?page=0` produceva `Skip(-20)` e faceva fallire la query).
+  REV-020 (ordinamento della paginazione non totale: fra righe dello stesso giorno il database non
+  promette nulla, quindi navigando le pagine si vedevano duplicati e si perdevano righe; aggiunto
+  `ThenBy(Id)` e spostato l'`OrderBy` dopo i `Where`, dove prima veniva riapplicato dentro ogni
+  ramo del filtro perdendo i criteri successivi). REV-018 (il `DeleteAsync` delle fasce invalidava
+  solo `FasceAttive` e non la chiave per giorno: la fascia eliminata restava prenotabile per 30
+  minuti). REV-031 (ultimi due 404 su collezione vuota). REV-027 (validator sull'**unico endpoint
+  pubblico**, che era anche l'unico DTO senza validator; orizzonte massimo 365 giorni).
+  **REV-099/NEW-003** (`HasPrenotazioniFutureAsync`: un tavolo non è più congelato per sempre dalla
+  prima prenotazione conclusa).
+- **Blocco 2 — prestazioni.** REV-021 (elenco utenti da 1+N a due query fisse). REV-022 (i due job
+  notturni scrivevano una riga per volta: **1+2N** viaggi al database, ora due query in tutto).
+  REV-023 (`Include` dello storico fuori dal percorso caldo dell'assegnazione).
+- **Blocco 3 — dati e audit.** REV-038 (FK a `Restrict`: eliminare un utente non cancella più il
+  suo storico; l'API risponde 409 leggibile). REV-037 (indici e `MaxLength` su `LogActivities` +
+  `LogActivityController` di sola lettura per l'Admin). REV-032 residuo
+  (`Common/IEsecutoreTransazione` sui 12 punti di scrittura di Zone, Postazioni e Fasce).
+  **È il blocco che ha portato la migration.**
+- **Blocco 4 — dashboard e documentazione.** REV-039 (tavoli occupati contati **per fascia**: uno
+  usato a pranzo tornava occupato anche a cena; il totale di giornata è ora il picco). REV-028
+  (solo commento: Quartz non è in cluster mode, va abilitato prima di aggiungere repliche).
+
+> **Difetto trovato da un test già esistente**: calcolando il picco dei tavoli occupati sull'elenco
+> delle **fasce configurate**, le prenotazioni prese su una fascia poi disattivata sparivano dal
+> conteggio. Il picco si calcola raggruppando le **prenotazioni**. Presidiato da
 > `Giornaliera_ContaITavoli_ancheSeLaFasciaNonEPiuAttiva`.
 
-> **Controprova sui test (come in Fase 5)**: rotti di proposito due punti (l'invalidazione della
-> cache per giorno e il `ThenBy(Id)`) e verificato che fallissero **esattamente** i due test
-> attesi, poi ripristinati.
+> **Rischio di test vacui**: cambiando i job da `UpdateAsync` per riga a una scrittura in blocco, i
+> test negativi che verificavano `UpdateAsync … Times.Never` sarebbero passati **sempre**,
+> controllando un metodo mai più chiamato. Riscritti sul metodo nuovo. Regola: quando cambia il
+> metodo che una classe usa, controllare anche i test negativi, non solo quelli che falliscono.
 
-> **Attenzione a un rischio di test vacui**: cambiando i job da `UpdateAsync` per riga a una
-> scrittura in blocco, i test "non deve toccare nulla" che verificavano
-> `UpdateAsync(...) Times.Never` sarebbero passati **sempre**, controllando un metodo ormai mai
-> chiamato. Sono stati riscritti sul metodo nuovo. Vale come regola: quando si cambia il metodo
-> che una classe usa, controllare anche i test negativi, non solo quelli che falliscono.
+> **Controprove eseguite**: rotti di proposito l'invalidazione della cache per giorno, il
+> `ThenBy(Id)` e la scelta dell'anello in `IndirizzoClient` — in ogni caso sono falliti
+> esattamente i test attesi, poi ripristinati.
 
-### Scelte di prodotto prese con Fabio il 04/09
+### Migration della Fase 7 — applicata
 
-- **REV-038**: eliminazione utente **bloccata** (`Restrict`) se ha prenotazioni, con 409
-  esplicito. Scartate le alternative "sganciare le prenotazioni" e "sostituire l'eliminazione con
-  una disattivazione" (quest'ultima resta un'idea sensata per il futuro, ma è una funzionalità
-  nuova e usciva dal perimetro della fase).
-- **REV-037**: in questa fase **solo l'endpoint API**, nessuna pagina. La consultazione grafica
-  del registro va valutata in Fase 8 o 10, insieme al resto del lavoro frontend — chiuderebbe
-  anche la nota di `AppuntiFix.txt` sulla lettura dei log.
+`20260904141854_AuditLogIndiciEStoricoUtenteProtetto`, applicata in locale e in produzione con lo
+script in `GestoraWebApi/Scripts/`, senza BOM.
 
-### Fase 7 — cosa si è scelto di NON fare
+> **Sanata anche un'anomalia della Fase 2a**: il rename `MaxPrenotazioni`→`MaxCoperti` del 31/08
+> era stato applicato a mano con psql **senza** registrare la riga in `__EFMigrationsHistory`. Lo
+> schema era corretto ma EF continuava a considerare la migration da applicare, e un futuro
+> `database update` avrebbe tentato di rieseguire il rename. Riga inserita a mano il 04/09.
+> **Regola**: se una migration si applica a mano, usare lo script generato da
+> `dotnet ef migrations script`, che include l'`INSERT` nella tabella di history.
 
-- **Paginazione dell'elenco utenti** (citata in REV-021): cambierebbe la forma della risposta e
-  romperebbe `useAdminUtenti` nel frontend. Risolto il solo N+1, che era il problema di
-  prestazioni. La paginazione va affrontata insieme a REV-043 in Fase 8.
-- **Test sull'elenco utenti**: è logica dentro un controller, e il progetto per convenzione non
-  testa i controller (la logica di auth non è estratta in un service). Da rivedere se quella
-  logica verrà spostata in un service.
-- **`PostazioneService.DeleteAsync`** continua a rifiutare l'eliminazione di un tavolo con
-  *qualsiasi* riga join, storico compreso — a differenza di `UpdateAsync` (REV-099). È voluto:
-  eliminare il tavolo distruggerebbe o orfanerebbe lo storico, che è esattamente ciò che REV-038
-  protegge sul versante utenti.
+### Incidente di processo — file nuovi persi in un commit (04/09)
+
+Il primo commit della Fase 7 ha incluso **solo i file già tracciati**: i 12 file nuovi non sono
+entrati e sono stati persi dal working tree. In Visual Studio i file non tracciati vanno spuntati
+esplicitamente, e un "Annulla modifiche" su di essi li **elimina**.
+
+Complicazione: `GestoraContextModelSnapshot.cs`, essendo tracciato, era stato committato **già
+aggiornato** mentre il file della migration mancava. Rigenerando in quello stato la migration
+sarebbe uscita **vuota**. Ripristinato lo snapshot allo stato precedente e rigenerata.
+
+> **Regola**: prima di confermare un commit, controllare il **numero** di file inclusi.
+
+### Sicurezza — password Admin di produzione ruotata (07/09)
+
+Durante le prove la password è finita in chiaro in chat (`Read-Host` senza `-AsSecureString` la
+mostra a schermo). **Già cambiata.** Per input di credenziali usare sempre:
+`$sec = Read-Host "Password" -AsSecureString`.
 
 ### Ambiente locale — residui da ripulire quando si vuole
 
 Utente di prova `testfase6` (promosso a **Staff** con un `INSERT` diretto in `AspNetUserRoles`) e
-una prenotazione di prova del **07/09** (tavolo 1, Sala). Riguarda **solo il database locale**.
-Per rimuoverli, da `GestoraWebApi/` con `PGPASSWORD` preso dagli User Secrets:
+una prenotazione di prova del **07/09** (tavolo 1, Sala). Solo database **locale**.
 `DELETE FROM "AspNetUserRoles" WHERE "UserId" IN (SELECT "Id" FROM "Utenti" WHERE "UserName"='testfase6');`
 poi la prenotazione e infine l'utente.
 
-> **Nota sul tracker**: il protocollo in questo file indica il verde `#C6EFCE`, ma tutte le celle
-> "Completato" già presenti nel file usano `#C6E7CE`. Le righe nuove sono state allineate al
-> **file**. Da decidere quale dei due è quello buono e correggere l'altro.
+> **Nota sul tracker**: il protocollo indica il verde `#C6EFCE`, ma tutte le celle "Completato" del
+> file usano `#C6E7CE`. Le righe nuove sono allineate al **file**. Da decidere quale tenere.
 
-### Fase 6 — chiusa e verificata in produzione (04/09/2026) ✅
+### Fase 6 — chiusa e verificata (04/09/2026) ✅
 
-Prove sui dati reali superate (zona in creazione, modal di modifica, pulsante Elimina con i tre
-ruoli). Controlli automatici: `/health` 200, `Setup/stato` con `setupCompletato: true`,
-`get-zone-attive` senza token 401, frontend Vercel 200.
-
-**`VITE_API_URL` su Vercel — confermata senza aprire il pannello.** Nel bundle pubblicato la
-`baseURL` compare come **stringa letterale** verso Railway e la schermata `ConfigurazioneMancante`
-**non c'è**: Vite sostituisce `import.meta.env.VITE_API_URL` a build time, quindi con la variabile
-impostata quel ramo diventa codice morto e sparisce nel tree-shaking. La sua **assenza** dal
-bundle è la prova che la variabile c'era. Tecnica riutilizzabile per verificare dall'esterno
-qualsiasi variabile Vite in produzione.
+Prove sui dati reali superate. **`VITE_API_URL` su Vercel confermata senza aprire il pannello**:
+nel bundle la `baseURL` compare come stringa letterale e la schermata `ConfigurazioneMancante`
+**non c'è** — Vite sostituisce `import.meta.env` a build time, quindi con la variabile impostata
+quel ramo diventa codice morto e sparisce nel tree-shaking. La sua **assenza** è la prova che la
+variabile c'era. Tecnica riutilizzabile per verificare dall'esterno qualsiasi variabile Vite.
 
 ### Fase 6 — riepilogo
 

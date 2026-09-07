@@ -192,13 +192,26 @@ test usare `TestClock` (istante fisso).
   un 409. Regola: la cache si invalida **dopo** il commit, mai dentro il blocco. Nei test si usa
   `EsecutoreTransazioneFinto`, che con `Esegui = false` permette di dimostrare cosa sta dentro il
   blocco atomico (quello che non parte, era dentro).
-- **Indirizzo IP reale (REV-029, Fase 7)**: `UseForwardedHeaders` e' registrato **per primo** in
-  `Program.cs`, con `KnownNetworks`/`KnownProxies` svuotati (il proxy della piattaforma non e' su
-  loopback) e `ForwardLimit = 1`. Quest'ultimo non e' un dettaglio: prende solo l'ultimo anello
-  della catena `X-Forwarded-For`, quello scritto dal proxy, quindi un client non puo' falsificare
-  l'header. Oltre all'audit trail, il fix rimette in sesto il **rate limit del login**, che
-  partiziona su `RemoteIpAddress`: prima era di fatto un limite globale di 5 tentativi al minuto
-  per tutta l'applicazione.
+- **Indirizzo IP reale (REV-029, Fase 7)** — `Common/IndirizzoClient`, usato da tutti i punti che
+  devono sapere chi ha fatto la richiesta: i quattro service per l'audit trail, i due controller,
+  e la partizione del **rate limit del login** in `Program.cs`. **Non usare
+  `Connection.RemoteIpAddress` direttamente**: dietro il proxy e' un indirizzo di rete interna
+  (`100.64.0.x`), uguale per chiunque.
+  - La catena reale misurata in produzione il 07/09/2026 e':
+    `X-Forwarded-For: <client>, <proxy di frontiera>` con `RemoteIpAddress` sulla rete interna.
+    Ci sono **due** livelli di proxy, quindi l'helper scarta **un** anello in fondo
+    (`AnelliDaScartare`) e prende quello che resta per ultimo. Non il primo, che il client puo'
+    falsificare; non l'ultimo, che e' il proxy.
+  - `UseForwardedHeaders` e' stato provato e **rimosso**: funzionava, ma prendeva l'ultimo anello,
+    cioe' il proxy. Il motivo per cui la diagnosi e' costata tre deploy e' che il middleware
+    **rimuove dall'header l'anello che elabora**: guardando `X-Forwarded-For` a valle sembrava
+    esserci un solo proxy. ⚠️ **Se serve rimisurare la catena, farlo con il middleware
+    disattivato**, altrimenti si legge un header gia' consumato.
+  - `GET /api/LogActivity/diagnostica-inoltro` (Admin) esiste apposta per rimisurarla senza
+    scrivere codice nuovo. Tenuto in produzione di proposito.
+  - Il fix non riguarda solo i log: prima il rate limit del login era di fatto **globale**
+    (5 tentativi al minuto per l'intera applicazione), perche' tutti finivano nella stessa
+    partizione.
 - **Storico e utenti (REV-038, Fase 7)**: la FK `Prenotazioni → Utenti` e' `Restrict`, non piu'
   `Cascade`. Un utente con prenotazioni **non si elimina**: `DELETE delete-user/{id}` risponde
   409 con un messaggio esplicito. E' voluto: lo storico regge i conteggi di coperti e presenze.
@@ -263,7 +276,7 @@ test usare `TestClock` (istante fisso).
 (`FasciaOrariaServiceTe.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
 `PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`, `DisponibilitaServiceTests.cs`,
 `DashboardServiceTests.cs`) più `Validators/PrenotazioneCreateDTOValidatorTests.cs` e
-`Infrastructure/DbExceptionTranslatorTests.cs`. **224 test totali** (04/09/2026, Fase 7).
+`Infrastructure/DbExceptionTranslatorTests.cs`. **237 test totali** (07/09/2026, Fase 7).
 Nota: `PrenotazioniServiceTests` configura il contesto InMemory con
 `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — l'InMemory non
 supporta le transazioni e senza quella riga il service, che ora ne apre una, farebbe fallire
