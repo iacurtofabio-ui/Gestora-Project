@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { AxiosError } from 'axios'
 import apiClient from '@/lib/axios'
 import type { ZonaDTO, ZonaFormDTO } from '@/types/zona'
-import type { ApiErrorResponse } from '@/types/apiError'
+import { segnalaErrore } from '@/lib/apiError'
 import { toast } from 'sonner'
 
 export function useZone() {
@@ -36,14 +35,7 @@ export function useCreaZona() {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona creata con successo')
     },
-    onError: (error: AxiosError<ApiErrorResponse>) => {
-      const data = error.response?.data
-      const errors = data?.errors ?? []
-      const msg = errors.length > 0
-        ? errors.map((e) => e.error).join(', ')
-        : (data?.message ?? 'Errore durante la creazione')
-      toast.error(msg)
-    },
+    onError: segnalaErrore('Errore durante la creazione'),
   })
 }
 
@@ -55,14 +47,7 @@ export function useUpdateZona() {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona aggiornata con successo')
     },
-    onError: (error: AxiosError<ApiErrorResponse>) => {
-      const data = error.response?.data
-      const errors = data?.errors ?? []
-      const msg = errors.length > 0
-        ? errors.map((e) => e.error).join(', ')
-        : (data?.message ?? 'Errore durante l\'aggiornamento')
-      toast.error(msg)
-    },
+    onError: segnalaErrore('Errore durante l\'aggiornamento'),
   })
 }
 
@@ -74,14 +59,7 @@ export function useDeleteZona() {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona eliminata con successo')
     },
-    onError: (error: AxiosError<ApiErrorResponse>) => {
-      const data = error.response?.data
-      const errors = data?.errors ?? []
-      const msg = errors.length > 0
-        ? errors.map((e) => e.error).join(', ')
-        : (data?.message ?? 'Errore durante la cancellazione')
-      toast.error(msg)
-    }
+    onError: segnalaErrore('Errore durante la cancellazione'),
   })
 }
 
@@ -94,13 +72,6 @@ export function useUpdateStatoZona() {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Stato della zona aggiornato con successo')
     },
-    onError: (error: AxiosError<ApiErrorResponse>) => {
-      const data = error.response?.data
-      const errors = data?.errors ?? []
-      const msg = errors.length > 0
-        ? errors.map((e) => e.error).join(', ')
-        : (data?.message ?? 'Errore durante l\'aggiornamento stato')
-      toast.error(msg)
-    },
+    onError: segnalaErrore('Errore durante l\'aggiornamento stato'),
   })
 }

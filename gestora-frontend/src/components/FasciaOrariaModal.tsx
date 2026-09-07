@@ -31,7 +31,7 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
     const creaFascia = useCreaFasciaOraria()
     const updateFascia = useUpdateFasciaOraria()
 
-    const { register, handleSubmit, formState: { errors, isSubmitting }, reset, } = useForm<FasciaOrariaFormDTO>({
+    const { register, handleSubmit, formState: { errors }, reset, } = useForm<FasciaOrariaFormDTO>({
         resolver: zodResolver(schema),
         defaultValues: {
             orarioInizio: fascia?.orarioInizio,
@@ -51,6 +51,12 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
             attiva: fascia?.attiva ?? true,
         })
     }, [fascia, reset])
+
+    // REV-044: il pulsante segue lo stato della mutation, non isSubmitting di react-hook-form.
+    // Quest'ultimo torna false appena onSubmit ritorna, e onSubmit lancia mutate() senza attenderla:
+    // il pulsante si riabilitava mentre la richiesta era ancora in volo, quindi un secondo clic
+    // partiva davvero e creava un doppione.
+    const inCorso = creaFascia.isPending || updateFascia.isPending
 
     function onSubmit(data: FasciaOrariaFormDTO) {
         if (fascia) {
@@ -122,8 +128,8 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
                         />
                         <span>Attiva</span>
                     </div>
-                    <button type="submit" className="bg-blue-500 text-white px-3 py-1 rounded" disabled={isSubmitting}>
-                        Salva
+                    <button type="submit" className="bg-blue-500 text-white px-3 py-1 rounded" disabled={inCorso}>
+                        {inCorso ? 'Salvataggio...' : 'Salva'}
                     </button>
                 </form>
             </DialogContent>

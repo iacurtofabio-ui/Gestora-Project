@@ -2,17 +2,135 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 07/09/2026
-Ultima cosa fatta: **Fase 7 completa e verificata in produzione, REV-029 incluso.**
-`dotnet test` **237/237**, rebuild completa 0 errori. Migration applicata in locale e in
-produzione. Resta solo il **tag `v1.0.3`** e la chiusura del tracker.
-Prossimo passo: **Fase 8 — robustezza del frontend**.
+Ultima sessione: 07/09/2026 (seconda sessione della giornata)
+Ultima cosa fatta: **Fase 8 — robustezza del frontend, codice completo e verde in locale.**
+`npm test` **26/26** (primi test frontend del progetto), `tsc -b --force` **0 errori con `strict`
+attivo**, `npm run build` pulita, eslint 0 errori, `dotnet test` **237/237 invariato** (il backend
+non è stato toccato). **Nessuna migration.**
+Prova manuale eseguita in locale: **REV-041 confermato end-to-end** (backend spento → toast
+"Server non raggiungibile" invece del messaggio generico).
+Prossimo passo: **commit e push** (**35 file**: 24 modificati + **11 nuovi**, vedi avvertenza
+sotto), merge su `main` → deploy Vercel, poi **Fase 9 — pulizia**.
+
+### ⚠️ Prima di committare la Fase 8
+
+Il commit contiene **11 file nuovi**. In Visual Studio i file non tracciati vanno **spuntati
+esplicitamente**: è esattamente l'incidente del 04/09 (12 file nuovi persi, sezione più sotto).
+Contare **34 file** prima di confermare.
+
+⚠️ Attenzione al conteggio: `git status` breve mostra **10** voci non tracciate, non 11, perché
+raggruppa le cartelle nuove — `src/lib/__tests__/` è una riga sola ma contiene **due** file.
+Per l'elenco reale serve `git status --untracked-files=all`. Stesso rischio nell'interfaccia di
+Visual Studio, che mostra le cartelle nuove come un solo nodo da spuntare.
+
+```
+src/lib/apiError.ts          src/lib/jwt.ts             src/lib/queryClient.ts
+src/lib/validazioni.ts       src/components/Paginazione.tsx
+src/components/DevtoolsQuery.tsx                        src/test/setup.ts
+src/lib/__tests__/jwt.test.ts                           src/lib/__tests__/apiError.test.ts
+src/router/__tests__/ProtectedRoute.test.tsx
+src/components/__tests__/PrenotazioneModal.fasce.test.tsx
+```
 
 ### Stato di dev e main
 
-- `main` = `dev` = tutto il lavoro della Fase 7 in produzione.
-- Tag pubblicati: `v1.0.0`, `v1.0.1`, **`v1.0.2`** (Fase 6, su `c25c66e`).
-- **`v1.0.3` da creare** sulla punta di `main` dopo l'ultimo commit di REV-029.
+- `main` = `dev` = tutto il lavoro della Fase 7 in produzione; la Fase 8 è **solo nel working
+  tree**, non ancora committata.
+- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), **`v1.0.3`** (Fase 7, su `2eb2a5c`) —
+  verificato su GitHub il 07/09.
+
+### Fase 8 — riepilogo (codice chiuso 07/09/2026)
+
+Dieci punti chiusi; **REV-040** (cache svuotata al logout) e **REV-045** (ConfirmDialog
+riutilizzabile) erano **già chiusi in Fase 6** — verificati sul codice, non sulla roadmap.
+
+- **REV-041 — un solo posto per gli errori API.** Lo stesso blocco di sei righe era ripetuto
+  **26 volte** fra hook e componenti: cambiava solo la frase di ripiego. Ora `lib/apiError.ts`
+  (`messaggioErrore`, `segnalaErrore`), usato come `onError: segnalaErrore('...')`. Aggiunto un
+  caso che prima non esisteva: **senza `response` la richiesta non è mai partita** (backend spento,
+  rete assente) e dirlo è diverso da "errore durante la creazione".
+- **REV-043 — oltre 100 prenotazioni i dati sparivano.** L'hook chiedeva `pageSize: 100` fisso e
+  teneva solo `.items`, **scartando `totalCount` e `totalPages` che il backend già restituisce**:
+  dalla 101ª riga in poi i dati non esistevano per l'interfaccia, senza alcun avviso. Ora 20 righe
+  per pagina, componente `Paginazione`, filtri che riportano a pagina 1, `keepPreviousData` per non
+  svuotare la tabella a ogni clic. L'endpoint del Cliente non è paginato: la sua risposta viene
+  riportata alla stessa forma (pagina unica), per non tenere due percorsi nella pagina.
+- **REV-044 — il doppio invio era reale.** Zona, Fascia e Postazione disabilitavano il pulsante con
+  `isSubmitting` di react-hook-form, che torna `false` **appena `onSubmit` ritorna**; siccome
+  `onSubmit` lancia `mutate()` senza attenderla, il pulsante si riabilitava con la richiesta ancora
+  in volo. Ora seguono `isPending` della mutation.
+- **REV-042 — notifiche doppie.** `PostazioneModal` passava toast propri ai callback di `mutate()`
+  mentre l'hook ne emetteva già di suoi. Era l'unica pagina a farlo.
+- **REV-046 — `strict` attivato: zero errori.** Il codice era già scritto in modo type-safe. Uno
+  zero è sospetto, quindi **controprova**: iniettato un errore che solo `strictNullChecks` rileva
+  (TS18047), comparso e poi sparito rimuovendolo.
+- **REV-047 — primi 26 test del frontend** (Vitest + Testing Library, prima non ce n'erano):
+  lettura difensiva del token (10 — il caso REV-014 della schermata bianca, finora provato solo a
+  mano in browser), helper degli errori (5), `ProtectedRoute` su accesso e ruoli (6), scelta della
+  fascia oraria (5).
+- **REV-048 — e un difetto più ampio dietro.** `EditUserModal` e `ResetPasswordModal` erano gli
+  unici form senza zod, ma nel farlo è emerso che **la password aveva quattro definizioni diverse**
+  e solo `SetupPage` aveva quella giusta: registrazione e creazione utente da Admin accettavano 6
+  caratteri qualsiasi mentre `RegisterDTOValidator` e `AdminResetPasswordDTOValidator` (REV-013)
+  chiedono 8 con maiuscola, numero e carattere speciale. Il form lasciava passare e il rifiuto
+  arrivava dal server. Regole in `lib/validazioni.ts`, applicate ai quattro form.
+- **REV-049 — `QueryClient` con impostazioni.** Niente nuovi tentativi sui **4xx** (un 403 è una
+  decisione del server: in Fase 6 la select delle zone per il Cliente produceva **quattro** 403 di
+  fila, e su un 401 ogni tentativo passa dall'interceptor che chiude la sessione), `staleTime` 30s,
+  niente refetch al rientro sulla finestra, **nessun retry sulle mutation** (ripeterle crea
+  doppioni).
+- **REV-050 — decodifica del token in `lib/jwt.ts`**, unico punto che legge un token. È una
+  *lettura*, non una verifica: la firma non è controllabile lato client.
+- **REV-076 — devtools fuori dalla produzione.** La condizione `import.meta.env.DEV` sta **fuori**
+  dal componente: tenendola dentro, il ramo morto spariva ma **restava un chunk vuoto** da
+  scaricare. Verificato sul pacchetto costruito: `ReactQueryDevtools` non compare più in `dist/`.
+
+> **Test vacuo scoperto dalla controprova.** Rotti di proposito due punti: la protezione della
+> decodifica del token (2 test falliti, come atteso) e l'azzeramento della fascia al cambio giorno
+> — e lì **non è fallito niente**. Il test misurava un effetto del DOM: cambiando giorno cambiava
+> anche la lista delle fasce, quindi l'`<option>` selezionata spariva da sola e la select si
+> svuotava **anche senza alcun azzeramento**. Riscritto tenendo la stessa fascia disponibile in
+> entrambi i giorni, così l'unica spiegazione di un valore vuoto è l'azzeramento vero. È la stessa
+> famiglia di rischio dei test negativi sui job in Fase 7.
+> **Regola**: un test verde su codice rotto non è un test.
+
+> **Il typecheck della build ha trovato quello che Vitest non vedeva**: un fixture usava `giorno`
+> invece di `giornoSettimana`. `vitest run` non fa type-checking, `tsc -b` sì. I test vanno
+> **compilati**, non solo eseguiti — `npm test` verde non sostituisce `npm run build`.
+
+> **Prove manuali — stato al 07/09.** Eseguita e **superata** quella del server irraggiungibile
+> (REV-041): caricata la pagina Prenotazioni con il backend acceso, spento il backend e agito sulla
+> tabella senza ricaricare → toast *"Server non raggiungibile. Controlla la connessione e riprova."*
+> **Non** eseguite le altre quattro, nessuna bloccante — la logica è coperta dai 26 test automatici
+> e resta scoperto solo l'aspetto a schermo: barra di paginazione (per vederla serve superare le 20
+> righe, oppure abbassare `RIGHE_PER_PAGINA` in `PrenotazionePage.tsx` per la sola prova), notifica
+> singola sul salvataggio di una postazione, pulsante bloccato al doppio clic su Zona/Fascia,
+> password debole rifiutata dal form invece che dal server.
+>
+> **Da provare in produzione** dopo il merge: che l'app si apra e il login funzioni sui tre ruoli,
+> e che i devtools di React Query non compaiano — quest'ultima è una conferma, non una verifica:
+> `ReactQueryDevtools` è già assente dal pacchetto costruito in locale, che è lo stesso che
+> costruisce Vercel.
+
+> **NEW-006 — emerso provando REV-041 (07/09)**: la centralizzazione dei messaggi vale solo per le
+> **scritture** (`onError` delle mutation). I **caricamenti** falliti mostrano ancora un testo fisso
+> scritto in ogni pagina — "Errore nel caricamento" in Dashboard, Zone, Postazioni, Fasce e
+> Prenotazioni, "…utenti" nel pannello Admin — uguale che il server sia spento, che manchino i
+> permessi o che il database sia rotto. Solo `PrenotazionePage` distingue il 403.
+> Conseguenza pratica da sapere: **con il backend già spento non si riesce a provare REV-041**,
+> perché la pagina si ferma alla schermata di errore e non si arriva al pulsante di salvataggio.
+> La prova va fatta caricando la pagina con il backend acceso, spegnendolo dopo, e agendo sulla
+> tabella senza ricaricare. Rimandato alla **Fase 10** per decisione del 07/09: lì si rifanno
+> comunque tutti gli stati di pagina (REV-073, REV-074) e farlo due volte è lavoro sprecato.
+
+> **Nota lasciata aperta di proposito**: `@tanstack/react-query-devtools` resta fra le
+> `dependencies` e non fra le `devDependencies`, dove starebbe meglio. Spostarlo romperebbe la
+> build se un giorno Vercel installasse con `--omit=dev`, e il guadagno è nullo: dal pacchetto è
+> già sparito. Da valutare in Fase 9 insieme al resto della pulizia.
+
+> **`npm audit` segnala 18 vulnerabilità** (3 basse, 3 medie, 12 alte) dopo l'aggiunta di Vitest.
+> Non sono state esaminate: quasi tutte in dipendenze di sviluppo, che non finiscono nel pacchetto
+> pubblicato. Da guardare con calma, non in chiusura di fase.
 
 ### ⚠️ REV-029 — leggere prima di toccare l'indirizzo IP
 

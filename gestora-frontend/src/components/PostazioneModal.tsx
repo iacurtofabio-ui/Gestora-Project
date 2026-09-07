@@ -3,12 +3,9 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
-import type { AxiosError } from 'axios'
 import type { PostazioneDTO } from "@/types/postazione";
-import type { ApiErrorResponse } from '@/types/apiError'
 import { useCreaPostazione, useUpdatePostazione } from "@/hooks/usePostazioni";
 import { useZone } from "@/hooks/useZone";
-import { toast } from "sonner";
 
 const schema = z.object({
     numero: z.number().min(1, 'Numero obbligatorio'),
@@ -31,7 +28,7 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
     const updatePostazione = useUpdatePostazione()
     const zone = useZone()
 
-    const { register, handleSubmit, formState: { errors, isSubmitting }, reset, } = useForm<PostazioneForm>({
+    const { register, handleSubmit, formState: { errors }, reset, } = useForm<PostazioneForm>({
         resolver: zodResolver(schema),
         defaultValues: {
             numero: postazione?.numero,
@@ -49,40 +46,22 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
         })
     }, [postazione, reset])
 
+    // REV-044: il pulsante segue lo stato della mutation, non isSubmitting di react-hook-form.
+    // Quest'ultimo torna false appena onSubmit ritorna, e onSubmit lancia mutate() senza attenderla:
+    // il pulsante si riabilitava mentre la richiesta era ancora in volo, quindi un secondo clic
+    // partiva davvero e creava un doppione.
+    const inCorso = creaPostazione.isPending || updatePostazione.isPending
+
+    // REV-042: qui restava solo la chiusura del modal. Il messaggio di esito - riuscito o fallito -
+    // lo emette gia' l'hook (usePostazioni), quindi ripeterlo anche qui mostrava due toast per ogni
+    // singolo salvataggio: uno dal componente e uno dalla mutation. Era l'unica pagina a farlo.
     function onSubmit(data: PostazioneForm) {
         if (postazione) {
-            updatePostazione.mutate({ ...data, id: postazione.id, prenotazioneId: postazione.prenotazioneId },
-                {
-                    onSuccess: () => {
-                        toast.success('Postazione aggiornata con successo')
-                        onClose()
-                    },
-                    onError: (error: AxiosError<ApiErrorResponse>) => {
-                        const data = error.response?.data
-                        const errors = data?.errors
-                        if (errors && errors.length > 0) {
-                            errors.forEach(e => toast.error(e.error))
-                        } else {
-                            toast.error(data?.message ?? 'Errore imprevisto')
-                        }
-                    }
-                })
+            updatePostazione.mutate(
+                { ...data, id: postazione.id, prenotazioneId: postazione.prenotazioneId },
+                { onSuccess: () => onClose() })
         } else {
-            creaPostazione.mutate(data, {
-                onSuccess: () => {
-                    toast.success('Postazione creata con successo')
-                    onClose()
-                },
-                onError: (error: AxiosError<ApiErrorResponse>) => {
-                    const data = error.response?.data
-                    const errors = data?.errors
-                    if (errors && errors.length > 0) {
-                        errors.forEach(e => toast.error(e.error))
-                    } else {
-                        toast.error(data?.message ?? 'Errore imprevisto')
-                    }
-                }
-            })
+            creaPostazione.mutate(data, { onSuccess: () => onClose() })
         }
     }
     return (
@@ -133,8 +112,8 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
                         />
                         <span>Attiva</span>
                     </div>
-                    <button type="submit" className="bg-blue-500 text-white px-3 py-1 rounded" disabled={isSubmitting}>
-                        Salva
+                    <button type="submit" className="bg-blue-500 text-white px-3 py-1 rounded" disabled={inCorso}>
+                        {inCorso ? 'Salvataggio...' : 'Salva'}
                     </button>
                 </form>
             </DialogContent>

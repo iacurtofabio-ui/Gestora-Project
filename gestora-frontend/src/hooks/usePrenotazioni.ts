@@ -1,9 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { AxiosError } from 'axios'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import apiClient from '@/lib/axios'
 import { toast } from 'sonner'
 import type { PrenotazioneDTO, PrenotazioneCreateDTO } from '@/types/prenotazione'
-import type { ApiErrorResponse } from '@/types/apiError'
+import { segnalaErrore } from '@/lib/apiError'
 import { useAuth } from '@/hooks/useAuth'
 
 type PrenotazioniParams = {
@@ -13,6 +12,7 @@ type PrenotazioniParams = {
     pageSize?: number
 }
 
+/** Forma della risposta paginata del backend (PagedResult<T>). */
 type PrenotazioniPaginatedResponse = {
     items: PrenotazioneDTO[]
     totalCount: number
@@ -21,20 +21,42 @@ type PrenotazioniPaginatedResponse = {
     totalPages: number
 }
 
+/**
+ * REV-043 — pagina di prenotazioni, con i suoi metadati.
+ *
+ * Prima l'hook chiedeva `pageSize: 100` fisso e teneva solo `.items`, buttando via totalCount e
+ * totalPages che il backend restituisce gia'. Il risultato: superate le 100 prenotazioni le righe
+ * successive semplicemente non esistevano per l'interfaccia, senza alcun avviso - il caso peggiore,
+ * perche' i dati mancanti non si vedono. In un locale reale si arriva a 100 prenotazioni in
+ * qualche settimana.
+ *
+ * Il Cliente usa un endpoint diverso, non paginato (get-mie-prenotazioni, che restituisce solo le
+ * proprie e sono poche): per non costringere la pagina a due rami diversi, la sua risposta viene
+ * riportata alla stessa forma, come un'unica pagina che contiene tutto.
+ */
 export function usePrenotazioni(params: PrenotazioniParams = {}) {
     const { user } = useAuth()
     const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
 
-    return useQuery<PrenotazioneDTO[]>({
+    return useQuery<PrenotazioniPaginatedResponse>({
         queryKey: ['prenotazioni', isStaff, params],
         queryFn: () =>
             isStaff
                 ? apiClient
                     .get<PrenotazioniPaginatedResponse>('/Prenotazione/get-all-prenotazioni', { params })
-                    .then(r => r.data.items)
+                    .then(r => r.data)
                 : apiClient
                     .get<PrenotazioneDTO[]>('/Prenotazione/get-mie-prenotazioni')
-                    .then(r => r.data),
+                    .then(r => ({
+                        items: r.data,
+                        totalCount: r.data.length,
+                        page: 1,
+                        pageSize: r.data.length,
+                        totalPages: 1,
+                    })),
+        // Cambiando pagina si tengono a video i dati precedenti finche' arrivano i nuovi: senza,
+        // la tabella si svuota e l'intestazione salta a ogni clic su Successiva.
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -46,14 +68,7 @@ export function useCreaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione creata con successo')
         },
-        onError: (error: AxiosError<ApiErrorResponse>) => {
-            const data = error.response?.data
-            const errors = data?.errors ?? []
-            const msg = errors.length > 0
-                ? errors.map((e) => e.error).join(', ')
-                : (data?.message ?? 'Errore durante la creazione')
-            toast.error(msg)
-        },
+        onError: segnalaErrore('Errore durante la creazione'),
     })
 }
 
@@ -72,14 +87,7 @@ export function useModificaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione modificata con successo')
         },
-        onError: (error: AxiosError<ApiErrorResponse>) => {
-            const data = error.response?.data
-            const errors = data?.errors ?? []
-            const msg = errors.length > 0
-                ? errors.map((e) => e.error).join(', ')
-                : (data?.message ?? 'Errore durante la modifica')
-            toast.error(msg)
-        },
+        onError: segnalaErrore('Errore durante la modifica'),
     })
 }
 
@@ -91,14 +99,7 @@ export function useConfermaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione confermata')
         },
-        onError: (error: AxiosError<ApiErrorResponse>) => {
-            const data = error.response?.data
-            const errors = data?.errors ?? []
-            const msg = errors.length > 0
-                ? errors.map((e) => e.error).join(', ')
-                : (data?.message ?? 'Errore durante la conferma')
-            toast.error(msg)
-        },
+        onError: segnalaErrore('Errore durante la conferma'),
     })
 }
 
@@ -110,14 +111,7 @@ export function useCompletaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione completata')
         },
-        onError: (error: AxiosError<ApiErrorResponse>) => {
-            const data = error.response?.data
-            const errors = data?.errors ?? []
-            const msg = errors.length > 0
-                ? errors.map((e) => e.error).join(', ')
-                : (data?.message ?? 'Errore durante il completamento')
-            toast.error(msg)
-        },
+        onError: segnalaErrore('Errore durante il completamento'),
     })
 }
 
@@ -129,14 +123,7 @@ export function useAnnullaPrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione annullata')
         },
-        onError: (error: AxiosError<ApiErrorResponse>) => {
-            const data = error.response?.data
-            const errors = data?.errors ?? []
-            const msg = errors.length > 0
-                ? errors.map((e) => e.error).join(', ')
-                : (data?.message ?? 'Errore durante l\'annullamento')
-            toast.error(msg)
-        },
+        onError: segnalaErrore('Errore durante l\'annullamento'),
     })
 }
 
@@ -148,13 +135,6 @@ export function useDeletePrenotazione() {
             queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
             toast.success('Prenotazione eliminata')
         },
-        onError: (error: AxiosError<ApiErrorResponse>) => {
-            const data = error.response?.data
-            const errors = data?.errors ?? []
-            const msg = errors.length > 0
-                ? errors.map((e) => e.error).join(', ')
-                : (data?.message ?? 'Errore durante l\'eliminazione')
-            toast.error(msg)
-        },
+        onError: segnalaErrore('Errore durante l\'eliminazione'),
     })
 }

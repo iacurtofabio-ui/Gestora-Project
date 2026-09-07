@@ -9,8 +9,12 @@ import {
 } from '@/hooks/usePrenotazioni'
 import PrenotazioneModal from '@/components/PrenotazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import Paginazione from '@/components/Paginazione'
 import { STATI_PRENOTAZIONE, STATO_LABELS, type PrenotazioneDTO } from '@/types/prenotazione'
 import { useAuth } from '@/hooks/useAuth'
+
+// REV-043: 20 righe stanno in una schermata senza scorrere. Il backend accetta al massimo 100.
+const RIGHE_PER_PAGINA = 20
 
 const OPZIONI_STATO = [
     { value: '', label: 'Tutti gli stati' },
@@ -28,6 +32,19 @@ export default function PrenotazionePage() {
     const isAdmin = user?.roles.includes('Admin')
     const [filtroData, setFiltroData] = useState('')
     const [filtroStato, setFiltroStato] = useState('')
+    const [pagina, setPagina] = useState(1)
+
+    // Cambiando filtro il numero di pagine cambia: restando sulla pagina corrente si puo' finire
+    // oltre l'ultima e vedere una tabella vuota che sembra "nessun risultato".
+    function cambiaFiltroData(valore: string) {
+        setFiltroData(valore)
+        setPagina(1)
+    }
+
+    function cambiaFiltroStato(valore: string) {
+        setFiltroStato(valore)
+        setPagina(1)
+    }
     const [isModalOpen, setIsModalOpen] = useState(false)
     // NEW-001: lo stesso modal serve creazione e modifica. Se questa e' valorizzata il modal si
     // apre precompilato e salva con PUT, altrimenti crea.
@@ -53,7 +70,8 @@ export default function PrenotazionePage() {
     const prenotazioni = usePrenotazioni({
         data: filtroData || undefined,
         stato: filtroStato || undefined,
-        pageSize: 100,
+        page: pagina,
+        pageSize: RIGHE_PER_PAGINA,
     })
 
     const conferma = useConfermaPrenotazione()
@@ -84,12 +102,12 @@ export default function PrenotazionePage() {
                                 type="date"
                                 className="border rounded px-3 py-1 text-sm"
                                 value={filtroData}
-                                onChange={(e) => setFiltroData(e.target.value)}
+                                onChange={(e) => cambiaFiltroData(e.target.value)}
                             />
                             <select
                                 className="border rounded px-3 py-1 text-sm"
                                 value={filtroStato}
-                                onChange={(e) => setFiltroStato(e.target.value)}
+                                onChange={(e) => cambiaFiltroStato(e.target.value)}
                             >
                                 {OPZIONI_STATO.map((o) => (
                                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -120,7 +138,7 @@ export default function PrenotazionePage() {
                     </tr>
                 </thead>
                 <tbody>
-                    {prenotazioni.data?.map((p) => (
+                    {prenotazioni.data?.items.map((p) => (
                         <tr key={p.id} className="border-b">
                             <td className="p-3">{p.dataPrenotazione}</td>
                             <td className="p-3">{p.nomeCliente ?? p.nomeUtente}</td>
@@ -193,6 +211,16 @@ export default function PrenotazionePage() {
                     ))}
                 </tbody>
             </table>
+
+            <Paginazione
+                pagina={prenotazioni.data?.page ?? 1}
+                paginePresenti={prenotazioni.data?.totalPages ?? 1}
+                totaleElementi={prenotazioni.data?.totalCount ?? 0}
+                elementiInPagina={prenotazioni.data?.items.length ?? 0}
+                pageSize={RIGHE_PER_PAGINA}
+                inCaricamento={prenotazioni.isFetching}
+                onCambioPagina={setPagina}
+            />
 
             <PrenotazioneModal
                 isOpen={isModalOpen}

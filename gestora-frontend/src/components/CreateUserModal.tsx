@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCreateUser } from '@/hooks/useAdminUtenti'
 import { RUOLI_DISPONIBILI } from '@/types/utente'
+import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
 import type { CreateUserFormDTO } from '@/types/utente'
 
 type Props = {
@@ -15,9 +16,9 @@ type Props = {
 }
 
 const schema = z.object({
-  username: z.string().min(1, 'Username obbligatorio'),
-  email: z.string().email('Email non valida'),
-  password: z.string().min(6, 'Almeno 6 caratteri'),
+  username: usernameSchema,
+  email: emailSchema,
+  password: passwordSchema,
   role: z.enum(RUOLI_DISPONIBILI),
 })
 

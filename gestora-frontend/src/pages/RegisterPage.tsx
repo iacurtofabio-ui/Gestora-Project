@@ -4,13 +4,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link } from 'react-router-dom'
 import apiClient from '@/lib/axios'
 import { Button } from '@/components/ui/button'
+import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
 
 // GAP-001: registrazione pubblica per i clienti — assegna sempre il ruolo Cliente
 // (POST /register lato backend non accetta un ruolo diverso).
 const schema = z.object({
-  username: z.string().min(1, 'Username obbligatorio'),
-  email: z.string().email('Email non valida'),
-  password: z.string().min(6, 'Almeno 6 caratteri'),
+  username: usernameSchema,
+  email: emailSchema,
+  password: passwordSchema,
 })
 
 type RegisterForm = z.infer<typeof schema>

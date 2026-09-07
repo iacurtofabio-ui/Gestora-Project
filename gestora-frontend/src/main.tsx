@@ -1,17 +1,16 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { router } from './router/index'
 import { AuthProvider } from '@/context/AuthContext'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import ConfigurazioneMancante from '@/components/ConfigurazioneMancante'
 import { configurazioneMancante } from '@/lib/axios'
+import { queryClient } from '@/lib/queryClient'
+import { DevtoolsQuery } from '@/components/DevtoolsQuery'
 import './index.css'
 import { Toaster } from 'sonner'
-
-const queryClient = new QueryClient()
 
 const radice = createRoot(document.getElementById('root')!)
 
@@ -28,7 +27,7 @@ if (configurazioneMancante) {
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
           <RouterProvider router={router} />
-          <ReactQueryDevtools initialIsOpen={false} />
+          <DevtoolsQuery />
           <Toaster richColors position="top-right" />
         </QueryClientProvider>
       </AuthProvider>

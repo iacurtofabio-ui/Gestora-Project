@@ -24,7 +24,7 @@ export default function ZonaModal({ isOpen, onClose, zona }: Props) {
     const creaZona = useCreaZona()
     const updateZona = useUpdateZona()
 
-    const { register, handleSubmit, formState: { errors, isSubmitting }, reset, } = useForm<ZonaForm>({
+    const { register, handleSubmit, formState: { errors }, reset, } = useForm<ZonaForm>({
         resolver: zodResolver(schema),
         defaultValues: {
             nome: zona?.nome ?? '',
@@ -38,6 +38,12 @@ export default function ZonaModal({ isOpen, onClose, zona }: Props) {
             attiva: zona?.attiva ?? true,
         })
     }, [zona, reset])
+
+    // REV-044: il pulsante segue lo stato della mutation, non isSubmitting di react-hook-form.
+    // Quest'ultimo torna false appena onSubmit ritorna, e onSubmit lancia mutate() senza attenderla:
+    // il pulsante si riabilitava mentre la richiesta era ancora in volo, quindi un secondo clic
+    // partiva davvero e creava un doppione.
+    const inCorso = creaZona.isPending || updateZona.isPending
 
     function onSubmit(data: ZonaForm) {
         if (zona) {
@@ -71,8 +77,8 @@ export default function ZonaModal({ isOpen, onClose, zona }: Props) {
                         />
                         <span>Attiva</span>
                     </div>
-                    <button type="submit" className="bg-blue-500 text-white px-3 py-1 rounded" disabled={isSubmitting}>
-                        Salva
+                    <button type="submit" className="bg-blue-500 text-white px-3 py-1 rounded" disabled={inCorso}>
+                        {inCorso ? 'Salvataggio...' : 'Salva'}
                     </button>
                 </form>
             </DialogContent>

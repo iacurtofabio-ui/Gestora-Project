@@ -698,6 +698,11 @@ costanti ripetute, endpoint scritti inline) — dettaglio completo di ognuno in
   layout adattivo (oggi da telefono è inutilizzabile) — REV-071
 - Aggiungere i messaggi per le liste vuote, oggi si vede una tabella vuota che sembra un errore —
   REV-073
+- Dare un messaggio vero agli errori di caricamento: oggi le sei pagine dicono tutte "Errore nel
+  caricamento", che il server sia spento, che manchino i permessi o che il database sia in errore —
+  **NEW-006** (aperto 07/09/2026). L'helper esiste già (`messaggioErrore` in `lib/apiError`, dalla
+  Fase 8): serve un componente condiviso che lo usi. Rimandato qui perché in questa fase si
+  rifanno comunque tutti gli stati di pagina, insieme a REV-073 e REV-074.
 - Sostituire il "Caricamento…" a schermo intero con un caricamento parziale — REV-074
 - Uniformare i pulsanti e i colori a un unico stile — REV-075
 - Sistemare l'accessibilità: etichette collegate ai campi, chiusura delle finestre con ESC —

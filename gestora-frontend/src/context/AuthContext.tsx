@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { AuthContext, type AuthUser } from './auth-context'
+import { decodificaPayloadJwt, tokenScaduto } from '@/lib/jwt'
 
 const CLAIM_RUOLO = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'
 
-function normalizeRoles(claim: string | string[] | undefined): string[] {
+function normalizeRoles(claim: unknown): string[] {
   if (!claim) return []
-  return Array.isArray(claim) ? claim : [claim]
+  if (Array.isArray(claim)) return claim.filter((r): r is string => typeof r === 'string')
+  return typeof claim === 'string' ? [claim] : []
 }
 
 /**
@@ -20,28 +22,21 @@ function normalizeRoles(claim: string | string[] | undefined): string[] {
  * Ora un token illeggibile viene semplicemente scartato: si riparte come utente anonimo, cioe'
  * dal login, che e' esattamente quello che serve. In piu' si scarta anche il token gia' scaduto
  * (claim `exp`), senza aspettare il primo 401 dal backend (REV-025).
+ *
+ * REV-050: la decodifica vera e propria sta ora in lib/jwt, unico punto del progetto che legge un
+ * token. Qui resta solo la traduzione da payload a utente dell'applicazione.
  */
 function leggiUtenteDalToken(token: string): AuthUser | null {
-  try {
-    const payloadBase64 = token.split('.')[1]
-    if (!payloadBase64) return null
+  const payload = decodificaPayloadJwt(token)
+  if (!payload) return null
+  if (tokenScaduto(payload)) return null
+  if (!payload.sub) return null
 
-    // Il payload JWT e' base64url: '-' e '_' al posto di '+' e '/', e senza padding.
-    const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/')
-    const payload = JSON.parse(atob(base64))
-
-    // `exp` e' in secondi dall'epoca UTC: nessun problema di fuso, e' un istante assoluto.
-    if (typeof payload.exp === 'number' && payload.exp * 1000 <= Date.now()) return null
-    if (!payload.sub) return null
-
-    return {
-      token,
-      id: payload.sub,
-      email: payload.email,
-      roles: normalizeRoles(payload[CLAIM_RUOLO]),
-    }
-  } catch {
-    return null
+  return {
+    token,
+    id: payload.sub,
+    email: typeof payload.email === 'string' ? payload.email : '',
+    roles: normalizeRoles(payload[CLAIM_RUOLO]),
   }
 }
 

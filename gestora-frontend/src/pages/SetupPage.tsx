@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
 import { Navigate, useNavigate } from 'react-router-dom'
 import type { AxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
@@ -10,14 +11,9 @@ import type { ApiErrorResponse } from '@/types/apiError'
 // Le regole ricalcano RegisterDTOValidator lato backend: qui servono a dare l'errore subito,
 // la validazione che conta resta quella del server.
 const schema = z.object({
-  username: z.string().min(3, 'Almeno 3 caratteri').max(50, 'Massimo 50 caratteri'),
-  email: z.string().email('Email non valida'),
-  password: z
-    .string()
-    .min(8, 'Almeno 8 caratteri')
-    .regex(/[A-Z]/, 'Serve almeno una lettera maiuscola')
-    .regex(/[0-9]/, 'Serve almeno un numero')
-    .regex(/[^a-zA-Z0-9]/, 'Serve almeno un carattere speciale'),
+  username: usernameSchema,
+  email: emailSchema,
+  password: passwordSchema,
 })
 
 type SetupForm = z.infer<typeof schema>
