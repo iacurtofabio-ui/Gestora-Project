@@ -18,20 +18,42 @@ namespace GestoraWebApi.Common
     /// configurazioni implicite ed e' coperta da test.
     /// </para>
     /// <para>
-    /// <b>Perche' si prende l'ultimo valore e non il primo.</b> <c>X-Forwarded-For</c> e' una
-    /// lista in cui ogni proxy attraversato aggiunge in coda l'indirizzo da cui ha ricevuto la
-    /// richiesta. Il primo elemento e' quello piu' vicino al client, ma e' anche quello che il
-    /// client stesso puo' aver scritto: chiunque puo' inviare un <c>X-Forwarded-For</c>
-    /// inventato, e leggendolo si permetterebbe di falsificare l'indirizzo nell'audit trail e di
-    /// aggirare il rate limit del login, che partiziona proprio su questo valore. L'ultimo
-    /// elemento e' invece scritto dal proxy della piattaforma, che non e' aggirabile.
-    /// Con un solo proxy davanti — la situazione attuale, verificata — l'ultimo elemento e'
-    /// esattamente l'indirizzo del client.
+    /// <b>Quale elemento della catena si prende.</b> <c>X-Forwarded-For</c> e' una lista in cui
+    /// ogni proxy attraversato aggiunge in coda l'indirizzo da cui ha ricevuto la richiesta. Non
+    /// va preso il primo: quello e' l'elemento che il client stesso puo' aver scritto, e
+    /// leggerlo permetterebbe di falsificare l'indirizzo nell'audit trail e di aggirare il rate
+    /// limit del login, che partiziona proprio su questo valore. Ma non va preso nemmeno
+    /// l'ultimo, perche' qui davanti all'applicazione ci sono <b>due</b> livelli di proxy e
+    /// l'ultimo anello e' il proxy di frontiera, non chi ha fatto la richiesta.
+    /// </para>
+    /// <para>
+    /// Catena osservata in produzione il 07/09/2026:
+    /// <code>
+    /// X-Forwarded-For: 87.15.141.109, 79.127.178.81
+    ///                  ^ client        ^ proxy di frontiera
+    /// Connection.RemoteIpAddress: 100.64.0.4   (rete interna, ultimo hop)
+    /// </code>
+    /// Si scarta quindi <see cref="AnelliDaScartare"/> anello in fondo e si prende quello che
+    /// resta per ultimo. La proprieta' di sicurezza regge: se un client inviasse una catena
+    /// inventata, l'header diventerebbe <c>fake, 87.15.141.109, 79.127.178.81</c> e scartando
+    /// l'ultimo si otterrebbe comunque l'indirizzo vero.
+    /// </para>
+    /// <para>
+    /// ⚠️ <b>Se un domani la piattaforma cambia il numero di proxy, questo valore va rimisurato</b>
+    /// con l'endpoint diagnostico: leggere l'header <b>prima</b> che qualcuno lo consumi. E' su
+    /// questo che ho sbagliato la prima diagnosi — <c>UseForwardedHeaders</c> rimuove l'anello
+    /// che elabora, quindi guardando l'header a valle sembrava esserci un solo proxy.
     /// </para>
     /// </summary>
     public static class IndirizzoClient
     {
         private const string HeaderInoltro = "X-Forwarded-For";
+
+        /// <summary>
+        /// Quanti anelli in fondo alla catena appartengono all'infrastruttura e non al client.
+        /// Misurato in produzione: il proxy di frontiera ne aggiunge uno.
+        /// </summary>
+        private const int AnelliDaScartare = 1;
 
         /// <summary>
         /// Indirizzo del chiamante, o <c>null</c> se non determinabile.
@@ -46,14 +68,24 @@ namespace GestoraWebApi.Common
             if (context.Request.Headers.TryGetValue(HeaderInoltro, out var inoltrati))
             {
                 // L'header puo' arrivare come piu' righe, e ogni riga puo' contenere piu'
-                // indirizzi separati da virgola: vanno appiattiti prima di prendere l'ultimo.
-                var indirizzo = inoltrati
+                // indirizzi separati da virgola: vanno appiattiti prima di contare gli anelli.
+                var catena = inoltrati
                     .SelectMany(riga => (riga ?? string.Empty).Split(','))
                     .Select(v => v.Trim())
-                    .LastOrDefault(v => !string.IsNullOrWhiteSpace(v));
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .ToList();
+
+                // Scartati gli anelli dell'infrastruttura, l'ultimo rimasto e' il client.
+                var indirizzo = catena
+                    .Take(catena.Count - AnelliDaScartare)
+                    .LastOrDefault();
 
                 if (!string.IsNullOrWhiteSpace(indirizzo))
                     return Normalizza(indirizzo);
+
+                // Catena piu' corta del previsto: manca un anello rispetto a quanto misurato.
+                // Si ricade sull'indirizzo della connessione invece di restituire il proxy, che
+                // sarebbe un dato sbagliato travestito da buono.
             }
 
             return context.Connection.RemoteIpAddress?.ToString();
