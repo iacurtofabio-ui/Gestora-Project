@@ -1,4 +1,4 @@
-import type { AxiosError } from 'axios'
+import { isAxiosError, type AxiosError } from 'axios'
 import { toast } from 'sonner'
 import type { ApiErrorResponse } from '@/types/apiError'
 
@@ -41,4 +41,18 @@ export function segnalaErrore(fallback: string) {
   return (error: AxiosError<ApiErrorResponse>) => {
     toast.error(messaggioErrore(error, fallback))
   }
+}
+
+/**
+ * NEW-006 — stessa idea di `messaggioErrore`, ma per gli errori di *caricamento* (React Query
+ * `error` di una query, non di una mutation). Prima ogni pagina mostrava lo stesso testo fisso
+ * ("Errore nel caricamento") a prescindere dalla causa: backend spento, permessi mancanti o
+ * database in errore erano indistinguibili. `error` di una query non è tipizzato come
+ * `AxiosError`: va verificato con `isAxiosError` prima di riusare `messaggioErrore`.
+ */
+export function messaggioErroreCaricamento(error: unknown, fallback: string): string {
+  if (isAxiosError<ApiErrorResponse>(error)) {
+    return messaggioErrore(error, fallback)
+  }
+  return fallback
 }

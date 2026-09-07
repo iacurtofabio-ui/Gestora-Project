@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import apiClient from '@/lib/axios'
 import { Endpoints } from '@/lib/endpoints'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 
 const schema = z.object({
   email: z.string().email('Email non valida'),
@@ -50,7 +51,11 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold mb-6">Gestora</h1>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
+            <Label htmlFor="login-email" className="sr-only">
+              Email
+            </Label>
             <input
+              id="login-email"
               {...register('email')}
               type="email"
               placeholder="Email"
@@ -59,7 +64,11 @@ export default function LoginPage() {
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
           </div>
           <div>
+            <Label htmlFor="login-password" className="sr-only">
+              Password
+            </Label>
             <input
+              id="login-password"
               {...register('password')}
               type="password"
               placeholder="Password"

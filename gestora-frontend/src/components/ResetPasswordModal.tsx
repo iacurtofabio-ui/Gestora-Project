@@ -54,8 +54,13 @@ export default function ResetPasswordModal({ utente, open, onClose }: Props) {
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1">
-            <Label>Nuova password</Label>
-            <Input type="password" autoComplete="new-password" {...register('newPassword')} />
+            <Label htmlFor="reset-password-nuova">Nuova password</Label>
+            <Input
+              id="reset-password-nuova"
+              type="password"
+              autoComplete="new-password"
+              {...register('newPassword')}
+            />
             {errors.newPassword ? (
               <p className="text-red-500 text-sm">{errors.newPassword.message}</p>
             ) : (

@@ -2,28 +2,18 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 07/09/2026 (terza sessione della giornata)
-Ultima cosa fatta: **Fase 9 (pulizia) chiusa lato codice, non ancora committata.**
-Backend: `dotnet build` 0 errori (27 warning preesistenti, invariati), `dotnet test` **237/237
-invariato**. Frontend: `tsc -b --force` 0 errori, `npm test` **26/26 invariato**, `npm run build`
-pulita, eslint 0 errori. **Nessuna migration.** Nessun task 🧑 previsto.
+Ultima sessione: 07/09/2026 (quarta sessione della giornata)
+Ultima cosa fatta: **Fase 10 (esperienza d'uso) chiusa lato codice, non ancora committata.**
+`tsc -b --force` 0 errori, `npm test` **26/26 invariato** (i 4 test di REV-047 aggiornati per il
+nuovo `Dialog` di Radix in `PrenotazioneModal`, comportamento verificato invariato), `npm run
+build` pulita, eslint 0 errori. **Nessuna modifica al backend, nessuna migration.**
+Task 🧑 previsto: **un giro di prova da telefono sui tre ruoli**, vedi in fondo a questa sezione.
 
 ### ⚠️ Da committare all'inizio della prossima sessione
 
 Questa sessione ha lavorato **senza committare** (protocollo: commit e push sempre da Visual
-Studio, mai da Claude). Il working tree contiene sia le modifiche di codice della Fase 9 sia la
-documentazione della Fase 8 rimasta indietro dal tag `v1.0.4` (`CLAUDE.md`, `ROADMAP_REVISIONE.md`,
-tracker) — tutto insieme, senza un giro di deploy dedicato, come già fatto in Fase 6 con `0fe19b9`.
-
-Per via di `npm audit fix` (vedi sotto), la Fase 9 tocca **quasi ogni file** di `gestora-frontend/`
-grazie a Prettier: consigliato dividere in **due commit** in Visual Studio anche se richiede
-selezione manuale dei file:
-1. logica: tutti i file backend + i file frontend con cambi funzionali (hook, `LoginPage.tsx`,
-   `RegisterPage.tsx`, `FasciaOrariaModal.tsx`, `FasciaOrariaPage.tsx`, `lib/endpoints.ts` e
-   `lib/giorni.ts` nuovi, `package-lock.json` per l'audit fix) — questi file portano *anche* la
-   riformattazione Prettier, inevitabile perché Prettier li ha toccati comunque;
-2. solo formattazione: tutti gli altri file `.tsx`/`.ts` modificati, dove il diff è puro
-   Prettier (virgolette, punto e virgola, spaziatura) senza alcuna riga di logica cambiata.
+Studio, mai da Claude). Tutta la Fase 10 è in un solo blocco coerente di modifiche frontend — a
+differenza della Fase 9, qui non c'è un giro Prettier separato da isolare, un solo commit va bene.
 
 > **Nota sul conteggio dei file, da riusare a ogni commit.** Il commit della Fase 8 conteneva 11
 > file nuovi, ma `git status` breve ne mostrava **10**: raggruppa le cartelle non tracciate, e
@@ -32,12 +22,78 @@ selezione manuale dei file:
 
 ### Stato di dev e main
 
-- `main` = `dev` = `923202d`, Fase 8 in produzione (frontend su Vercel). La Fase 9 non è ancora
-  su `dev`: è solo pulizia, nessun deploy necessario finché non si decide di accorparla a un
-  prossimo giro.
-- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), `v1.0.3` (Fase 7),
-  **`v1.0.4`** (Fase 8, su `923202d`) — annotato, creato da Visual Studio e verificato sul remoto
-  con `git ls-remote --tags origin`.
+- `main` = `dev` = `2dccd6a`, Fase 9 (pulizia) in produzione — nessun tag: solo refactoring
+  interno, nessun cambio di comportamento da versionare come rilascio. La Fase 10 non è ancora
+  su `dev`: tocca solo il frontend, un deploy Vercel al push su `main`, nessuna finestra di
+  manutenzione necessaria.
+- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), `v1.0.3` (Fase 7), `v1.0.4` (Fase 8) —
+  fermi al tag della Fase 8, come sopra.
+
+### Fase 10 — riepilogo (codice chiuso 07/09/2026)
+
+Esperienza d'uso: REV-071…REV-081, NEW-002, NEW-006. Nessuna migration, nessun cambio al backend.
+
+- **REV-079 — titolo, lingua, meta description.** `index.html` aveva `lang="en"` su un'app in
+  italiano e `<title>gestora-frontend</title>` (il nome della cartella). Corretti entrambi,
+  aggiunta una meta description.
+- **REV-080 — `/unauthorized` senza via d'uscita.** Aggiunto un pulsante di ritorno, verso la
+  Dashboard per Staff/Admin e verso Prenotazioni per il Cliente, che alla Dashboard non ha
+  comunque accesso.
+- **REV-081 — non si capiva chi sei né dove sei.** L'header mostrava solo l'email: aggiunto il
+  ruolo sotto. La sidebar non segnalava la pagina attiva: risolto con `NavLink`.
+- **REV-071 — zero responsive.** Sidebar fissa a 264px sempre a schermo e 7 tabelle senza
+  scorrimento orizzontale: da smartphone la sola sidebar occupava più della metà dello schermo.
+  Ora si richiude sotto la soglia `md` (pannello a scomparsa apribile dall'header), tutte le
+  tabelle scorrono nel proprio contenitore, le card della Dashboard passano da 4 a 2 colonne.
+- **REV-075 — stile dei pulsanti incoerente.** Metà app usava `<Button>` di shadcn, l'altra metà
+  `<button>` scritti a mano con `bg-blue-500`/`bg-green-500`, fuori dalla palette del tema.
+  Migrati tutti i pulsanti d'azione a `<Button>` (Zone, Postazioni, Fasce Orarie, Prenotazioni,
+  Paginazione, i tre modal CRUD). Unica eccezione voluta: il link "Logout" nell'header resta
+  testo semplice, non è il tipo di incoerenza segnalata dalla revisione.
+- **REV-072 — accessibilità di base.** Nessun `htmlFor`/`id` collegava le `<label>` ai campi in
+  tutto il progetto (12 form), i tre checkbox "Attiva" usavano uno `<span>` al posto di una
+  `<label>`, e `PrenotazioneModal` era l'unico modal con un overlay fatto a mano invece di Radix
+  — senza focus trap né chiusura con ESC. Sistemati `htmlFor`/`id` ovunque (label visibili sui
+  form del backoffice, `sr-only` su Login/Registrazione dove il design usa solo il placeholder);
+  `PrenotazioneModal` migrato su `Dialog` di Radix come gli altri quattro.
+- **REV-073 — liste vuote senza spiegazione.** Zone, Postazioni, Fasce Orarie, Prenotazioni e
+  Utenti mostravano solo l'intestazione della tabella quando l'elenco era vuoto — su Postazioni,
+  prima di scegliere una zona, sembrava un errore. Nuovo componente `EmptyState`, usato su tutte
+  e cinque; su Postazioni aggiunto anche un messaggio distinto per "nessuna zona ancora scelta".
+- **REV-074 + NEW-006 — caricamento a pagina intera ed errori tutti uguali.** 6 pagine
+  sostituivano l'intera vista con `<div>Caricamento...</div>`, facendo sparire anche intestazione
+  e filtri; gli errori dicevano tutti "Errore nel caricamento" a prescindere dalla causa. Nuovo
+  componente condiviso `PageState` (`PageLoading`/`PageError`), quest'ultimo basato su una nuova
+  `messaggioErroreCaricamento` in `lib/apiError.ts` che riusa `messaggioErrore` (Fase 8): ora solo
+  il contenuto si sostituisce, intestazione e filtri restano a schermo.
+- **NEW-002 — semaforo di disponibilità nel form di prenotazione.** Prima si scopriva che una
+  fascia era piena solo dopo aver premuto Salva. `check-disponibilita` (pubblico, già esistente)
+  risponde con tutte le fasce del giorno già valutate: una sola chiamata per (data, coperti) basta
+  per l'intera select. Nuovo hook `useCheckDisponibilita`, in un modulo separato da
+  `usePrenotazioni.ts` apposta — quel file è mockato per intero nei test di REV-047, e un secondo
+  hook nello stesso modulo sarebbe sparito con lo stesso mock. Mostra "esaurita" sulle opzioni non
+  disponibili e il motivo del rifiuto sotto la select.
+- **Effetto collaterale corretto in corsa d'opera**: migrando `PrenotazioneModal` a `Dialog` di
+  Radix (che porta il contenuto in un portal fuori dal DOM locale del test), i 4 test di REV-047
+  che usavano `container.querySelector('input[type="date"]')` smettevano di trovare il campo.
+  Sostituito con `screen.getByLabelText('Data')`, reso possibile proprio dall'`htmlFor` aggiunto
+  con REV-072 — una correzione più solida del querySelector originale, non un aggiramento.
+- **Errore nuovo di React Compiler**: `AppLayout` chiudeva il pannello mobile con una
+  `setState` sincrona dentro un `useEffect` sul cambio pagina — pattern che eslint segnala perché
+  causa un giro di render in più. Risolto aggiornando lo stato durante il render (confronto con
+  `pathnamePrecedente`), il pattern che React stesso consiglia per "adeguare lo stato quando
+  cambia un input esterno" al posto di un effetto.
+
+> **Non coperto da test automatici**: il semaforo di disponibilità (NEW-002) non ha test dedicati
+> — sopra la logica di scelta fascia già coperta da REV-047, aggiunge solo una lettura da
+> un endpoint pubblico e un'etichetta condizionale. Verificare a mano: aprire il form di
+> prenotazione, scegliere una data con una fascia già al tetto massimo di coperti e vedere comparire
+> "esaurita" nell'opzione più il motivo sotto la select.
+
+> **🧑 Task per Fabio**: un giro di prova da telefono sui tre ruoli (Admin, Staff, Cliente) —
+> menu a scomparsa, tabelle che scorrono senza rompere il layout, form leggibili. Nessun altro
+> test manuale bloccante: il resto è comportamento coperto dai test automatici o puramente visivo
+> e verificabile restringendo la finestra del browser.
 
 ### Fase 9 — riepilogo (codice chiuso 07/09/2026)
 

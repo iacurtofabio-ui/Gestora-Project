@@ -1,4 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -74,37 +77,28 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
           <DialogTitle>{fascia ? 'Modifica Fascia' : 'Nuova Fascia'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Ora Inizio</label>
-            <input
-              {...register('orarioInizio')}
-              type="time"
-              placeholder="orarioInizio"
-              className="w-full border rounded px-3 py-2"
-            />
+          <div className="space-y-1">
+            <Label htmlFor="fascia-inizio">Ora Inizio</Label>
+            <Input id="fascia-inizio" {...register('orarioInizio')} type="time" />
             {errors.orarioInizio && (
               <p className="text-red-500 text-sm mt-1">{errors.orarioInizio.message}</p>
             )}
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Ora Fine</label>
-            <input
-              {...register('orarioFine')}
-              type="time"
-              placeholder="orarioFine"
-              className="w-full border rounded px-3 py-2"
-            />
+          <div className="space-y-1">
+            <Label htmlFor="fascia-fine">Ora Fine</Label>
+            <Input id="fascia-fine" {...register('orarioFine')} type="time" />
             {errors.orarioFine && (
               <p className="text-red-500 text-sm mt-1">{errors.orarioFine.message}</p>
             )}
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Giorno Settimana</label>
+          <div className="space-y-1">
+            <Label htmlFor="fascia-giorno">Giorno Settimana</Label>
             <select
+              id="fascia-giorno"
               {...register('giornoSettimana', {
                 valueAsNumber: true,
               })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 text-sm"
             >
               <option value="">-- Seleziona giorno --</option>
               {GIORNI_SETTIMANA.map((nome, indice) => (
@@ -117,35 +111,31 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
               <p className="text-red-500 text-sm mt-1">{errors.giornoSettimana.message}</p>
             )}
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Capienza massima (coperti)</label>
-            <p className="text-xs text-gray-500 mt-0.5">
+          <div className="space-y-1">
+            <Label htmlFor="fascia-max-coperti">Capienza massima (coperti)</Label>
+            <p className="text-xs text-gray-500">
               Numero massimo di persone prenotabili in questa fascia oraria, non il numero di
               prenotazioni.
             </p>
-            <input
+            <Input
+              id="fascia-max-coperti"
               {...register('maxCoperti', {
                 valueAsNumber: true,
               })}
               type="number"
               placeholder="Es. 40"
-              className="w-full border rounded px-3 py-2 mt-1"
             />
             {errors.maxCoperti && (
               <p className="text-red-500 text-sm mt-1">{errors.maxCoperti.message}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <input {...register('attiva')} type="checkbox" className="h-4 w-4" />
-            <span>Attiva</span>
+            <input id="fascia-attiva" {...register('attiva')} type="checkbox" className="h-4 w-4" />
+            <Label htmlFor="fascia-attiva">Attiva</Label>
           </div>
-          <button
-            type="submit"
-            className="bg-blue-500 text-white px-3 py-1 rounded"
-            disabled={inCorso}
-          >
+          <Button type="submit" disabled={inCorso}>
             {inCorso ? 'Salvataggio...' : 'Salva'}
-          </button>
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import apiClient from '@/lib/axios'
 import { Endpoints } from '@/lib/endpoints'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
 
 // GAP-001: registrazione pubblica per i clienti — assegna sempre il ruolo Cliente
@@ -46,7 +47,11 @@ export default function RegisterPage() {
         <h1 className="text-2xl font-bold mb-6">Registrati</h1>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
+            <Label htmlFor="register-username" className="sr-only">
+              Username
+            </Label>
             <input
+              id="register-username"
               {...register('username')}
               type="text"
               placeholder="Username"
@@ -57,7 +62,11 @@ export default function RegisterPage() {
             )}
           </div>
           <div>
+            <Label htmlFor="register-email" className="sr-only">
+              Email
+            </Label>
             <input
+              id="register-email"
               {...register('email')}
               type="email"
               placeholder="Email"
@@ -66,7 +75,11 @@ export default function RegisterPage() {
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
           </div>
           <div>
+            <Label htmlFor="register-password" className="sr-only">
+              Password
+            </Label>
             <input
+              id="register-password"
               {...register('password')}
               type="password"
               placeholder="Password"

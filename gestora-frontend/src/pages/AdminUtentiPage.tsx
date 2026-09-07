@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useUtenti, useDeleteUser } from '@/hooks/useAdminUtenti'
 import { useAuth } from '@/hooks/useAuth'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { PageLoading, PageError } from '@/components/PageState'
+import { EmptyState } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 import type { UserDTO } from '@/types/utente'
 import EditUserModal from '@/components/EditUserModal'
@@ -20,75 +22,85 @@ export default function AdminUtentiPage() {
     'edit' | 'ruoli' | 'password' | 'crea' | undefined
   >(undefined)
 
-  if (utenti.isLoading) return <div className="p-6">Caricamento...</div>
-  if (utenti.isError) return <div className="p-6 text-red-500">Errore nel caricamento utenti</div>
-
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Gestione Utenti</h1>
         <Button onClick={() => setModalAperto('crea')}>+ Crea utente</Button>
       </div>
 
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="border-b text-left text-gray-500">
-            <th className="py-2 pr-4">Username</th>
-            <th className="py-2 pr-4">Email</th>
-            <th className="py-2 pr-4">Ruoli</th>
-            <th className="py-2">Azioni</th>
-          </tr>
-        </thead>
-        <tbody>
-          {utenti.data?.map((u) => (
-            <tr key={u.id} className="border-b hover:bg-gray-50">
-              <td className="py-2 pr-4">{u.userName}</td>
-              <td className="py-2 pr-4">{u.email}</td>
-              <td className="py-2 pr-4">{u.roles.join(', ')}</td>
-              <td className="py-2 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setUtenteSelezionato(u)
-                    setModalAperto('edit')
-                  }}
-                >
-                  Modifica
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setUtenteSelezionato(u)
-                    setModalAperto('ruoli')
-                  }}
-                >
-                  Ruoli
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setUtenteSelezionato(u)
-                    setModalAperto('password')
-                  }}
-                >
-                  Reset Password
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  disabled={u.id === user?.id}
-                  onClick={() => setIdDaEliminare(u.id)}
-                >
-                  Elimina
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* REV-074: titolo e pulsante "Crea utente" restano visibili durante il caricamento. */}
+      {utenti.isLoading ? (
+        <PageLoading />
+      ) : utenti.isError ? (
+        <PageError error={utenti.error} fallback="Errore nel caricamento degli utenti." />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b text-left text-gray-500">
+                <th className="py-2 pr-4">Username</th>
+                <th className="py-2 pr-4">Email</th>
+                <th className="py-2 pr-4">Ruoli</th>
+                <th className="py-2">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {utenti.data?.length === 0 ? (
+                <EmptyState messaggio="Nessun utente registrato." colSpan={4} />
+              ) : (
+                utenti.data?.map((u) => (
+                  <tr key={u.id} className="border-b hover:bg-gray-50">
+                    <td className="py-2 pr-4">{u.userName}</td>
+                    <td className="py-2 pr-4">{u.email}</td>
+                    <td className="py-2 pr-4">{u.roles.join(', ')}</td>
+                    <td className="py-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setUtenteSelezionato(u)
+                          setModalAperto('edit')
+                        }}
+                      >
+                        Modifica
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setUtenteSelezionato(u)
+                          setModalAperto('ruoli')
+                        }}
+                      >
+                        Ruoli
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setUtenteSelezionato(u)
+                          setModalAperto('password')
+                        }}
+                      >
+                        Reset Password
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={u.id === user?.id}
+                        onClick={() => setIdDaEliminare(u.id)}
+                      >
+                        Elimina
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <ConfirmDialog
         open={idDaEliminare !== undefined}

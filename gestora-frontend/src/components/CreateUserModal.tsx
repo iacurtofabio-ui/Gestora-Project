@@ -51,23 +51,27 @@ export default function CreateUserModal({ open, onClose }: Props) {
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1">
-            <Label>Username</Label>
-            <Input {...register('username')} />
+            <Label htmlFor="create-user-username">Username</Label>
+            <Input id="create-user-username" {...register('username')} />
             {errors.username && <p className="text-red-500 text-xs">{errors.username.message}</p>}
           </div>
           <div className="space-y-1">
-            <Label>Email</Label>
-            <Input type="email" {...register('email')} />
+            <Label htmlFor="create-user-email">Email</Label>
+            <Input id="create-user-email" type="email" {...register('email')} />
             {errors.email && <p className="text-red-500 text-xs">{errors.email.message}</p>}
           </div>
           <div className="space-y-1">
-            <Label>Password</Label>
-            <Input type="password" {...register('password')} />
+            <Label htmlFor="create-user-password">Password</Label>
+            <Input id="create-user-password" type="password" {...register('password')} />
             {errors.password && <p className="text-red-500 text-xs">{errors.password.message}</p>}
           </div>
           <div className="space-y-1">
-            <Label>Ruolo</Label>
-            <select {...register('role')} className="border rounded px-3 py-2 w-full text-sm">
+            <Label htmlFor="create-user-role">Ruolo</Label>
+            <select
+              id="create-user-role"
+              {...register('role')}
+              className="border rounded px-3 py-2 w-full text-sm"
+            >
               {RUOLI_DISPONIBILI.map((r) => (
                 <option key={r} value={r}>
                   {r}

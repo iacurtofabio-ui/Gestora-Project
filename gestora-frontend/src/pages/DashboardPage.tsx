@@ -1,5 +1,6 @@
 import { useDashboardGiornaliera, useDashboardSettimanale } from '@/hooks/useDashboard'
 import { oggiInItalia, lunediSettimanaCorrenteInItalia } from '@/lib/date'
+import { PageLoading, PageError } from '@/components/PageState'
 
 export default function DashboardPage() {
   // REV-016: entrambe le date erano calcolate in UTC (toISOString), quindi fra mezzanotte e le
@@ -7,17 +8,23 @@ export default function DashboardPage() {
   const giornaliera = useDashboardGiornaliera(oggiInItalia())
   const settimanale = useDashboardSettimanale(lunediSettimanaCorrenteInItalia())
 
-  if (giornaliera.isLoading || settimanale.isLoading) return <div>Caricamento...</div>
-  if (giornaliera.isError || settimanale.isError) return <div>Errore nel caricamento</div>
+  if (giornaliera.isLoading || settimanale.isLoading) return <PageLoading />
+  if (giornaliera.isError || settimanale.isError)
+    return (
+      <PageError
+        error={giornaliera.error ?? settimanale.error}
+        fallback="Errore nel caricamento della dashboard."
+      />
+    )
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
       <h2 className="text-lg font-semibold text-gray-700 mb-3">Oggi</h2>
 
-      {/* KPI giornalieri — 4 card separate */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      {/* KPI giornalieri — 4 card separate. REV-071: 2 colonne da smartphone, 4 da tablet in su. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg p-4 border">
           <p className="text-sm text-gray-500">Totale Prenotazioni</p>
           <p className="text-2xl font-bold">{giornaliera.data?.totalePrenotazioni}</p>
@@ -41,34 +48,36 @@ export default function DashboardPage() {
         <h2 className="text-sm font-semibold text-gray-700 p-4 border-b">
           Coperti per Fascia Oraria
         </h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left p-3">Fascia</th>
-              <th className="text-left p-3">Coperti Prenotati</th>
-              <th className="text-left p-3">Disponibili</th>
-            </tr>
-          </thead>
-          <tbody>
-            {giornaliera.data?.copertiPerFascia.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="p-3 text-center text-gray-400">
-                  Nessuna fascia oraria configurata per oggi
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-3">Fascia</th>
+                <th className="text-left p-3">Coperti Prenotati</th>
+                <th className="text-left p-3">Disponibili</th>
               </tr>
-            ) : (
-              giornaliera.data?.copertiPerFascia.map((fascia) => (
-                <tr key={fascia.fasciaOrariaId} className="border-b">
-                  <td className="p-3">
-                    {fascia.oraInizio} - {fascia.oraFine}
+            </thead>
+            <tbody>
+              {giornaliera.data?.copertiPerFascia.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="p-3 text-center text-gray-400">
+                    Nessuna fascia oraria configurata per oggi
                   </td>
-                  <td className="p-3">{fascia.copertiPrenotati}</td>
-                  <td className="p-3">{fascia.copertiDisponibili}</td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                giornaliera.data?.copertiPerFascia.map((fascia) => (
+                  <tr key={fascia.fasciaOrariaId} className="border-b">
+                    <td className="p-3">
+                      {fascia.oraInizio} - {fascia.oraFine}
+                    </td>
+                    <td className="p-3">{fascia.copertiPrenotati}</td>
+                    <td className="p-3">{fascia.copertiDisponibili}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <h2 className="text-lg font-semibold text-gray-700 mb-3 mt-8">Questa settimana</h2>
@@ -88,26 +97,28 @@ export default function DashboardPage() {
       {/* Dettaglio giorni settimana */}
       <div className="bg-white rounded-lg border">
         <h2 className="text-sm font-semibold text-gray-700 p-4 border-b">Dettaglio Settimana</h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-left p-3">Giorno</th>
-              <th className="text-left p-3">Prenotazioni</th>
-              <th className="text-left p-3">Coperti</th>
-              <th className="text-left p-3">Annullate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {settimanale.data?.giorni.map((giorno) => (
-              <tr key={giorno.data} className="border-b">
-                <td className="p-3">{giorno.giornoNome}</td>
-                <td className="p-3">{giorno.numeroPrenotazioni}</td>
-                <td className="p-3">{giorno.numeroCoperti}</td>
-                <td className="p-3">{giorno.annullate}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-3">Giorno</th>
+                <th className="text-left p-3">Prenotazioni</th>
+                <th className="text-left p-3">Coperti</th>
+                <th className="text-left p-3">Annullate</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {settimanale.data?.giorni.map((giorno) => (
+                <tr key={giorno.data} className="border-b">
+                  <td className="p-3">{giorno.giornoNome}</td>
+                  <td className="p-3">{giorno.numeroPrenotazioni}</td>
+                  <td className="p-3">{giorno.numeroCoperti}</td>
+                  <td className="p-3">{giorno.annullate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

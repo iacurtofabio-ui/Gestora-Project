@@ -51,13 +51,13 @@ export default function EditUserModal({ utente, open, onClose }: Props) {
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1">
-            <Label>Username</Label>
-            <Input {...register('userName')} />
+            <Label htmlFor="edit-user-username">Username</Label>
+            <Input id="edit-user-username" {...register('userName')} />
             {errors.userName && <p className="text-red-500 text-sm">{errors.userName.message}</p>}
           </div>
           <div className="space-y-1">
-            <Label>Email</Label>
-            <Input type="email" {...register('email')} />
+            <Label htmlFor="edit-user-email">Email</Label>
+            <Input id="edit-user-email" type="email" {...register('email')} />
             {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
           </div>
           <div className="flex justify-end gap-2">

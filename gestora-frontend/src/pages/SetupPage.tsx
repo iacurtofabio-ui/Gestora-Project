@@ -68,8 +68,11 @@ export default function SetupPage() {
         </p>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Nome utente</label>
+            <label htmlFor="setup-username" className="block text-sm font-medium mb-1">
+              Nome utente
+            </label>
             <input
+              id="setup-username"
               {...register('username')}
               type="text"
               autoComplete="username"
@@ -80,8 +83,11 @@ export default function SetupPage() {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+            <label htmlFor="setup-email" className="block text-sm font-medium mb-1">
+              Email
+            </label>
             <input
+              id="setup-email"
               {...register('email')}
               type="email"
               className="w-full border rounded px-3 py-2"
@@ -89,8 +95,11 @@ export default function SetupPage() {
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
+            <label htmlFor="setup-password" className="block text-sm font-medium mb-1">
+              Password
+            </label>
             <input
+              id="setup-password"
               {...register('password')}
               type="password"
               autoComplete="new-password"

@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button'
+
 type Props = {
   pagina: number
   paginePresenti: number
@@ -37,27 +39,29 @@ export default function Paginazione({
       </span>
 
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="button"
-          className="border rounded px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+          size="sm"
+          variant="outline"
           disabled={pagina <= 1 || inCaricamento}
           onClick={() => onCambioPagina(pagina - 1)}
         >
           Precedente
-        </button>
+        </Button>
 
         <span className="tabular-nums">
           Pagina {pagina} di {Math.max(paginePresenti, 1)}
         </span>
 
-        <button
+        <Button
           type="button"
-          className="border rounded px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
+          size="sm"
+          variant="outline"
           disabled={pagina >= paginePresenti || inCaricamento}
           onClick={() => onCambioPagina(pagina + 1)}
         >
           Successiva
-        </button>
+        </Button>
       </div>
     </div>
   )

@@ -10,6 +10,9 @@ import {
 import PrenotazioneModal from '@/components/PrenotazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import Paginazione from '@/components/Paginazione'
+import { PageLoading, PageError } from '@/components/PageState'
+import { EmptyState } from '@/components/EmptyState'
+import { Button } from '@/components/ui/button'
 import { STATI_PRENOTAZIONE, STATO_LABELS, type PrenotazioneDTO } from '@/types/prenotazione'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -80,7 +83,9 @@ export default function PrenotazionePage() {
   const annulla = useAnnullaPrenotazione()
   const elimina = useDeletePrenotazione()
 
-  if (prenotazioni.isLoading) return <div>Caricamento...</div>
+  // Il 403 e' un caso a parte: non e' un'attesa ne' un guasto, e' un permesso negato. Su questa
+  // rotta condivisa fra i tre ruoli non ha senso mostrare filtri e pulsante "Aggiungi" a chi non
+  // puo' vedere nessuna riga.
   if (prenotazioni.isError) {
     const status = isAxiosError(prenotazioni.error)
       ? prenotazioni.error.response?.status
@@ -91,15 +96,16 @@ export default function PrenotazionePage() {
           Non hai i permessi per visualizzare questa sezione. Contatta l'amministratore.
         </div>
       )
-    return <div className="p-6 text-sm text-red-500">Errore nel caricamento</div>
   }
+
+  const numeroColonne = 7
 
   return (
     <div className="bg-white rounded-lg border">
-      {/* HEADER */}
-      <div className="flex justify-between items-center p-4 border-b gap-4">
+      {/* HEADER — REV-074: resta visibile durante il caricamento e in caso di errore. */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-4 border-b gap-4">
         <h2 className="text-sm font-semibold text-gray-700">Prenotazioni</h2>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-wrap gap-3 items-center">
           {isStaff && (
             <>
               <input
@@ -121,116 +127,130 @@ export default function PrenotazionePage() {
               </select>
             </>
           )}
-          <button
-            className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-            onClick={apriNuovaPrenotazione}
-          >
+          <Button size="sm" onClick={apriNuovaPrenotazione}>
             + Aggiungi
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* TABELLA */}
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left p-3">Data</th>
-            <th className="text-left p-3">Utente</th>
-            <th className="text-left p-3">Orario</th>
-            <th className="text-left p-3">Coperti</th>
-            <th className="text-left p-3">Stato</th>
-            <th className="text-left p-3">Postazioni</th>
-            <th className="text-left p-3">Azioni</th>
-          </tr>
-        </thead>
-        <tbody>
-          {prenotazioni.data?.items.map((p) => (
-            <tr key={p.id} className="border-b">
-              <td className="p-3">{p.dataPrenotazione}</td>
-              <td className="p-3">{p.nomeCliente ?? p.nomeUtente}</td>
-              <td className="p-3">
-                {p.oraInizio} - {p.oraFine}
-              </td>
-              <td className="p-3">{p.numeroCoperti}</td>
-              <td className="p-3">{p.stato ? (STATO_LABELS[p.stato] ?? p.stato) : '—'}</td>
-              <td className="p-3">
-                {p.postazioni.map((pos) => (
-                  <span key={pos.numero} className="text-xs bg-gray-100 px-2 py-1 rounded mr-1">
-                    {pos.numero} ({pos.nomeZona})
-                  </span>
-                ))}
-              </td>
-              <td className="p-3 flex gap-2">
-                {isStaff && p.stato === STATI_PRENOTAZIONE.ATTIVA && (
-                  <button
-                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                    onClick={() => conferma.mutate(p.id)}
-                  >
-                    Conferma
-                  </button>
-                )}
-                {isStaff && p.stato === STATI_PRENOTAZIONE.IN_CORSO && (
-                  <button
-                    className="bg-green-500 text-white px-3 py-1 rounded text-sm"
-                    onClick={() => completa.mutate(p.id)}
-                  >
-                    Completa
-                  </button>
-                )}
-                {/* NEW-001: la modifica esisteva solo lato backend. Si offre sulle
-                                    prenotazioni ancora Attive; per il Cliente il preavviso minimo di
-                                    2h e' verificato dal backend e l'eventuale rifiuto arriva come toast. */}
-                {p.stato === STATI_PRENOTAZIONE.ATTIVA && (
-                  <button
-                    className="text-blue-500 hover:underline text-sm"
-                    onClick={() => apriModificaPrenotazione(p)}
-                  >
-                    Modifica
-                  </button>
-                )}
-                {/* RBAC-002: il Cliente può annullare una propria prenotazione (la lista che
-                                    vede è già filtrata solo sulle sue), entro il cutoff verificato dal backend —
-                                    l'errore oltre soglia arriva come toast dalla mutation. */}
-                {(p.stato === STATI_PRENOTAZIONE.ATTIVA ||
-                  p.stato === STATI_PRENOTAZIONE.IN_CORSO) && (
-                  <button
-                    className="text-red-500 hover:underline text-sm"
-                    onClick={() => setIdDaAnnullare(p.id)}
-                  >
-                    Annulla
-                  </button>
-                )}
-                {/* NEW-004: l'hook useDeletePrenotazione esisteva ma nessun
-                                    componente lo usava, quindi eliminare passava solo da Postman.
-                                    Il backend accetta l'eliminazione solo su Attiva o Annullata:
-                                    fuori da quegli stati il pulsante non si mostra, invece di far
-                                    scoprire il limite con un 409. Eliminare e' definitivo, per
-                                    questo resta separato da Annulla, che e' la via normale. */}
-                {isAdmin &&
-                  (p.stato === STATI_PRENOTAZIONE.ATTIVA ||
-                    p.stato === STATI_PRENOTAZIONE.ANNULLATA) && (
-                    <button
-                      className="text-gray-500 hover:underline hover:text-red-600 text-sm"
-                      onClick={() => setIdDaEliminare(p.id)}
-                    >
-                      Elimina
-                    </button>
-                  )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {prenotazioni.isLoading ? (
+        <PageLoading />
+      ) : prenotazioni.isError ? (
+        <PageError error={prenotazioni.error} fallback="Errore nel caricamento delle prenotazioni." />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-3">Data</th>
+                <th className="text-left p-3">Utente</th>
+                <th className="text-left p-3">Orario</th>
+                <th className="text-left p-3">Coperti</th>
+                <th className="text-left p-3">Stato</th>
+                <th className="text-left p-3">Postazioni</th>
+                <th className="text-left p-3">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {prenotazioni.data?.items.length === 0 ? (
+                <EmptyState messaggio="Nessuna prenotazione trovata." colSpan={numeroColonne} />
+              ) : (
+                prenotazioni.data?.items.map((p) => (
+                  <tr key={p.id} className="border-b">
+                    <td className="p-3">{p.dataPrenotazione}</td>
+                    <td className="p-3">{p.nomeCliente ?? p.nomeUtente}</td>
+                    <td className="p-3">
+                      {p.oraInizio} - {p.oraFine}
+                    </td>
+                    <td className="p-3">{p.numeroCoperti}</td>
+                    <td className="p-3">{p.stato ? (STATO_LABELS[p.stato] ?? p.stato) : '—'}</td>
+                    <td className="p-3">
+                      {p.postazioni.map((pos) => (
+                        <span
+                          key={pos.numero}
+                          className="text-xs bg-gray-100 px-2 py-1 rounded mr-1"
+                        >
+                          {pos.numero} ({pos.nomeZona})
+                        </span>
+                      ))}
+                    </td>
+                    <td className="p-3 flex flex-wrap gap-2">
+                      {isStaff && p.stato === STATI_PRENOTAZIONE.ATTIVA && (
+                        <Button size="sm" onClick={() => conferma.mutate(p.id)}>
+                          Conferma
+                        </Button>
+                      )}
+                      {isStaff && p.stato === STATI_PRENOTAZIONE.IN_CORSO && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => completa.mutate(p.id)}
+                        >
+                          Completa
+                        </Button>
+                      )}
+                      {/* NEW-001: la modifica esisteva solo lato backend. Si offre sulle
+                          prenotazioni ancora Attive; per il Cliente il preavviso minimo di
+                          2h e' verificato dal backend e l'eventuale rifiuto arriva come toast. */}
+                      {p.stato === STATI_PRENOTAZIONE.ATTIVA && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => apriModificaPrenotazione(p)}
+                        >
+                          Modifica
+                        </Button>
+                      )}
+                      {/* RBAC-002: il Cliente può annullare una propria prenotazione (la lista che
+                          vede è già filtrata solo sulle sue), entro il cutoff verificato dal backend —
+                          l'errore oltre soglia arriva come toast dalla mutation. */}
+                      {(p.stato === STATI_PRENOTAZIONE.ATTIVA ||
+                        p.stato === STATI_PRENOTAZIONE.IN_CORSO) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIdDaAnnullare(p.id)}
+                        >
+                          Annulla
+                        </Button>
+                      )}
+                      {/* NEW-004: l'hook useDeletePrenotazione esisteva ma nessun
+                          componente lo usava, quindi eliminare passava solo da Postman.
+                          Il backend accetta l'eliminazione solo su Attiva o Annullata:
+                          fuori da quegli stati il pulsante non si mostra, invece di far
+                          scoprire il limite con un 409. Eliminare e' definitivo, per
+                          questo resta separato da Annulla, che e' la via normale. */}
+                      {isAdmin &&
+                        (p.stato === STATI_PRENOTAZIONE.ATTIVA ||
+                          p.stato === STATI_PRENOTAZIONE.ANNULLATA) && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setIdDaEliminare(p.id)}
+                          >
+                            Elimina
+                          </Button>
+                        )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      <Paginazione
-        pagina={prenotazioni.data?.page ?? 1}
-        paginePresenti={prenotazioni.data?.totalPages ?? 1}
-        totaleElementi={prenotazioni.data?.totalCount ?? 0}
-        elementiInPagina={prenotazioni.data?.items.length ?? 0}
-        pageSize={RIGHE_PER_PAGINA}
-        inCaricamento={prenotazioni.isFetching}
-        onCambioPagina={setPagina}
-      />
+      {!prenotazioni.isLoading && !prenotazioni.isError && (
+        <Paginazione
+          pagina={prenotazioni.data?.page ?? 1}
+          paginePresenti={prenotazioni.data?.totalPages ?? 1}
+          totaleElementi={prenotazioni.data?.totalCount ?? 0}
+          elementiInPagina={prenotazioni.data?.items.length ?? 0}
+          pageSize={RIGHE_PER_PAGINA}
+          inCaricamento={prenotazioni.isFetching}
+          onCambioPagina={setPagina}
+        />
+      )}
 
       <PrenotazioneModal
         isOpen={isModalOpen}

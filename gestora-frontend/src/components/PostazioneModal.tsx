@@ -1,4 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -76,33 +79,34 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
           <DialogTitle>{postazione ? 'Modifica Postazione' : 'Nuova Postazione'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Numero postazione</label>
-            <input
+          <div className="space-y-1">
+            <Label htmlFor="postazione-numero">Numero postazione</Label>
+            <Input
+              id="postazione-numero"
               {...register('numero', { valueAsNumber: true })}
               type="number"
               placeholder="Numero"
-              className="w-full border rounded px-3 py-2"
             />
             {errors.numero && <p className="text-red-500 text-sm mt-1">{errors.numero.message}</p>}
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Capienza massima</label>
-            <input
+          <div className="space-y-1">
+            <Label htmlFor="postazione-capienza">Capienza massima</Label>
+            <Input
+              id="postazione-capienza"
               {...register('capienzaMassima', { valueAsNumber: true })}
               type="number"
               placeholder="Capienza massima"
-              className="w-full border rounded px-3 py-2"
             />
             {errors.capienzaMassima && (
               <p className="text-red-500 text-sm mt-1">{errors.capienzaMassima.message}</p>
             )}
           </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Zona</label>
+          <div className="space-y-1">
+            <Label htmlFor="postazione-zona">Zona</Label>
             <select
+              id="postazione-zona"
               {...register('zonaId', { valueAsNumber: true })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded px-3 py-2 text-sm"
             >
               <option value="">-- Seleziona zona --</option>
               {zone.data?.map((z) => (
@@ -114,16 +118,17 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
             {errors.zonaId && <p className="text-red-500 text-sm mt-1">{errors.zonaId.message}</p>}
           </div>
           <div className="flex items-center gap-2">
-            <input {...register('attiva')} type="checkbox" className="h-4 w-4" />
-            <span>Attiva</span>
+            <input
+              id="postazione-attiva"
+              {...register('attiva')}
+              type="checkbox"
+              className="h-4 w-4"
+            />
+            <Label htmlFor="postazione-attiva">Attiva</Label>
           </div>
-          <button
-            type="submit"
-            className="bg-blue-500 text-white px-3 py-1 rounded"
-            disabled={inCorso}
-          >
+          <Button type="submit" disabled={inCorso}>
             {inCorso ? 'Salvataggio...' : 'Salva'}
-          </button>
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

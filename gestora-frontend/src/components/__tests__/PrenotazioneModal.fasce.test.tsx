@@ -29,6 +29,13 @@ vi.mock('@/hooks/usePrenotazioni', () => ({
   useModificaPrenotazione: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 
+// NEW-002: il semaforo di disponibilita' non e' oggetto di questi test, che riguardano solo la
+// scelta della fascia in base al giorno. Nessun dato disponibile => nessun suffisso sulle option,
+// che restano confrontabili con il loro testo esatto.
+vi.mock('@/hooks/useDisponibilita', () => ({
+  useCheckDisponibilita: () => ({ data: undefined, isLoading: false }),
+}))
+
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: '1', email: 'staff@gestora.it', roles: ['Staff'], token: 't' } }),
 }))
@@ -73,9 +80,9 @@ describe('PrenotazioneModal - scelta della fascia oraria', () => {
 
   it('chiede le fasce del giorno della settimana corrispondente alla data scelta', async () => {
     const utente = userEvent.setup()
-    const { container } = render(<PrenotazioneModal isOpen onClose={() => {}} />)
+    render(<PrenotazioneModal isOpen onClose={() => {}} />)
 
-    await utente.type(container.querySelector('input[type="date"]')!, LUNEDI)
+    await utente.type(screen.getByLabelText('Data'), LUNEDI)
 
     // 7 settembre 2026 e' un lunedi: giorno 1. Se la conversione usasse l ora locale invece di UTC,
     // qui comparirebbe 0 (domenica) - il difetto di REV-016.
@@ -84,9 +91,9 @@ describe('PrenotazioneModal - scelta della fascia oraria', () => {
 
   it('mostra solo le fasce restituite per quel giorno', async () => {
     const utente = userEvent.setup()
-    const { container } = render(<PrenotazioneModal isOpen onClose={() => {}} />)
+    render(<PrenotazioneModal isOpen onClose={() => {}} />)
 
-    await utente.type(container.querySelector('input[type="date"]')!, LUNEDI)
+    await utente.type(screen.getByLabelText('Data'), LUNEDI)
 
     expect(screen.getByRole('option', { name: '12:00 - 15:00' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '19:00 - 23:00' })).toBeInTheDocument()
@@ -95,8 +102,8 @@ describe('PrenotazioneModal - scelta della fascia oraria', () => {
 
   it('azzera la fascia gia scelta quando si cambia giorno', async () => {
     const utente = userEvent.setup()
-    const { container } = render(<PrenotazioneModal isOpen onClose={() => {}} />)
-    const campoData = container.querySelector('input[type="date"]') as HTMLInputElement
+    render(<PrenotazioneModal isOpen onClose={() => {}} />)
+    const campoData = screen.getByLabelText('Data') as HTMLInputElement
 
     await utente.type(campoData, LUNEDI)
     await utente.selectOptions(selectFascia(), '2')
@@ -120,9 +127,9 @@ describe('PrenotazioneModal - scelta della fascia oraria', () => {
   it('avvisa quando per quel giorno non c e nessuna fascia attiva', async () => {
     const utente = userEvent.setup()
     fascePerGiorno.mockReturnValue({ data: [] } as unknown as ReturnType<typeof useFascePerGiorno>)
-    const { container } = render(<PrenotazioneModal isOpen onClose={() => {}} />)
+    render(<PrenotazioneModal isOpen onClose={() => {}} />)
 
-    await utente.type(container.querySelector('input[type="date"]')!, LUNEDI)
+    await utente.type(screen.getByLabelText('Data'), LUNEDI)
 
     // Giorno di chiusura: meglio dirlo, invece di lasciare una select vuota che sembra un errore.
     expect(screen.getByText('Nessuna fascia oraria attiva per questo giorno.')).toBeInTheDocument()
