@@ -31,7 +31,8 @@ describe('messaggioErrore', () => {
     })
 
     expect(messaggioErrore(errore, 'ripiego')).toBe(
-      'I coperti devono essere almeno 1., La data non puo essere nel passato.')
+      'I coperti devono essere almeno 1., La data non puo essere nel passato.'
+    )
   })
 
   it('usa il messaggio del server quando non ci sono errori di campo', () => {
@@ -40,17 +41,25 @@ describe('messaggioErrore', () => {
       message: 'Non ci sono postazioni libere per questa fascia.',
     })
 
-    expect(messaggioErrore(errore, 'ripiego')).toBe('Non ci sono postazioni libere per questa fascia.')
+    expect(messaggioErrore(errore, 'ripiego')).toBe(
+      'Non ci sono postazioni libere per questa fascia.'
+    )
   })
 
   it('usa il ripiego quando la risposta non porta alcun messaggio', () => {
     const errore = erroreConRisposta(500, { statusCode: 500 } as ApiErrorResponse)
 
-    expect(messaggioErrore(errore, 'Errore durante la creazione')).toBe('Errore durante la creazione')
+    expect(messaggioErrore(errore, 'Errore durante la creazione')).toBe(
+      'Errore durante la creazione'
+    )
   })
 
   it('ignora un array errors vuoto e non produce una stringa vuota', () => {
-    const errore = erroreConRisposta(400, { statusCode: 400, message: 'Richiesta non valida', errors: [] })
+    const errore = erroreConRisposta(400, {
+      statusCode: 400,
+      message: 'Richiesta non valida',
+      errors: [],
+    })
 
     expect(messaggioErrore(errore, 'ripiego')).toBe('Richiesta non valida')
   })
@@ -60,7 +69,8 @@ describe('messaggioErrore', () => {
     // manderebbe fuori strada, perche' la creazione non e' stata nemmeno tentata.
     const errore = new AxiosError<ApiErrorResponse>('Network Error')
 
-    expect(messaggioErrore(errore, 'Errore durante la creazione'))
-      .toBe('Server non raggiungibile. Controlla la connessione e riprova.')
+    expect(messaggioErrore(errore, 'Errore durante la creazione')).toBe(
+      'Server non raggiungibile. Controlla la connessione e riprova.'
+    )
   })
 })

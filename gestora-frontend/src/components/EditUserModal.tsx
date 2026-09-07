@@ -25,7 +25,12 @@ const schema = z.object({
 
 export default function EditUserModal({ utente, open, onClose }: Props) {
   const updateUser = useUpdateUser()
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<UpdateUserFormDTO>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<UpdateUserFormDTO>({
     resolver: zodResolver(schema),
   })
 
@@ -56,7 +61,9 @@ export default function EditUserModal({ utente, open, onClose }: Props) {
             {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>Annulla</Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annulla
+            </Button>
             <Button type="submit" disabled={updateUser.isPending}>
               {updateUser.isPending ? 'Salvataggio...' : 'Salva'}
             </Button>

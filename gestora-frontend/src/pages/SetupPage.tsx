@@ -63,8 +63,8 @@ export default function SetupPage() {
       <div className="w-full max-w-md p-8 border rounded-lg shadow-sm">
         <h1 className="text-2xl font-bold mb-2">Benvenuto in Gestora</h1>
         <p className="text-sm text-gray-500 mb-6">
-          Questa installazione non è ancora configurata. Crea l’utenza dell’amministratore:
-          sarà l’unico account con cui gestire zone, tavoli, fasce orarie e gli altri utenti.
+          Questa installazione non è ancora configurata. Crea l’utenza dell’amministratore: sarà
+          l’unico account con cui gestire zone, tavoli, fasce orarie e gli altri utenti.
         </p>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
@@ -75,11 +75,17 @@ export default function SetupPage() {
               autoComplete="username"
               className="w-full border rounded px-3 py-2"
             />
-            {errors.username && <p className="text-red-500 text-sm mt-1">{errors.username.message}</p>}
+            {errors.username && (
+              <p className="text-red-500 text-sm mt-1">{errors.username.message}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
-            <input {...register('email')} type="email" className="w-full border rounded px-3 py-2" />
+            <input
+              {...register('email')}
+              type="email"
+              className="w-full border rounded px-3 py-2"
+            />
             {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
           </div>
           <div>

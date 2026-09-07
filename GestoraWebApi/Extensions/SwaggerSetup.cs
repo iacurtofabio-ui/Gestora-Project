@@ -24,7 +24,7 @@ namespace GestoraWebApi.Extensions
                     Contact = new OpenApiContact
                     {
                         Name = "Fabio Iacurto",
-                        Email = "iacurto.fabio@outloo.com"
+                        Email = "iacurto.fabio@outlook.com"
                     }
                 });
 

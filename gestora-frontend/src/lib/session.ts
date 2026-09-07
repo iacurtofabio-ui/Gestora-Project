@@ -12,10 +12,10 @@ let handler: SessionExpiredHandler | null = null
 
 /** Registra il gestore. Restituisce la funzione di deregistrazione, comoda in useEffect. */
 export function onSessionExpired(nuovoHandler: SessionExpiredHandler): () => void {
-    handler = nuovoHandler
-    return () => {
-        if (handler === nuovoHandler) handler = null
-    }
+  handler = nuovoHandler
+  return () => {
+    if (handler === nuovoHandler) handler = null
+  }
 }
 
 /**
@@ -23,7 +23,7 @@ export function onSessionExpired(nuovoHandler: SessionExpiredHandler): () => voi
  * vecchio comportamento (redirect duro), per non lasciare l'utente su una pagina morta.
  */
 export function notifySessionExpired(): boolean {
-    if (!handler) return false
-    handler()
-    return true
+  if (!handler) return false
+  handler()
+  return true
 }

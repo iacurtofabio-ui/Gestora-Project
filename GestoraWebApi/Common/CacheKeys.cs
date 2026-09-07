@@ -7,5 +7,11 @@ namespace GestoraWebApi.Common
         public const string FasceAttive = "fasce_attive";
         public const string FascePerGiorno = "fasce_giorno_";   // + (int)DayOfWeek
         public const string PostazioniAttive = "postazioni_attive";
+
+        /// <summary>
+        /// REV-061: durata della cache in memoria, prima ripetuta identica in
+        /// FasciaOrariaService, PostazioneService e ZonaService.
+        /// </summary>
+        public static readonly TimeSpan Durata = TimeSpan.FromMinutes(30);
     }
 }

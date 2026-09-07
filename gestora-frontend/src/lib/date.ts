@@ -14,15 +14,15 @@ const FUSO_ITALIA = 'Europe/Rome'
 
 // 'en-CA' formatta le date come YYYY-MM-DD, cioe' gia' nel formato che l'API si aspetta.
 const formattatoreIso = new Intl.DateTimeFormat('en-CA', {
-    timeZone: FUSO_ITALIA,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+  timeZone: FUSO_ITALIA,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
 })
 
 /** Data odierna in Italia, come stringa YYYY-MM-DD. */
 export function oggiInItalia(): string {
-    return formattatoreIso.format(new Date())
+  return formattatoreIso.format(new Date())
 }
 
 /**
@@ -33,8 +33,8 @@ export function oggiInItalia(): string {
  * cambia l'ora legale.
  */
 export function lunediSettimanaCorrenteInItalia(): string {
-    const oggi = new Date(`${oggiInItalia()}T00:00:00Z`)
-    const giorno = oggi.getUTCDay() // 0 = domenica
-    oggi.setUTCDate(oggi.getUTCDate() - (giorno === 0 ? 6 : giorno - 1))
-    return oggi.toISOString().split('T')[0]
+  const oggi = new Date(`${oggiInItalia()}T00:00:00Z`)
+  const giorno = oggi.getUTCDay() // 0 = domenica
+  oggi.setUTCDate(oggi.getUTCDate() - (giorno === 0 ? 6 : giorno - 1))
+  return oggi.toISOString().split('T')[0]
 }

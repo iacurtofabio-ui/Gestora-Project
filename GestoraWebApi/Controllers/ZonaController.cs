@@ -40,8 +40,8 @@ namespace GestoraWebApi.Controllers
         {
             await _zonaService.AddAsync(dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Zona creata con successo - {Data}",
-                nameof(ZonaController), nameof(CreateZonaAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Zona creata con successo",
+                nameof(ZonaController), nameof(CreateZonaAsync));
 
             return Created("", new { message = "Zona creata con successo" });
         }
@@ -53,8 +53,8 @@ namespace GestoraWebApi.Controllers
         {
             await _zonaService.UpdateAsync(dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Zona aggiornata con successo - {Data}",
-                nameof(ZonaController), nameof(UpdateZonaAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Zona aggiornata con successo",
+                nameof(ZonaController), nameof(UpdateZonaAsync));
 
             return Ok(new { message = "Zona aggiornata con successo" });
         }
@@ -101,8 +101,8 @@ namespace GestoraWebApi.Controllers
         {
             await _zonaService.UpdateStatoZonaAsync(id, attiva);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Stato della zona {Id} aggiornato a {Attiva} - {Data}",
-                nameof(ZonaController), nameof(UpdateStatoZonaAsync), id, attiva, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Stato della zona {Id} aggiornato a {Attiva}",
+                nameof(ZonaController), nameof(UpdateStatoZonaAsync), id, attiva);
 
             return Ok(new { message = $"Zona {(attiva ? "attivata" : "disattivata")} con successo" });
         }
@@ -114,8 +114,8 @@ namespace GestoraWebApi.Controllers
         {
             await _zonaService.DeleteAsync(id);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Zona eliminata con successo - {Data}",
-                nameof(ZonaController), nameof(DeleteZonaAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Zona eliminata con successo",
+                nameof(ZonaController), nameof(DeleteZonaAsync));
 
             return Ok(new { message = "Zona eliminata con successo" });
         }

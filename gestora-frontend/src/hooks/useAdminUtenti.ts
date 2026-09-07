@@ -1,13 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/lib/axios'
 import { toast } from 'sonner'
-import type { UserDTO, UpdateUserFormDTO, AssignRoleDTO, ResetPasswordDTO, CreateUserFormDTO } from '@/types/utente'
+import type {
+  UserDTO,
+  UpdateUserFormDTO,
+  AssignRoleDTO,
+  ResetPasswordDTO,
+  CreateUserFormDTO,
+} from '@/types/utente'
 import { segnalaErrore } from '@/lib/apiError'
+import { Endpoints } from '@/lib/endpoints'
 
 export function useUtenti() {
   return useQuery<UserDTO[]>({
     queryKey: ['utenti'],
-    queryFn: () => apiClient.get('/AuthenticationUser/get-users').then(r => r.data),
+    queryFn: () => apiClient.get(Endpoints.auth.getUsers).then((r) => r.data),
   })
 }
 
@@ -18,18 +25,23 @@ export function useCreateUser() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (data: CreateUserFormDTO) => {
-      const response = await apiClient.post('/AuthenticationUser/register', {
+      const response = await apiClient.post(Endpoints.auth.register, {
         username: data.username,
         email: data.email,
         password: data.password,
       })
 
       if (data.role !== 'Cliente') {
-        const users = await apiClient.get<UserDTO[]>('/AuthenticationUser/get-users').then(r => r.data)
-        const nuovoUtente = users.find(u => u.email === data.email)
+        const users = await apiClient.get<UserDTO[]>(Endpoints.auth.getUsers).then((r) => r.data)
+        const nuovoUtente = users.find((u) => u.email === data.email)
         if (nuovoUtente) {
-          await apiClient.post('/AuthenticationUser/assign-role', { userId: nuovoUtente.id, role: data.role })
-          await apiClient.delete('/AuthenticationUser/remove-role', { data: { userId: nuovoUtente.id, role: 'Cliente' } })
+          await apiClient.post(Endpoints.auth.assignRole, {
+            userId: nuovoUtente.id,
+            role: data.role,
+          })
+          await apiClient.delete(Endpoints.auth.removeRole, {
+            data: { userId: nuovoUtente.id, role: 'Cliente' },
+          })
         }
       }
 
@@ -39,7 +51,7 @@ export function useCreateUser() {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Utente creato con successo')
     },
-    onError: segnalaErrore('Errore durante la creazione dell\'utente'),
+    onError: segnalaErrore("Errore durante la creazione dell'utente"),
   })
 }
 
@@ -47,43 +59,43 @@ export function useUpdateUser() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateUserFormDTO }) =>
-      apiClient.put(`/AuthenticationUser/update-user/${id}`, data),
+      apiClient.put(Endpoints.auth.updateUser(id), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Utente aggiornato con successo')
     },
-    onError: segnalaErrore('Errore durante l\'aggiornamento'),
+    onError: segnalaErrore("Errore durante l'aggiornamento"),
   })
 }
 
 export function useDeleteUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => apiClient.delete(`/AuthenticationUser/delete-user/${id}`),
+    mutationFn: (id: string) => apiClient.delete(Endpoints.auth.deleteUser(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Utente eliminato con successo')
     },
-    onError: segnalaErrore('Errore durante l\'eliminazione'),
+    onError: segnalaErrore("Errore durante l'eliminazione"),
   })
 }
 
 export function useAssignRole() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: AssignRoleDTO) => apiClient.post('/AuthenticationUser/assign-role', data),
+    mutationFn: (data: AssignRoleDTO) => apiClient.post(Endpoints.auth.assignRole, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Ruolo assegnato con successo')
     },
-    onError: segnalaErrore('Errore durante l\'assegnazione del ruolo'),
+    onError: segnalaErrore("Errore durante l'assegnazione del ruolo"),
   })
 }
 
 export function useRemoveRole() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: AssignRoleDTO) => apiClient.delete('/AuthenticationUser/remove-role', { data }),
+    mutationFn: (data: AssignRoleDTO) => apiClient.delete(Endpoints.auth.removeRole, { data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Ruolo rimosso con successo')
@@ -96,7 +108,7 @@ export function useResetPassword() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: ResetPasswordDTO }) =>
-      apiClient.post(`/AuthenticationUser/reset-password/${id}`, data),
+      apiClient.post(Endpoints.auth.resetPassword(id), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Password resettata con successo')

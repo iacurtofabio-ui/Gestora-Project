@@ -26,7 +26,7 @@ export function messaggioErrore(error: AxiosError<ApiErrorResponse>, fallback: s
   const errors = data?.errors ?? []
 
   if (errors.length > 0) {
-    return errors.map(e => e.error).join(', ')
+    return errors.map((e) => e.error).join(', ')
   }
 
   return data?.message ?? fallback

@@ -4,7 +4,7 @@ using GestoraWebApi.Services.Postazioni.DTOs;
 
 namespace GestoraWebApi.Services.FasciaOrarie
 {
-    public interface IFasciaOrariaService : IService<FasciaOrariaDTO>
+    public interface IFasciaOrariaService
     {
         Task AddAsync(FasciaOrariaDTO dto);
         Task<FasciaOraria> GetByIdAsync(long id);

@@ -1,5 +1,6 @@
 using GestoraWebApi.Auth;
 using GestoraWebApi.Common;
+using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Exceptions;
 using GestoraWebApi.Services.Auth.DTOs;
 using GestoraWebApi.Services.LogActivity;
@@ -70,7 +71,7 @@ namespace GestoraWebApi.Controllers
                 if (await EsisteAdminAsync())
                 {
                     _logger.LogWarning("[{Controller}] - [{Method}]: Tentativo di primo avvio da {Ip} su installazione gia' configurata",
-                        nameof(SetupController), nameof(CreaPrimoAdmin), GetIpAddress());
+                        nameof(SetupController), nameof(CreaPrimoAdmin), HttpContext.GetIpAddress());
 
                     return Conflict("L'installazione e' gia' configurata: esiste gia' un amministratore.");
                 }
@@ -98,9 +99,9 @@ namespace GestoraWebApi.Controllers
 
                 // REV-070: nei log resta l'UserId, non l'email.
                 _logger.LogWarning("[{Controller}] - [{Method}]: Primo avvio completato, Admin {UserId} creato da {Ip}",
-                    nameof(SetupController), nameof(CreaPrimoAdmin), user.Id, GetIpAddress());
+                    nameof(SetupController), nameof(CreaPrimoAdmin), user.Id, HttpContext.GetIpAddress());
 
-                await _logActivityService.LogAsync(user.Id, "Primo avvio: creazione dell'amministratore iniziale", GetIpAddress());
+                await _logActivityService.LogAsync(user.Id, "Primo avvio: creazione dell'amministratore iniziale", HttpContext.GetIpAddress());
 
                 return Ok(new { Messaggio = $"Amministratore '{user.UserName}' creato. Effettua il login per iniziare." });
             }
@@ -148,8 +149,5 @@ namespace GestoraWebApi.Controllers
             if (!await _roleManager.RoleExistsAsync(Roles.Admin))
                 await _roleManager.CreateAsync(new IdentityRole(Roles.Admin));
         }
-
-        private string? GetIpAddress()
-            => IndirizzoClient.Ottieni(HttpContext);
     }
 }

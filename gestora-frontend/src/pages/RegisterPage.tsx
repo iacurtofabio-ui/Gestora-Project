@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link } from 'react-router-dom'
 import apiClient from '@/lib/axios'
+import { Endpoints } from '@/lib/endpoints'
 import { Button } from '@/components/ui/button'
 import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
 
@@ -28,12 +29,13 @@ export default function RegisterPage() {
 
   async function onSubmit(data: RegisterForm) {
     try {
-      await apiClient.post('/AuthenticationUser/register', data)
+      await apiClient.post(Endpoints.auth.register, data)
       navigate('/login')
     } catch (err) {
-      const message = err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-        : undefined
+      const message =
+        err && typeof err === 'object' && 'response' in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined
       setError('root', { message: message ?? 'Registrazione non riuscita. Riprova.' })
     }
   }
@@ -50,7 +52,9 @@ export default function RegisterPage() {
               placeholder="Username"
               className="w-full border rounded px-3 py-2"
             />
-            {errors.username && <p className="text-red-500 text-sm mt-1">{errors.username.message}</p>}
+            {errors.username && (
+              <p className="text-red-500 text-sm mt-1">{errors.username.message}</p>
+            )}
           </div>
           <div>
             <input
@@ -68,7 +72,9 @@ export default function RegisterPage() {
               placeholder="Password"
               className="w-full border rounded px-3 py-2"
             />
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>}
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
+            )}
           </div>
           {errors.root && <p className="text-red-500 text-sm">{errors.root.message}</p>}
           <Button type="submit" disabled={isSubmitting}>
@@ -76,7 +82,10 @@ export default function RegisterPage() {
           </Button>
         </form>
         <p className="text-sm text-gray-500 mt-4 text-center">
-          Hai già un account? <Link to="/login" className="underline">Accedi</Link>
+          Hai già un account?{' '}
+          <Link to="/login" className="underline">
+            Accedi
+          </Link>
         </p>
       </div>
     </div>

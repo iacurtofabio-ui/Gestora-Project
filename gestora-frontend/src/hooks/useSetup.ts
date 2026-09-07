@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { AxiosError } from 'axios'
 import apiClient from '@/lib/axios'
 import type { ApiErrorResponse } from '@/types/apiError'
+import { Endpoints } from '@/lib/endpoints'
 
 export type SetupStato = {
   setupCompletato: boolean
@@ -24,7 +25,7 @@ export type PrimoAdminForm = {
 export function useSetupStato() {
   return useQuery<SetupStato>({
     queryKey: ['setup', 'stato'],
-    queryFn: () => apiClient.get('/Setup/stato').then((r) => r.data),
+    queryFn: () => apiClient.get(Endpoints.setup.stato).then((r) => r.data),
     retry: false,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -34,7 +35,7 @@ export function useSetupStato() {
 export function useCreaPrimoAdmin() {
   const queryClient = useQueryClient()
   return useMutation<unknown, AxiosError<ApiErrorResponse>, PrimoAdminForm>({
-    mutationFn: (data: PrimoAdminForm) => apiClient.post('/Setup/admin', data),
+    mutationFn: (data: PrimoAdminForm) => apiClient.post(Endpoints.setup.admin, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['setup'] })
     },

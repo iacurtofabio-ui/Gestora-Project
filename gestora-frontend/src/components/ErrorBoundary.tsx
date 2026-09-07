@@ -16,20 +16,20 @@ type State = { errore: Error | null }
  * hook, e' l'unico caso in cui in questo progetto si usa una classe.
  */
 export default class ErrorBoundary extends Component<Props, State> {
-    state: State = { errore: null }
+  state: State = { errore: null }
 
-    static getDerivedStateFromError(errore: Error): State {
-        return { errore }
-    }
+  static getDerivedStateFromError(errore: Error): State {
+    return { errore }
+  }
 
-    componentDidCatch(errore: Error, info: ErrorInfo) {
-        // In produzione la console del browser e' l'unico posto dove questo errore resta
-        // visibile: il backend non lo vede, non essendoci nessuna chiamata di segnalazione.
-        console.error('Errore non gestito nel render:', errore, info.componentStack)
-    }
+  componentDidCatch(errore: Error, info: ErrorInfo) {
+    // In produzione la console del browser e' l'unico posto dove questo errore resta
+    // visibile: il backend non lo vede, non essendoci nessuna chiamata di segnalazione.
+    console.error('Errore non gestito nel render:', errore, info.componentStack)
+  }
 
-    render() {
-        if (!this.state.errore) return this.props.children
-        return <ErrorScreen messaggio={this.state.errore.message} />
-    }
+  render() {
+    if (!this.state.errore) return this.props.children
+    return <ErrorScreen messaggio={this.state.errore.message} />
+  }
 }

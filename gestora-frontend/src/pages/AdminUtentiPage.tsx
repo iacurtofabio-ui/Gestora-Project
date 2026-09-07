@@ -16,7 +16,9 @@ export default function AdminUtentiPage() {
 
   const [idDaEliminare, setIdDaEliminare] = useState<string | undefined>(undefined)
   const [utenteSelezionato, setUtenteSelezionato] = useState<UserDTO | undefined>(undefined)
-  const [modalAperto, setModalAperto] = useState<'edit' | 'ruoli' | 'password' | 'crea' | undefined>(undefined)
+  const [modalAperto, setModalAperto] = useState<
+    'edit' | 'ruoli' | 'password' | 'crea' | undefined
+  >(undefined)
 
   if (utenti.isLoading) return <div className="p-6">Caricamento...</div>
   if (utenti.isError) return <div className="p-6 text-red-500">Errore nel caricamento utenti</div>
@@ -44,21 +46,42 @@ export default function AdminUtentiPage() {
               <td className="py-2 pr-4">{u.email}</td>
               <td className="py-2 pr-4">{u.roles.join(', ')}</td>
               <td className="py-2 flex gap-2">
-                <Button size="sm" variant="outline"
-                  onClick={() => { setUtenteSelezionato(u); setModalAperto('edit') }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setUtenteSelezionato(u)
+                    setModalAperto('edit')
+                  }}
+                >
                   Modifica
                 </Button>
-                <Button size="sm" variant="outline"
-                  onClick={() => { setUtenteSelezionato(u); setModalAperto('ruoli') }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setUtenteSelezionato(u)
+                    setModalAperto('ruoli')
+                  }}
+                >
                   Ruoli
                 </Button>
-                <Button size="sm" variant="outline"
-                  onClick={() => { setUtenteSelezionato(u); setModalAperto('password') }}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setUtenteSelezionato(u)
+                    setModalAperto('password')
+                  }}
+                >
                   Reset Password
                 </Button>
-                <Button size="sm" variant="destructive"
+                <Button
+                  size="sm"
+                  variant="destructive"
                   disabled={u.id === user?.id}
-                  onClick={() => setIdDaEliminare(u.id)}>
+                  onClick={() => setIdDaEliminare(u.id)}
+                >
                   Elimina
                 </Button>
               </td>
@@ -70,7 +93,10 @@ export default function AdminUtentiPage() {
       <ConfirmDialog
         open={idDaEliminare !== undefined}
         descrizione="Questa operazione è irreversibile. L'utente verrà eliminato definitivamente."
-        onConfirm={() => { deleteUser.mutate(idDaEliminare!); setIdDaEliminare(undefined) }}
+        onConfirm={() => {
+          deleteUser.mutate(idDaEliminare!)
+          setIdDaEliminare(undefined)
+        }}
         onCancel={() => setIdDaEliminare(undefined)}
       />
       <EditUserModal
@@ -88,11 +114,7 @@ export default function AdminUtentiPage() {
         open={modalAperto === 'password'}
         onClose={() => setModalAperto(undefined)}
       />
-      <CreateUserModal
-        open={modalAperto === 'crea'}
-        onClose={() => setModalAperto(undefined)}
-      />
+      <CreateUserModal open={modalAperto === 'crea'} onClose={() => setModalAperto(undefined)} />
     </div>
-
   )
 }

@@ -27,4 +27,4 @@ export type CreateUserFormDTO = {
 }
 
 export const RUOLI_DISPONIBILI = ['Admin', 'Staff', 'Cliente'] as const
-export type RuoloDisponibile = typeof RUOLI_DISPONIBILI[number]
+export type RuoloDisponibile = (typeof RUOLI_DISPONIBILI)[number]

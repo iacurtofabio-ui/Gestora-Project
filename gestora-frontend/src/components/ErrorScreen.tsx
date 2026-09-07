@@ -8,39 +8,37 @@
  * React, e senza un errorElement mostrerebbe la sua schermata di sviluppo con lo stack trace.
  */
 export default function ErrorScreen({ messaggio }: { messaggio?: string }) {
-    function ripartiDaLogin() {
-        localStorage.removeItem('token')
-        window.location.href = '/login'
-    }
+  function ripartiDaLogin() {
+    localStorage.removeItem('token')
+    window.location.href = '/login'
+  }
 
-    return (
-        <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-            <div className="bg-white border rounded-lg p-6 max-w-md w-full">
-                <h1 className="text-lg font-semibold mb-2">Si e' verificato un errore</h1>
-                <p className="text-sm text-gray-600 mb-4">
-                    L'applicazione non e' riuscita a mostrare questa pagina. Puoi riprovare a
-                    caricarla oppure ripartire dall'accesso.
-                </p>
-                {messaggio && (
-                    <p className="text-xs text-gray-400 mb-4 break-words">{messaggio}</p>
-                )}
-                <div className="flex gap-2 justify-end">
-                    <button
-                        type="button"
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 text-sm border rounded"
-                    >
-                        Ricarica
-                    </button>
-                    <button
-                        type="button"
-                        onClick={ripartiDaLogin}
-                        className="px-4 py-2 text-sm bg-blue-500 text-white rounded"
-                    >
-                        Torna al login
-                    </button>
-                </div>
-            </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+      <div className="bg-white border rounded-lg p-6 max-w-md w-full">
+        <h1 className="text-lg font-semibold mb-2">Si e' verificato un errore</h1>
+        <p className="text-sm text-gray-600 mb-4">
+          L'applicazione non e' riuscita a mostrare questa pagina. Puoi riprovare a caricarla oppure
+          ripartire dall'accesso.
+        </p>
+        {messaggio && <p className="text-xs text-gray-400 mb-4 break-words">{messaggio}</p>}
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 text-sm border rounded"
+          >
+            Ricarica
+          </button>
+          <button
+            type="button"
+            onClick={ripartiDaLogin}
+            className="px-4 py-2 text-sm bg-blue-500 text-white rounded"
+          >
+            Torna al login
+          </button>
         </div>
-    )
+      </div>
+    </div>
+  )
 }

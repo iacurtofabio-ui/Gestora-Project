@@ -20,18 +20,18 @@ if (configurazioneMancante) {
   radice.render(<ConfigurazioneMancante />)
 } else {
   radice.render(
-  <StrictMode>
-    {/* REV-014: l'ErrorBoundary sta piu' in alto di AuthProvider, che e' proprio il punto in cui
+    <StrictMode>
+      {/* REV-014: l'ErrorBoundary sta piu' in alto di AuthProvider, che e' proprio il punto in cui
         un dato di sessione corrotto faceva fallire il primo render lasciando la pagina bianca. */}
-    <ErrorBoundary>
-      <AuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-          <DevtoolsQuery />
-          <Toaster richColors position="top-right" />
-        </QueryClientProvider>
-      </AuthProvider>
-    </ErrorBoundary>
-  </StrictMode>
+      <ErrorBoundary>
+        <AuthProvider>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+            <DevtoolsQuery />
+            <Toaster richColors position="top-right" />
+          </QueryClientProvider>
+        </AuthProvider>
+      </ErrorBoundary>
+    </StrictMode>
   )
 }

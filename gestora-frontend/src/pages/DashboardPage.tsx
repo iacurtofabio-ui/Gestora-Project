@@ -38,7 +38,9 @@ export default function DashboardPage() {
 
       {/* Coperti per fascia oraria */}
       <div className="bg-white rounded-lg border mb-6">
-        <h2 className="text-sm font-semibold text-gray-700 p-4 border-b">Coperti per Fascia Oraria</h2>
+        <h2 className="text-sm font-semibold text-gray-700 p-4 border-b">
+          Coperti per Fascia Oraria
+        </h2>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b">
@@ -57,7 +59,9 @@ export default function DashboardPage() {
             ) : (
               giornaliera.data?.copertiPerFascia.map((fascia) => (
                 <tr key={fascia.fasciaOrariaId} className="border-b">
-                  <td className="p-3">{fascia.oraInizio} - {fascia.oraFine}</td>
+                  <td className="p-3">
+                    {fascia.oraInizio} - {fascia.oraFine}
+                  </td>
                   <td className="p-3">{fascia.copertiPrenotati}</td>
                   <td className="p-3">{fascia.copertiDisponibili}</td>
                 </tr>

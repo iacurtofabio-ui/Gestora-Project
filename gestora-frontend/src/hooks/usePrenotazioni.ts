@@ -4,21 +4,22 @@ import { toast } from 'sonner'
 import type { PrenotazioneDTO, PrenotazioneCreateDTO } from '@/types/prenotazione'
 import { segnalaErrore } from '@/lib/apiError'
 import { useAuth } from '@/hooks/useAuth'
+import { Endpoints } from '@/lib/endpoints'
 
 type PrenotazioniParams = {
-    data?: string
-    stato?: string
-    page?: number
-    pageSize?: number
+  data?: string
+  stato?: string
+  page?: number
+  pageSize?: number
 }
 
 /** Forma della risposta paginata del backend (PagedResult<T>). */
 type PrenotazioniPaginatedResponse = {
-    items: PrenotazioneDTO[]
-    totalCount: number
-    page: number
-    pageSize: number
-    totalPages: number
+  items: PrenotazioneDTO[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
 }
 
 /**
@@ -35,41 +36,39 @@ type PrenotazioniPaginatedResponse = {
  * riportata alla stessa forma, come un'unica pagina che contiene tutto.
  */
 export function usePrenotazioni(params: PrenotazioniParams = {}) {
-    const { user } = useAuth()
-    const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
+  const { user } = useAuth()
+  const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
 
-    return useQuery<PrenotazioniPaginatedResponse>({
-        queryKey: ['prenotazioni', isStaff, params],
-        queryFn: () =>
-            isStaff
-                ? apiClient
-                    .get<PrenotazioniPaginatedResponse>('/Prenotazione/get-all-prenotazioni', { params })
-                    .then(r => r.data)
-                : apiClient
-                    .get<PrenotazioneDTO[]>('/Prenotazione/get-mie-prenotazioni')
-                    .then(r => ({
-                        items: r.data,
-                        totalCount: r.data.length,
-                        page: 1,
-                        pageSize: r.data.length,
-                        totalPages: 1,
-                    })),
-        // Cambiando pagina si tengono a video i dati precedenti finche' arrivano i nuovi: senza,
-        // la tabella si svuota e l'intestazione salta a ogni clic su Successiva.
-        placeholderData: keepPreviousData,
-    })
+  return useQuery<PrenotazioniPaginatedResponse>({
+    queryKey: ['prenotazioni', isStaff, params],
+    queryFn: () =>
+      isStaff
+        ? apiClient
+            .get<PrenotazioniPaginatedResponse>(Endpoints.prenotazione.getAll, { params })
+            .then((r) => r.data)
+        : apiClient.get<PrenotazioneDTO[]>(Endpoints.prenotazione.mie).then((r) => ({
+            items: r.data,
+            totalCount: r.data.length,
+            page: 1,
+            pageSize: r.data.length,
+            totalPages: 1,
+          })),
+    // Cambiando pagina si tengono a video i dati precedenti finche' arrivano i nuovi: senza,
+    // la tabella si svuota e l'intestazione salta a ogni clic su Successiva.
+    placeholderData: keepPreviousData,
+  })
 }
 
 export function useCreaPrenotazione() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: (data: PrenotazioneCreateDTO) => apiClient.post('/Prenotazione/crea-prenotazione', data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
-            toast.success('Prenotazione creata con successo')
-        },
-        onError: segnalaErrore('Errore durante la creazione'),
-    })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: PrenotazioneCreateDTO) => apiClient.post(Endpoints.prenotazione.crea, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      toast.success('Prenotazione creata con successo')
+    },
+    onError: segnalaErrore('Errore durante la creazione'),
+  })
 }
 
 /**
@@ -79,62 +78,62 @@ export function useCreaPrenotazione() {
  * query string come negli altri endpoint di questo controller.
  */
 export function useModificaPrenotazione() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: PrenotazioneCreateDTO }) =>
-            apiClient.put(`/Prenotazione/update-prenotazione?id=${id}`, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
-            toast.success('Prenotazione modificata con successo')
-        },
-        onError: segnalaErrore('Errore durante la modifica'),
-    })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: PrenotazioneCreateDTO }) =>
+      apiClient.put(Endpoints.prenotazione.update(id), data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      toast.success('Prenotazione modificata con successo')
+    },
+    onError: segnalaErrore('Errore durante la modifica'),
+  })
 }
 
 export function useConfermaPrenotazione() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: (id: number) => apiClient.patch(`/Prenotazione/conferma-prenotazione?id=${id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
-            toast.success('Prenotazione confermata')
-        },
-        onError: segnalaErrore('Errore durante la conferma'),
-    })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiClient.patch(Endpoints.prenotazione.conferma(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      toast.success('Prenotazione confermata')
+    },
+    onError: segnalaErrore('Errore durante la conferma'),
+  })
 }
 
 export function useCompletaPrenotazione() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: (id: number) => apiClient.patch(`/Prenotazione/completa-prenotazione?id=${id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
-            toast.success('Prenotazione completata')
-        },
-        onError: segnalaErrore('Errore durante il completamento'),
-    })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiClient.patch(Endpoints.prenotazione.completa(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      toast.success('Prenotazione completata')
+    },
+    onError: segnalaErrore('Errore durante il completamento'),
+  })
 }
 
 export function useAnnullaPrenotazione() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: (id: number) => apiClient.patch(`/Prenotazione/annulla-prenotazione?id=${id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
-            toast.success('Prenotazione annullata')
-        },
-        onError: segnalaErrore('Errore durante l\'annullamento'),
-    })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiClient.patch(Endpoints.prenotazione.annulla(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      toast.success('Prenotazione annullata')
+    },
+    onError: segnalaErrore("Errore durante l'annullamento"),
+  })
 }
 
 export function useDeletePrenotazione() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: (id: number) => apiClient.delete(`/Prenotazione/delete-prenotazione?id=${id}`),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
-            toast.success('Prenotazione eliminata')
-        },
-        onError: segnalaErrore('Errore durante l\'eliminazione'),
-    })
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(Endpoints.prenotazione.delete(id)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      toast.success('Prenotazione eliminata')
+    },
+    onError: segnalaErrore("Errore durante l'eliminazione"),
+  })
 }

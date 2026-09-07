@@ -32,7 +32,7 @@ namespace GestoraWebApi.Repositories.Prenotazioni
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
-        IQueryable<Prenotazione> IRepository<Prenotazione>.GetAllQueryableAsync()
+        public IQueryable<Prenotazione> GetAllQueryableAsync()
         {
             return _context.Prenotazioni.AsNoTracking();
         }

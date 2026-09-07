@@ -10,16 +10,16 @@ import ErrorScreen from '@/components/ErrorScreen'
  * in gioco qui, perche' React Router intercetta prima.
  */
 export default function RouteErrorPage() {
-    const errore = useRouteError()
+  const errore = useRouteError()
 
-    console.error('Errore non gestito in una route:', errore)
+  console.error('Errore non gestito in una route:', errore)
 
-    let messaggio: string | undefined
-    if (isRouteErrorResponse(errore)) {
-        messaggio = `${errore.status} ${errore.statusText}`
-    } else if (errore instanceof Error) {
-        messaggio = errore.message
-    }
+  let messaggio: string | undefined
+  if (isRouteErrorResponse(errore)) {
+    messaggio = `${errore.status} ${errore.statusText}`
+  } else if (errore instanceof Error) {
+    messaggio = errore.message
+  }
 
-    return <ErrorScreen messaggio={messaggio} />
+  return <ErrorScreen messaggio={messaggio} />
 }

@@ -29,15 +29,21 @@ export default function GestisciRuoliModal({ utente, open, onClose }: Props) {
               <div key={ruolo} className="flex items-center justify-between">
                 <span className="text-sm font-medium">{ruolo}</span>
                 {haRuolo ? (
-                  <Button size="sm" variant="destructive"
+                  <Button
+                    size="sm"
+                    variant="destructive"
                     disabled={removeRole.isPending}
-                    onClick={() => removeRole.mutate({ userId: utente.id, role: ruolo })}>
+                    onClick={() => removeRole.mutate({ userId: utente.id, role: ruolo })}
+                  >
                     Rimuovi
                   </Button>
                 ) : (
-                  <Button size="sm" variant="outline"
+                  <Button
+                    size="sm"
+                    variant="outline"
                     disabled={assignRole.isPending}
-                    onClick={() => assignRole.mutate({ userId: utente.id, role: ruolo })}>
+                    onClick={() => assignRole.mutate({ userId: utente.id, role: ruolo })}
+                  >
                     Assegna
                   </Button>
                 )}
@@ -46,7 +52,9 @@ export default function GestisciRuoliModal({ utente, open, onClose }: Props) {
           })}
         </div>
         <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={onClose}>Chiudi</Button>
+          <Button variant="outline" onClick={onClose}>
+            Chiudi
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

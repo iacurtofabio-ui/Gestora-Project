@@ -13,7 +13,6 @@ using GestoraWebApi.Services.PostazioneAssignment;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using GestoraWebApi.Services.PrenotazioniPostazioni;
 using Microsoft.EntityFrameworkCore;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Services.Prenotazioni
@@ -30,14 +29,9 @@ namespace GestoraWebApi.Services.Prenotazioni
         private readonly ILogger<PrenotazioniService> _logger;
         private readonly ILogActivityService _logActivity;
         private readonly IClock _clock;
-        private IPrenotazioniRepository object1;
-        private IPostazioneAssignmentService object2;
-        private IFasciaOrariaRepository object3;
-        private IMapper object4;
-        private GestoraContext context;
-        private IHttpContextAccessor object5;
-        private IZonaRepository object6;
-        private ILogger<PrenotazioniService> object7;
+
+        /// <summary>REV-061: retention delle prenotazioni completate, prima un -6 hardcoded in mezzo al metodo.</summary>
+        private const int MesiRetentionCompletate = 6;
 
         public PrenotazioniService(IPrenotazioniRepository prenotazioniRepository,
                                    IPostazioneAssignmentService postazioneAssignmentService,
@@ -62,21 +56,9 @@ namespace GestoraWebApi.Services.Prenotazioni
             _clock = clock;
         }
 
-        public PrenotazioniService(IPrenotazioniRepository object1, IPostazioneAssignmentService object2, IFasciaOrariaRepository object3, IMapper object4, GestoraContext context, IHttpContextAccessor object5, IZonaRepository object6, ILogger<PrenotazioniService> object7)
-        {
-            this.object1 = object1;
-            this.object2 = object2;
-            this.object3 = object3;
-            this.object4 = object4;
-            this.context = context;
-            this.object5 = object5;
-            this.object6 = object6;
-            this.object7 = object7;
-        }
-
         public async Task AddAsync(PrenotazioneCreateDTO dto)
         {
-            var userId = GetAuthenticatedUserId();
+            var userId = _httpContextAccessor.HttpContext.GetAuthenticatedUserId();
 
             // REV-003: verifica di disponibilita', scelta del tavolo e scrittura sono una sola
             // operazione atomica. Fuori dalla transazione, fra "il tavolo risulta libero" e
@@ -117,7 +99,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
                 // REV-032 (parziale): il log sta nella stessa transazione della scrittura che
                 // registra. Se fallisce, la prenotazione non resta scritta e non tracciata.
-                await _logActivity.LogAsync(userId, $"Creata prenotazione per data {dto.DataPrenotazione:yyyy-MM-dd}, {dto.NumeroCoperti} coperti", GetIpAddress());
+                await _logActivity.LogAsync(userId, $"Creata prenotazione per data {dto.DataPrenotazione:yyyy-MM-dd}, {dto.NumeroCoperti} coperti", _httpContextAccessor.HttpContext.GetIpAddress());
             });
         }
 
@@ -132,7 +114,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new ConflictException($"Non è possibile eliminare una prenotazione nello stato {prenotazione.Stato}.");
 
             await _prenotazioniRepository.DeleteAsync(prenotazione);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata prenotazione ID {id}", GetIpAddress());
+            await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Eliminata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
         }
 
         public async Task<PrenotazioneDTO> GetByIdAsync(long id)
@@ -145,7 +127,7 @@ namespace GestoraWebApi.Services.Prenotazioni
             // REV-034: il Cliente può leggere il dettaglio solo della propria prenotazione.
             // Admin/Staff nessun limite.
             if (IsSelfServiceCliente()
-                && !string.Equals(prenotazione.UserId, GetAuthenticatedUserId(), StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(prenotazione.UserId, _httpContextAccessor.HttpContext.GetAuthenticatedUserId(), StringComparison.OrdinalIgnoreCase))
                 throw new ForbiddenException("Non hai i permessi per visualizzare questa prenotazione.");
 
             return _mapper.Map<PrenotazioneDTO>(prenotazione);
@@ -163,7 +145,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                 || prenotazione.Stato == StatoPrenotazione.Completata)
                 throw new ConflictException($"Non è possibile modificare una prenotazione nello stato {prenotazione.Stato}.");
 
-            var userId = GetAuthenticatedUserId();
+            var userId = _httpContextAccessor.HttpContext.GetAuthenticatedUserId();
 
             // REV-002: il vincolo di ownership vale solo per il self-service del Cliente.
             // Admin e Staff possono modificare la prenotazione di qualunque cliente (creata
@@ -216,7 +198,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
                 // REV-006: la modifica era l'unica scrittura su prenotazione non tracciata.
                 // REV-032 (parziale): ora il log e' nella stessa transazione della modifica.
-                await _logActivity.LogAsync(userId, $"Modificata prenotazione ID {id}", GetIpAddress());
+                await _logActivity.LogAsync(userId, $"Modificata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
         }
 
@@ -232,7 +214,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             prenotazione.Stato = StatoPrenotazione.InCorso;
             await _prenotazioniRepository.UpdateAsync(prenotazione);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Confermata prenotazione ID {id}", GetIpAddress());
+            await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Confermata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
         }
 
         public async Task CompletePrenotazioneAsync(long id)
@@ -257,7 +239,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             prenotazione.Stato = StatoPrenotazione.Completata;
             await _prenotazioniRepository.UpdateAsync(prenotazione);
-            await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Completata prenotazione ID {id}", GetIpAddress());
+            await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Completata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
         }
 
         public async Task AnnullaPrenotazioneAsync(long id)
@@ -272,7 +254,7 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             if (IsSelfServiceCliente())
             {
-                var userId = GetAuthenticatedUserId();
+                var userId = _httpContextAccessor.HttpContext.GetAuthenticatedUserId();
                 if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
                     throw new ForbiddenException("Non hai i permessi per annullare questa prenotazione.");
 
@@ -291,7 +273,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                     _context.PrenotazioniPostazioni.RemoveRange(prenotazione.PrenotazioniPostazioni);
 
                 await _prenotazioniRepository.UpdateAsync(prenotazione);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Annullata prenotazione ID {id}", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Annullata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
         }
 
@@ -406,7 +388,7 @@ namespace GestoraWebApi.Services.Prenotazioni
         public async Task AutomaticDeletePrenotazioniAsync()
         {
             var now = _clock.NowInRome;
-            var cutoffDate = DateOnly.FromDateTime(now).AddMonths(-6);
+            var cutoffDate = DateOnly.FromDateTime(now).AddMonths(-MesiRetentionCompletate);
 
             // REV-022: come sopra, una DELETE con un solo SaveChanges invece di una per riga.
             // Qui il guadagno e' maggiore: la pulizia gira su sei mesi di storico, quindi e'
@@ -428,10 +410,6 @@ namespace GestoraWebApi.Services.Prenotazioni
             _logger.LogInformation("[PrenotazioniService] {Count} prenotazioni eliminate automaticamente: {Ids}",
                 eliminate, string.Join(", ", idsDaEliminare));
         }
-
-        private string GetAuthenticatedUserId()
-            => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
-               ?? throw new UnauthorizedAccessException("Utente non autenticato.");
 
         // Il vincolo "una prenotazione attiva al giorno" ha senso solo per il self-service:
         // Staff/Admin creano prenotazioni per conto di clienti diversi (es. telefonate) sotto
@@ -522,9 +500,6 @@ namespace GestoraWebApi.Services.Prenotazioni
                 }
             });
         }
-
-        private string? GetIpAddress()
-            => IndirizzoClient.Ottieni(_httpContextAccessor.HttpContext);
 
         private async Task ValidatePrenotazioneAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null)
         {

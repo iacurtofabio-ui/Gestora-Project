@@ -3,7 +3,7 @@ using GestoraWebApi.Services.Postazioni.DTOs;
 
 namespace GestoraWebApi.Services.Postazioni
 {
-    public interface IPostazioneService : IService<PostazioneDTO>
+    public interface IPostazioneService
     {
         Task AddAsync(PostazioneDTO dto);
         Task<Postazione> GetByIdAsync(long id);

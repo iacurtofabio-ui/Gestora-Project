@@ -35,7 +35,12 @@ vi.mock('@/hooks/useAuth', () => ({
 
 const fascePerGiorno = vi.mocked(useFascePerGiorno)
 
-function fascia(id: number, orarioInizio: string, orarioFine: string, giornoSettimana = 1): FasciaOrariaDTO {
+function fascia(
+  id: number,
+  orarioInizio: string,
+  orarioFine: string,
+  giornoSettimana = 1
+): FasciaOrariaDTO {
   return { id, orarioInizio, orarioFine, giornoSettimana, attiva: true, maxCoperti: 50 }
 }
 

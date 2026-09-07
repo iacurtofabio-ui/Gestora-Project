@@ -6,7 +6,6 @@ import ConfirmDialog from '@/components/ConfirmDialog'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function ZonePage() {
-
   const { user } = useAuth()
   const isAdmin = user?.roles.includes('Admin')
   const response = useZone()
@@ -23,7 +22,13 @@ export default function ZonePage() {
       <div className="flex justify-between items-center p-4 border-b">
         <h2 className="text-sm font-semibold text-gray-700">Zone</h2>
         {isAdmin && (
-          <button className="bg-blue-500 text-white px-3 py-1 rounded text-sm" onClick={() => { setZonaSelezionata(undefined); setIsModalOpen(true) }}>
+          <button
+            className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+            onClick={() => {
+              setZonaSelezionata(undefined)
+              setIsModalOpen(true)
+            }}
+          >
             + Aggiungi
           </button>
         )}
@@ -45,11 +50,17 @@ export default function ZonePage() {
                 <td className="p-3 flex gap-2">
                   <button
                     className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
-                    onClick={() => { setZonaSelezionata(zona); setIsModalOpen(true) }}
+                    onClick={() => {
+                      setZonaSelezionata(zona)
+                      setIsModalOpen(true)
+                    }}
                   >
                     Modifica
                   </button>
-                  <button className="text-red-500 hover:underline text-sm" onClick={() => setIdDaEliminare(zona.id)}>
+                  <button
+                    className="text-red-500 hover:underline text-sm"
+                    onClick={() => setIdDaEliminare(zona.id)}
+                  >
                     Elimina
                   </button>
                 </td>
@@ -66,7 +77,10 @@ export default function ZonePage() {
       <ConfirmDialog
         open={idDaEliminare !== undefined}
         descrizione="Sei sicuro di voler eliminare questa zona? L'operazione non è reversibile."
-        onConfirm={() => { deleteZona.mutate(idDaEliminare!); setIdDaEliminare(undefined) }}
+        onConfirm={() => {
+          deleteZona.mutate(idDaEliminare!)
+          setIdDaEliminare(undefined)
+        }}
         onCancel={() => setIdDaEliminare(undefined)}
       />
     </div>

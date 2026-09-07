@@ -2,42 +2,104 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 07/09/2026 (seconda sessione della giornata)
-Ultima cosa fatta: **Fase 8 — robustezza del frontend, codice completo e verde in locale.**
-`npm test` **26/26** (primi test frontend del progetto), `tsc -b --force` **0 errori con `strict`
-attivo**, `npm run build` pulita, eslint 0 errori, `dotnet test` **237/237 invariato** (il backend
-non è stato toccato). **Nessuna migration.**
-Prova manuale eseguita in locale: **REV-041 confermato end-to-end** (backend spento → toast
-"Server non raggiungibile" invece del messaggio generico).
-Prossimo passo: **commit e push** (**35 file**: 24 modificati + **11 nuovi**, vedi avvertenza
-sotto), merge su `main` → deploy Vercel, poi **Fase 9 — pulizia**.
+Ultima sessione: 07/09/2026 (terza sessione della giornata)
+Ultima cosa fatta: **Fase 9 (pulizia) chiusa lato codice, non ancora committata.**
+Backend: `dotnet build` 0 errori (27 warning preesistenti, invariati), `dotnet test` **237/237
+invariato**. Frontend: `tsc -b --force` 0 errori, `npm test` **26/26 invariato**, `npm run build`
+pulita, eslint 0 errori. **Nessuna migration.** Nessun task 🧑 previsto.
 
-### ⚠️ Prima di committare la Fase 8
+### ⚠️ Da committare all'inizio della prossima sessione
 
-Il commit contiene **11 file nuovi**. In Visual Studio i file non tracciati vanno **spuntati
-esplicitamente**: è esattamente l'incidente del 04/09 (12 file nuovi persi, sezione più sotto).
-Contare **34 file** prima di confermare.
+Questa sessione ha lavorato **senza committare** (protocollo: commit e push sempre da Visual
+Studio, mai da Claude). Il working tree contiene sia le modifiche di codice della Fase 9 sia la
+documentazione della Fase 8 rimasta indietro dal tag `v1.0.4` (`CLAUDE.md`, `ROADMAP_REVISIONE.md`,
+tracker) — tutto insieme, senza un giro di deploy dedicato, come già fatto in Fase 6 con `0fe19b9`.
 
-⚠️ Attenzione al conteggio: `git status` breve mostra **10** voci non tracciate, non 11, perché
-raggruppa le cartelle nuove — `src/lib/__tests__/` è una riga sola ma contiene **due** file.
-Per l'elenco reale serve `git status --untracked-files=all`. Stesso rischio nell'interfaccia di
-Visual Studio, che mostra le cartelle nuove come un solo nodo da spuntare.
+Per via di `npm audit fix` (vedi sotto), la Fase 9 tocca **quasi ogni file** di `gestora-frontend/`
+grazie a Prettier: consigliato dividere in **due commit** in Visual Studio anche se richiede
+selezione manuale dei file:
+1. logica: tutti i file backend + i file frontend con cambi funzionali (hook, `LoginPage.tsx`,
+   `RegisterPage.tsx`, `FasciaOrariaModal.tsx`, `FasciaOrariaPage.tsx`, `lib/endpoints.ts` e
+   `lib/giorni.ts` nuovi, `package-lock.json` per l'audit fix) — questi file portano *anche* la
+   riformattazione Prettier, inevitabile perché Prettier li ha toccati comunque;
+2. solo formattazione: tutti gli altri file `.tsx`/`.ts` modificati, dove il diff è puro
+   Prettier (virgolette, punto e virgola, spaziatura) senza alcuna riga di logica cambiata.
 
-```
-src/lib/apiError.ts          src/lib/jwt.ts             src/lib/queryClient.ts
-src/lib/validazioni.ts       src/components/Paginazione.tsx
-src/components/DevtoolsQuery.tsx                        src/test/setup.ts
-src/lib/__tests__/jwt.test.ts                           src/lib/__tests__/apiError.test.ts
-src/router/__tests__/ProtectedRoute.test.tsx
-src/components/__tests__/PrenotazioneModal.fasce.test.tsx
-```
+> **Nota sul conteggio dei file, da riusare a ogni commit.** Il commit della Fase 8 conteneva 11
+> file nuovi, ma `git status` breve ne mostrava **10**: raggruppa le cartelle non tracciate, e
+> `src/lib/__tests__/` era una riga sola con dentro due file. Visual Studio fa lo stesso. Per
+> l'elenco reale serve `git status --untracked-files=all`.
 
 ### Stato di dev e main
 
-- `main` = `dev` = tutto il lavoro della Fase 7 in produzione; la Fase 8 è **solo nel working
-  tree**, non ancora committata.
-- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), **`v1.0.3`** (Fase 7, su `2eb2a5c`) —
-  verificato su GitHub il 07/09.
+- `main` = `dev` = `923202d`, Fase 8 in produzione (frontend su Vercel). La Fase 9 non è ancora
+  su `dev`: è solo pulizia, nessun deploy necessario finché non si decide di accorparla a un
+  prossimo giro.
+- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), `v1.0.3` (Fase 7),
+  **`v1.0.4`** (Fase 8, su `923202d`) — annotato, creato da Visual Studio e verificato sul remoto
+  con `git ls-remote --tags origin`.
+
+### Fase 9 — riepilogo (codice chiuso 07/09/2026)
+
+Pulizia (REV-055…REV-069, REV-082, più REV-092 residuo), nessun task 🧑, nessuna migration.
+
+- **REV-055 / REV-010 — codice morto.** Cartelle vuote `Services/FasciaOraria` e
+  `Repositories/FasciaOraria` (residuo del rename al plurale). In `PrenotazioniService` rimossi i
+  campi `object1..object7` e il secondo costruttore fantasma (8 parametri mai assegnati): se il DI
+  lo avesse scelto, il service sarebbe partito con tutte le dipendenze `null`.
+- **REV-030 — throw solo per soddisfare un'interfaccia.** `IFasciaOrariaService` e
+  `IPostazioneService` non ereditano più `IService<T>`: il generico imponeva una firma diversa da
+  quella reale (`GetByIdAsync` restituiva l'entità, non il DTO), e i due service avevano una
+  seconda implementazione esplicita che si limitava a un `throw NotImplementedException`.
+  `GetAllQueryableAsync` spostato da `IRepository<T>` a `IPrenotazioniRepository`, l'unico a
+  usarlo davvero: `ZonaRepository` non porta più l'implementazione fittizia.
+- **REV-067 / REV-068 — refusi.** File di test rinominato `FasciaOrariaServiceTe.cs` →
+  `FasciaOrariaServiceTests.cs` (la classe al suo interno era già corretta). Email di contatto in
+  Swagger corretta (`outloo.com` → `outlook.com`).
+- **REV-059 — id utente e IP duplicati.** `GetAuthenticatedUserId()`/`GetIpAddress()` erano
+  copiati identici in 4 service (`FasciaOrariaService`, `PostazioneService`, `ZonaService`,
+  `PrenotazioniService`) e 2 controller (`AuthenticationUserController`, `SetupController`).
+  Centralizzati in `Extensions/HttpContextExtensions.cs`, sopra i due helper che facevano già il
+  lavoro vero (`ClaimsPrincipalExtensions`, `Common/IndirizzoClient`).
+- **REV-060 — proiezione `FasciaOraria` duplicata.** La stessa proiezione
+  `FasciaOraria → FasciaOrariaDTO` era scritta identica in 4 metodi di `FasciaOrariaService`.
+  Estratta in un unico `MapToDto` privato.
+- **REV-061 — costanti ripetute.** `CacheDuration` (30 minuti) era la stessa costante ripetuta in
+  3 service: spostata in `CacheKeys.Durata`. `CapienzaConsentita {2,4,8}` in `PostazioneService`
+  non era più referenziata da nessuno (il vincolo era già stato tolto dai validator nel
+  checkpoint 2b) ed è stata rimossa. La retention di 6 mesi delle prenotazioni completate, scritta
+  come `-6` in mezzo al metodo di pulizia, è ora la costante nominata `MesiRetentionCompletate`.
+- **Residuo REV-092 — doppio timestamp nei log.** 31 `DateTime.Now`/`DateTime.UtcNow` scritti a
+  mano nei messaggi di log di 5 controller duplicavano il timestamp che Serilog scrive già per
+  ogni riga — lo stesso difetto già documentato sui log di dominio (checkpoint 2c): due orari
+  diversi per lo stesso evento. Rimossi i parametri e i placeholder `{Data}`/`{Timestamp}`
+  corrispondenti. Lasciati intatti i `{Data}` legittimi in `DashboardController`: lì è la data
+  richiesta in query, un parametro di dominio, non un timestamp.
+- **REV-077 — codice morto nel frontend.** `App.tsx`, `App.css` e `src/assets/*` (`hero.png`,
+  `react.svg`, `vite.svg`) erano residui dello scaffold iniziale, senza alcun riferimento nel
+  codice né nel favicon (che usa `public/favicon.svg`). L'hook `useUpdateStatoZona` esisteva ma
+  nessuna pagina lo chiamava.
+- **REV-082 — path degli endpoint sparsi.** 24 chiamate ad `apiClient` in 8 hook più
+  `LoginPage`/`RegisterPage` scrivevano il path dell'endpoint inline. Creato `lib/endpoints.ts`,
+  un unico oggetto `Endpoints` raggruppato per area (auth, setup, dashboard, zona, fasciaOraria,
+  postazione, prenotazione), con lo stesso raggruppamento del backend.
+- **`GIORNI_SETTIMANA` duplicata.** L'elenco dei giorni della settimana era scritto identico in
+  `FasciaOrariaModal` e `FasciaOrariaPage`. Estratto in `lib/giorni.ts`.
+- **REV-078 — formattazione mai applicata.** Prettier era configurato dalla Fase 8 ma non era mai
+  stato eseguito su tutto il progetto: 3 pagine usavano indentazione a 4 spazi contro il
+  `tabWidth: 2` configurato, e il file `.prettierrc` stesso aveva un'indentazione fuori posto.
+  Eseguito `prettier --write` su tutto `src/`: nessuna riga di logica toccata, solo spaziatura,
+  virgolette e a-capo.
+- **`npm audit` — 18 vulnerabilità.** Lasciate in sospeso dalla Fase 8 (3 basse, 3 medie,
+  12 alte), fra cui `axios`, `react-router-dom` e `vite` come dipendenze **dirette**. `npm audit
+  fix` **senza** `--force` le ha risolte tutte restando dentro i range semver già dichiarati in
+  `package.json` (nessun major bump, `package.json` invariato, solo `package-lock.json`
+  aggiornato). **0 vulnerabilità residue.**
+- **REV-056 rimandato di proposito.** Allineare del tutto il naming di "fascia oraria" avrebbe
+  richiesto di rinominare `FasceOrarieController` e la sua route (`/api/FasceOrarie`): un cambio
+  di contratto che avrebbe rotto tutti gli hook del frontend appena aggiornati in questa stessa
+  fase, per un guadagno di sola leggibilità. Deciso con Fabio di sistemare solo cartelle e
+  namespace (già fatto con REV-055) e lasciare la route com'è.
 
 ### Fase 8 — riepilogo (codice chiuso 07/09/2026)
 

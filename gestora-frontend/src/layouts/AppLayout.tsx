@@ -23,7 +23,7 @@ export default function AppLayout() {
       onSessionExpired(() => {
         logout()
         queryClient.clear()
-        toast.error('Sessione scaduta. Effettua di nuovo l\'accesso.')
+        toast.error("Sessione scaduta. Effettua di nuovo l'accesso.")
         navigate('/login', { replace: true })
       }),
     // logout e' ricreata a ogni render del provider: la si esclude di proposito, il gestore non
@@ -41,11 +41,11 @@ export default function AppLayout() {
   const links = [
     ...(user?.roles.includes('Admin') || user?.roles.includes('Staff')
       ? [
-        { to: '/dashboard', label: 'Dashboard' },
-        { to: '/zone', label: 'Zone' },
-        { to: '/postazioni', label: 'Postazioni' },
-        { to: '/fasce-orarie', label: 'Fasce Orarie' },
-      ]
+          { to: '/dashboard', label: 'Dashboard' },
+          { to: '/zone', label: 'Zone' },
+          { to: '/postazioni', label: 'Postazioni' },
+          { to: '/fasce-orarie', label: 'Fasce Orarie' },
+        ]
       : []),
     { to: '/prenotazioni', label: 'Prenotazioni' },
   ]

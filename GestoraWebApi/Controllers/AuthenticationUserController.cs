@@ -40,9 +40,6 @@ namespace GestoraWebApi.Controllers
             _context = context;
         }
 
-        private string? GetIpAddress()
-            => IndirizzoClient.Ottieni(HttpContext);
-
         /// <summary>Registrazione pubblica — assegna automaticamente il ruolo Cliente</summary>
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDTO request)
@@ -54,9 +51,9 @@ namespace GestoraWebApi.Controllers
             {
                 // REV-070: nessun identificativo personale nei log. Su una registrazione fallita
                 // l'email non appartiene nemmeno a un nostro utente: restano il motivo e l'IP.
-                _logger.LogWarning("[{Controller}] - [{Method}]: Registrazione fallita da {Ip} - {Errors} - {Data}",
+                _logger.LogWarning("[{Controller}] - [{Method}]: Registrazione fallita da {Ip} - {Errors}",
                     nameof(AuthenticationUserController), nameof(Register),
-                    GetIpAddress(), string.Join(", ", result.Errors.Select(e => e.Description)), DateTime.Now);
+                    HttpContext.GetIpAddress(), string.Join(", ", result.Errors.Select(e => e.Description)));
 
                 return BadRequest(result.Errors);
             }
@@ -64,12 +61,12 @@ namespace GestoraWebApi.Controllers
             // Ogni nuovo utente registrato riceve il ruolo Cliente di default
             await _userManager.AddToRoleAsync(user, Roles.Cliente);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Registrazione riuscita per {UserId} - {Data}",
-                nameof(AuthenticationUserController), nameof(Register), user.Id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Registrazione riuscita per {UserId}",
+                nameof(AuthenticationUserController), nameof(Register), user.Id);
 
             // L'audit log su database identifica gia' l'utente con user.Id (primo parametro):
             // ripetere l'email nel testo del messaggio la duplicherebbe senza aggiungere nulla.
-            await _logActivityService.LogAsync(user.Id, "Registrazione nuovo utente", GetIpAddress());
+            await _logActivityService.LogAsync(user.Id, "Registrazione nuovo utente", HttpContext.GetIpAddress());
 
             return Ok($"Registrazione di '{user.UserName}' avvenuta con successo.");
         }
@@ -83,14 +80,14 @@ namespace GestoraWebApi.Controllers
             // prova, non necessariamente di un nostro utente: registrarla significa conservare
             // dati personali di terzi a ogni tentativo, anche di un attacco a dizionario.
             // Per correlare i tentativi basta l'IP; a login riuscito si usa l'UserId.
-            _logger.LogInformation("[{Controller}] - [{Method}]: Tentativo di login da {Ip} - {Timestamp}",
-                nameof(AuthenticationUserController), nameof(Login), GetIpAddress(), DateTime.UtcNow);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Tentativo di login da {Ip}",
+                nameof(AuthenticationUserController), nameof(Login), HttpContext.GetIpAddress());
 
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
             {
-                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato da {Ip} (utente inesistente) - {Timestamp}",
-                    nameof(AuthenticationUserController), nameof(Login), GetIpAddress(), DateTime.UtcNow);
+                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato da {Ip} (utente inesistente)",
+                    nameof(AuthenticationUserController), nameof(Login), HttpContext.GetIpAddress());
 
                 return Unauthorized("Credenziali non valide.");
             }
@@ -101,8 +98,8 @@ namespace GestoraWebApi.Controllers
 
             if (signInResult.IsLockedOut)
             {
-                _logger.LogWarning("[{Controller}] - [{Method}]: Account {UserId} bloccato per troppi tentativi falliti (da {Ip}) - {Timestamp}",
-                    nameof(AuthenticationUserController), nameof(Login), user.Id, GetIpAddress(), DateTime.UtcNow);
+                _logger.LogWarning("[{Controller}] - [{Method}]: Account {UserId} bloccato per troppi tentativi falliti (da {Ip})",
+                    nameof(AuthenticationUserController), nameof(Login), user.Id, HttpContext.GetIpAddress());
 
                 return StatusCode(StatusCodes.Status423Locked,
                     "Account temporaneamente bloccato per troppi tentativi falliti. Riprova più tardi.");
@@ -110,8 +107,8 @@ namespace GestoraWebApi.Controllers
 
             if (!signInResult.Succeeded)
             {
-                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato per {UserId} (password errata, da {Ip}) - {Timestamp}",
-                    nameof(AuthenticationUserController), nameof(Login), user.Id, GetIpAddress(), DateTime.UtcNow);
+                _logger.LogWarning("[{Controller}] - [{Method}]: Accesso non autorizzato per {UserId} (password errata, da {Ip})",
+                    nameof(AuthenticationUserController), nameof(Login), user.Id, HttpContext.GetIpAddress());
 
                 return Unauthorized("Credenziali non valide.");
             }
@@ -119,10 +116,10 @@ namespace GestoraWebApi.Controllers
             var roles = await _userManager.GetRolesAsync(user);
             var token = _tokenGenerator.GenerateToken(user.Id, user.Email!, roles);
 
-            await _logActivityService.LogAsync(user.Id, "Login", GetIpAddress());
+            await _logActivityService.LogAsync(user.Id, "Login", HttpContext.GetIpAddress());
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Login riuscito per {UserId} - {Timestamp}",
-                nameof(AuthenticationUserController), nameof(Login), user.Id, DateTime.UtcNow);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Login riuscito per {UserId}",
+                nameof(AuthenticationUserController), nameof(Login), user.Id);
 
             return Ok(new { Email = user.Email, Token = token });
         }
@@ -146,8 +143,8 @@ namespace GestoraWebApi.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Ruolo '{Role}' assegnato all'utente {UserId} - {Data}",
-                nameof(AuthenticationUserController), nameof(AssignRole), dto.Role, dto.UserId, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Ruolo '{Role}' assegnato all'utente {UserId}",
+                nameof(AuthenticationUserController), nameof(AssignRole), dto.Role, dto.UserId);
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Ruolo '{dto.Role}' assegnato a utente ID {dto.UserId}",
@@ -172,8 +169,8 @@ namespace GestoraWebApi.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Ruolo '{Role}' rimosso dall'utente {UserId} - {Data}",
-                nameof(AuthenticationUserController), nameof(RemoveRole), dto.Role, dto.UserId, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Ruolo '{Role}' rimosso dall'utente {UserId}",
+                nameof(AuthenticationUserController), nameof(RemoveRole), dto.Role, dto.UserId);
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Ruolo '{dto.Role}' rimosso da utente ID {dto.UserId}",
@@ -259,8 +256,8 @@ namespace GestoraWebApi.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Utente {Id} aggiornato - {Data}",
-                nameof(AuthenticationUserController), nameof(UpdateUser), id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Utente {Id} aggiornato",
+                nameof(AuthenticationUserController), nameof(UpdateUser), id);
 
             return Ok(new { message = "Utente aggiornato con successo." });
         }
@@ -297,8 +294,8 @@ namespace GestoraWebApi.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            _logger.LogWarning("[{Controller}] - [{Method}]: Utente {Id} eliminato da Admin {AdminId} - {Data}",
-                nameof(AuthenticationUserController), nameof(DeleteUser), id, currentUserId, DateTime.Now);
+            _logger.LogWarning("[{Controller}] - [{Method}]: Utente {Id} eliminato da Admin {AdminId}",
+                nameof(AuthenticationUserController), nameof(DeleteUser), id, currentUserId);
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Eliminato utente ID {id}",
@@ -323,8 +320,8 @@ namespace GestoraWebApi.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            _logger.LogWarning("[{Controller}] - [{Method}]: Password resettata per utente {Id} - {Data}",
-                nameof(AuthenticationUserController), nameof(ResetPassword), id, DateTime.Now);
+            _logger.LogWarning("[{Controller}] - [{Method}]: Password resettata per utente {Id}",
+                nameof(AuthenticationUserController), nameof(ResetPassword), id);
 
             await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
                 $"Password resettata per utente ID {id}",

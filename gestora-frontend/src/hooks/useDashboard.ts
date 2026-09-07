@@ -1,21 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import apiClient from '@/lib/axios';
-import type { DashboardGiornalieraDTO, DashboardSettimanaleDTO } from '@/types/dashboard';
-
-
+import { useQuery } from '@tanstack/react-query'
+import apiClient from '@/lib/axios'
+import type { DashboardGiornalieraDTO, DashboardSettimanaleDTO } from '@/types/dashboard'
+import { Endpoints } from '@/lib/endpoints'
 
 export function useDashboardGiornaliera(data: string) {
-   return useQuery<DashboardGiornalieraDTO>({
-      queryKey: ['dashboard-giornaliera', data],  // chiave univoca per la cache
-      queryFn: () => apiClient.get('/Dashboard/giornaliera?data=' + data).then(r => r.data),
-   })
+  return useQuery<DashboardGiornalieraDTO>({
+    queryKey: ['dashboard-giornaliera', data], // chiave univoca per la cache
+    queryFn: () => apiClient.get(Endpoints.dashboard.giornaliera(data)).then((r) => r.data),
+  })
 }
 
 export function useDashboardSettimanale(dataInizio: string) {
-   return useQuery<DashboardSettimanaleDTO>({
-      queryKey: ['dashboard-settimanale', dataInizio],  // chiave univoca per la cache
-      queryFn: () => apiClient.get('/Dashboard/settimanale?dataInizio=' + dataInizio).then(r => r.data),
-   })
+  return useQuery<DashboardSettimanaleDTO>({
+    queryKey: ['dashboard-settimanale', dataInizio], // chiave univoca per la cache
+    queryFn: () => apiClient.get(Endpoints.dashboard.settimanale(dataInizio)).then((r) => r.data),
+  })
 }
-
-

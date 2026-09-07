@@ -29,11 +29,6 @@ namespace GestoraWebApi.Repositories.Zone
             await _context.SaveChangesAsync();
         }
 
-        //public Task<IQueryable<Zona>> GetAllQueryableAsync()
-        //{
-        //    throw new NotImplementedException();
-        //}
-
         public async Task<List<Zona>> GetAllZoneAsync()
         {
             return await _context.Zone
@@ -83,11 +78,6 @@ namespace GestoraWebApi.Repositories.Zone
             zona.Attiva = attiva;
             _context.Zone.Update(zona);
             await _context.SaveChangesAsync();
-        }
-
-        IQueryable<Zona> IRepository<Zona>.GetAllQueryableAsync()
-        {
-            throw new NotImplementedException();
         }
     }
 }

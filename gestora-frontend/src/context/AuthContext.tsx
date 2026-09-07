@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!utente) {
       localStorage.removeItem('token')
       setUser(null)
-      throw new Error('Il token ricevuto dal server non e\' valido o e\' gia\' scaduto.')
+      throw new Error("Il token ricevuto dal server non e' valido o e' gia' scaduto.")
     }
     localStorage.setItem('token', token)
     setUser(utente)

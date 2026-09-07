@@ -42,7 +42,12 @@ function renderConUtente(utente: AuthUser | null, ruoliAmmessi: string[]) {
 
 const admin: AuthUser = { id: '1', email: 'admin@gestora.it', roles: ['Admin'], token: 't' }
 const cliente: AuthUser = { id: '2', email: 'cliente@gestora.it', roles: ['Cliente'], token: 't' }
-const staffEAdmin: AuthUser = { id: '3', email: 'capo@gestora.it', roles: ['Staff', 'Admin'], token: 't' }
+const staffEAdmin: AuthUser = {
+  id: '3',
+  email: 'capo@gestora.it',
+  roles: ['Staff', 'Admin'],
+  token: 't',
+}
 
 describe('ProtectedRoute', () => {
   it('manda al login chi non ha effettuato l accesso', () => {

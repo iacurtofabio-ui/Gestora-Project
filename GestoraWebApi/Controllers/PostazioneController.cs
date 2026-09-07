@@ -28,8 +28,8 @@ namespace GestoraWebApi.Controllers
         {
             await _postazioneService.AddAsync(dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Postazione creata con successo - {Data}",
-                nameof(PostazioneController), nameof(CreatePostazioniAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Postazione creata con successo",
+                nameof(PostazioneController), nameof(CreatePostazioniAsync));
 
             return Created("", new { Message = "Postazione creata con successo" });
         }
@@ -94,8 +94,8 @@ namespace GestoraWebApi.Controllers
         {
             await _postazioneService.UpdateAsync(dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Postazione aggiornata con successo - {Data}",
-                nameof(PostazioneController), nameof(UpdatePostazioneAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Postazione aggiornata con successo",
+                nameof(PostazioneController), nameof(UpdatePostazioneAsync));
 
             return Ok(new { Message = "Postazione aggiornata con successo" });
         }
@@ -108,8 +108,8 @@ namespace GestoraWebApi.Controllers
             await _postazioneService.AssociaPostazioneAZonaAsync(dto.PostazioneId, dto.ZonaId);
 
             _logger.LogInformation(
-                "[{Controller}] - [{Method}]: Postazione {PostazioneId} associata alla zona {ZonaId} - {Data}",
-                nameof(PostazioneController), nameof(AssociaPostazioneAZonaAsync), dto.PostazioneId, dto.ZonaId, DateTime.Now);
+                "[{Controller}] - [{Method}]: Postazione {PostazioneId} associata alla zona {ZonaId}",
+                nameof(PostazioneController), nameof(AssociaPostazioneAZonaAsync), dto.PostazioneId, dto.ZonaId);
 
             return Ok(new { Message = "Postazione associata correttamente alla zona." });
         }
@@ -121,8 +121,8 @@ namespace GestoraWebApi.Controllers
         {
             await _postazioneService.DeleteAsync(id);
 
-            _logger.LogInformation("[{Controller}] - [{Method}] Postazione {Id} eliminata con successo - {Data}",
-                nameof(PostazioneController), nameof(DeletePostazioneAsync), id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}] Postazione {Id} eliminata con successo",
+                nameof(PostazioneController), nameof(DeletePostazioneAsync), id);
 
             return Ok(new { Message = $"Postazione {id} eliminata con successo." });
         }

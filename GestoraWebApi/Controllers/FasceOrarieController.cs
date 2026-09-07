@@ -28,8 +28,8 @@ namespace GestoraWebApi.Controllers
         {
             await _fasciaOrariaService.AddAsync(dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Fascia oraria creata con successo - {Data}",
-                nameof(FasceOrarieController), nameof(CreateFasciaOrariaAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Fascia oraria creata con successo",
+                nameof(FasceOrarieController), nameof(CreateFasciaOrariaAsync));
 
             return Created("", new { message = "Fascia oraria creata con successo" });
         }
@@ -54,8 +54,8 @@ namespace GestoraWebApi.Controllers
         {
             var fasce = await _fasciaOrariaService.GetFasceAttiveAsync();
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Recuperate {Count} fasce orarie attive - {Data}",
-                nameof(FasceOrarieController), nameof(GetFasceAttive), fasce.Count, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Recuperate {Count} fasce orarie attive",
+                nameof(FasceOrarieController), nameof(GetFasceAttive), fasce.Count);
 
             return Ok(fasce);
         }
@@ -71,8 +71,8 @@ namespace GestoraWebApi.Controllers
         {
             var fasce = await _fasciaOrariaService.GetFasceByGiornoAsync(giorno);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Recuperate {Count} fasce per giorno {Giorno} - {Data}",
-                nameof(FasceOrarieController), nameof(GetFasceByGiorno), fasce.Count, giorno, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Recuperate {Count} fasce per giorno {Giorno}",
+                nameof(FasceOrarieController), nameof(GetFasceByGiorno), fasce.Count, giorno);
 
             return Ok(fasce);
         }
@@ -106,8 +106,8 @@ namespace GestoraWebApi.Controllers
         {
             await _fasciaOrariaService.UpdateAsync(dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Fascia oraria aggiornata con successo - {Data}",
-                nameof(FasceOrarieController), nameof(UpdateFasciaOrariaAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Fascia oraria aggiornata con successo",
+                nameof(FasceOrarieController), nameof(UpdateFasciaOrariaAsync));
 
             return Ok(new { message = "Fascia oraria aggiornata con successo" });
         }
@@ -119,8 +119,8 @@ namespace GestoraWebApi.Controllers
         {
             await _fasciaOrariaService.DeleteAsync(id);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Fascia oraria eliminata con successo - {Data}",
-                nameof(FasceOrarieController), nameof(DeleteFasciaAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Fascia oraria eliminata con successo",
+                nameof(FasceOrarieController), nameof(DeleteFasciaAsync));
 
             return Ok(new { message = "Fascia oraria eliminata con successo" });
         }
@@ -132,8 +132,8 @@ namespace GestoraWebApi.Controllers
         {
             var fasce = await _fasciaOrariaService.GetAllFasceAsync();
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Recuperate {Count} fasce totali - {Data}",
-                nameof(FasceOrarieController), nameof(GetAllFasce), fasce.Count, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Recuperate {Count} fasce totali",
+                nameof(FasceOrarieController), nameof(GetAllFasce), fasce.Count);
 
             return Ok(fasce);
         }
@@ -145,8 +145,8 @@ namespace GestoraWebApi.Controllers
         {
             await _fasciaOrariaService.UpdateStatoAsync(id, attiva);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Stato fascia {Id} aggiornato a {Attiva} - {Data}",
-                nameof(FasceOrarieController), nameof(UpdateStatoAsync), id, attiva, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Stato fascia {Id} aggiornato a {Attiva}",
+                nameof(FasceOrarieController), nameof(UpdateStatoAsync), id, attiva);
 
             return Ok(new { message = $"Stato fascia aggiornato con successo." });
         }

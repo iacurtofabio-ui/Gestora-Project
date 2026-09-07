@@ -19,8 +19,6 @@ namespace GestoraWebApi.Services.Zone
         private readonly ILogActivityService _logActivity;
         private readonly IEsecutoreTransazione _transazione;
 
-        private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
-
         public ZonaService(IZonaRepository zonaRepository,
                             IMapper mapper,
                             IMemoryCache cache,
@@ -50,7 +48,7 @@ namespace GestoraWebApi.Services.Zone
             await _transazione.EseguiAsync(async () =>
             {
                 await _zonaRepository.AddAsync(zona);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata zona '{zona.Nome}'", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Creata zona '{zona.Nome}'", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             // La cache si invalida dopo il commit: prima non avrebbe senso, perche' la modifica
@@ -75,7 +73,7 @@ namespace GestoraWebApi.Services.Zone
             await _transazione.EseguiAsync(async () =>
             {
                 await _zonaRepository.DeleteAsync(zona);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata zona '{zona.Nome}' (ID {zonaId})", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Eliminata zona '{zona.Nome}' (ID {zonaId})", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             InvalidateZoneCache();
@@ -89,7 +87,7 @@ namespace GestoraWebApi.Services.Zone
             var allZone = await _zonaRepository.GetAllZoneAsync();
             var result = _mapper.Map<List<ZonaDTO>>(allZone);
 
-            _cache.Set(CacheKeys.ZoneAll, result, CacheDuration);
+            _cache.Set(CacheKeys.ZoneAll, result, CacheKeys.Durata);
 
             return result;
         }
@@ -102,7 +100,7 @@ namespace GestoraWebApi.Services.Zone
             var zoneAttive = await _zonaRepository.GetAllZoneAttiveAsync();
             var result = _mapper.Map<List<ZonaDTO>>(zoneAttive);
 
-            _cache.Set(CacheKeys.ZoneAttive, result, CacheDuration);
+            _cache.Set(CacheKeys.ZoneAttive, result, CacheKeys.Durata);
 
             return result;
         }
@@ -141,7 +139,7 @@ namespace GestoraWebApi.Services.Zone
             await _transazione.EseguiAsync(async () =>
             {
                 await _zonaRepository.UpdateAsync(existingZona);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata zona '{existingZona.Nome}' (ID {existingZona.Id})", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Modificata zona '{existingZona.Nome}' (ID {existingZona.Id})", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             InvalidateZoneCache();
@@ -157,8 +155,8 @@ namespace GestoraWebApi.Services.Zone
             await _transazione.EseguiAsync(async () =>
             {
                 await _zonaRepository.UpdateStatoZonaAsync(zonaId, attiva);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                    $"Zona '{zona.Nome}' (ID {zonaId}) impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(),
+                    $"Zona '{zona.Nome}' (ID {zonaId}) impostata come {(attiva ? "attiva" : "non attiva")}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             InvalidateZoneCache();
@@ -170,11 +168,5 @@ namespace GestoraWebApi.Services.Zone
             _cache.Remove(CacheKeys.ZoneAttive);
         }
 
-        private string GetAuthenticatedUserId()
-            => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
-               ?? throw new UnauthorizedAccessException("Utente non autenticato.");
-
-        private string? GetIpAddress()
-            => IndirizzoClient.Ottieni(_httpContextAccessor.HttpContext);
     }
 }

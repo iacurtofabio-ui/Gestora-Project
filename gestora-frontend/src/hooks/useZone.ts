@@ -3,11 +3,12 @@ import apiClient from '@/lib/axios'
 import type { ZonaDTO, ZonaFormDTO } from '@/types/zona'
 import { segnalaErrore } from '@/lib/apiError'
 import { toast } from 'sonner'
+import { Endpoints } from '@/lib/endpoints'
 
 export function useZone() {
   return useQuery<ZonaDTO[]>({
     queryKey: ['zone'],
-    queryFn: () => apiClient.get('/Zona/get-all-zone').then(r => r.data),
+    queryFn: () => apiClient.get(Endpoints.zona.getAll).then((r) => r.data),
   })
 }
 
@@ -23,14 +24,14 @@ export function useZone() {
 export function useZoneAttive() {
   return useQuery<ZonaDTO[]>({
     queryKey: ['zone', 'attive'],
-    queryFn: () => apiClient.get('/Zona/get-zone-attive').then(r => r.data),
+    queryFn: () => apiClient.get(Endpoints.zona.getAttive).then((r) => r.data),
   })
 }
 
 export function useCreaZona() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: ZonaFormDTO) => apiClient.post('/Zona/crea-zona', data),
+    mutationFn: (data: ZonaFormDTO) => apiClient.post(Endpoints.zona.crea, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona creata con successo')
@@ -42,36 +43,23 @@ export function useCreaZona() {
 export function useUpdateZona() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: ZonaDTO) => apiClient.put('/Zona/update-zona', data),
+    mutationFn: (data: ZonaDTO) => apiClient.put(Endpoints.zona.update, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona aggiornata con successo')
     },
-    onError: segnalaErrore('Errore durante l\'aggiornamento'),
+    onError: segnalaErrore("Errore durante l'aggiornamento"),
   })
 }
 
 export function useDeleteZona() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => apiClient.delete(`/Zona/delete-zona/${id}`),
+    mutationFn: (id: number) => apiClient.delete(Endpoints.zona.delete(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
       toast.success('Zona eliminata con successo')
     },
     onError: segnalaErrore('Errore durante la cancellazione'),
-  })
-}
-
-export function useUpdateStatoZona() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, attiva }: { id: number; attiva: boolean }) =>
-      apiClient.patch(`/Zona/update-stato/${id}?attiva=${attiva}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['zone'] })
-      toast.success('Stato della zona aggiornato con successo')
-    },
-    onError: segnalaErrore('Errore durante l\'aggiornamento stato'),
   })
 }

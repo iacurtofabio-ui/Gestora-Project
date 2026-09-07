@@ -33,8 +33,8 @@ namespace GestoraWebApi.Controllers
         {
             await _prenotazioniService.AddAsync(dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione creata con successo - {Data}",
-                nameof(PrenotazioneController), nameof(CreatePrenotazioniAsync), DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione creata con successo",
+                nameof(PrenotazioneController), nameof(CreatePrenotazioniAsync));
 
             return Created("", new { Message = "Prenotazione creata con successo" });
         }
@@ -94,8 +94,8 @@ namespace GestoraWebApi.Controllers
         {
             await _prenotazioniService.UpdateAsync(id, dto);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} aggiornata con successo - {Data}",
-                nameof(PrenotazioneController), nameof(UpdatePrenotazione), id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} aggiornata con successo",
+                nameof(PrenotazioneController), nameof(UpdatePrenotazione), id);
 
             return Ok(new { message = "Prenotazione aggiornata con successo." });
         }
@@ -107,8 +107,8 @@ namespace GestoraWebApi.Controllers
         {
             await _prenotazioniService.DeleteAsync(id);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} eliminata con successo - {Data}",
-                nameof(PrenotazioneController), nameof(DeletePrenotazione), id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} eliminata con successo",
+                nameof(PrenotazioneController), nameof(DeletePrenotazione), id);
 
             return Ok(new { message = "Prenotazione eliminata con successo." });
         }
@@ -120,8 +120,8 @@ namespace GestoraWebApi.Controllers
         {
             await _prenotazioniService.ConfermaPrenotazioneAsync(id);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} confermata con successo - {Data}",
-                nameof(PrenotazioneController), nameof(ConfermaPrenotazione), id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} confermata con successo",
+                nameof(PrenotazioneController), nameof(ConfermaPrenotazione), id);
 
             return Ok(new { message = "Prenotazione confermata con successo." });
         }
@@ -133,8 +133,8 @@ namespace GestoraWebApi.Controllers
         {
             await _prenotazioniService.CompletePrenotazioneAsync(id);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} completata manualmente - {Data}",
-                nameof(PrenotazioneController), nameof(CompletePrenotazione), id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} completata manualmente",
+                nameof(PrenotazioneController), nameof(CompletePrenotazione), id);
 
             return Ok(new { message = "Prenotazione completata con successo." });
         }
@@ -147,8 +147,8 @@ namespace GestoraWebApi.Controllers
         {
             await _prenotazioniService.AnnullaPrenotazioneAsync(id);
 
-            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} annullata con successo - {Data}",
-                nameof(PrenotazioneController), nameof(AnnullaPrenotazione), id, DateTime.Now);
+            _logger.LogInformation("[{Controller}] - [{Method}]: Prenotazione {Id} annullata con successo",
+                nameof(PrenotazioneController), nameof(AnnullaPrenotazione), id);
 
             return Ok(new { message = "Prenotazione annullata con successo." });
         }

@@ -24,14 +24,22 @@ const schema = z.object({
 
 export default function CreateUserModal({ open, onClose }: Props) {
   const createUser = useCreateUser()
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateUserFormDTO>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateUserFormDTO>({
     resolver: zodResolver(schema),
     defaultValues: { username: '', email: '', password: '', role: 'Cliente' },
   })
 
   const onSubmit = (data: CreateUserFormDTO) => {
     createUser.mutate(data, {
-      onSuccess: () => { reset(); onClose() },
+      onSuccess: () => {
+        reset()
+        onClose()
+      },
     })
   }
 
@@ -61,13 +69,19 @@ export default function CreateUserModal({ open, onClose }: Props) {
             <Label>Ruolo</Label>
             <select {...register('role')} className="border rounded px-3 py-2 w-full text-sm">
               {RUOLI_DISPONIBILI.map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r} value={r}>
+                  {r}
+                </option>
               ))}
             </select>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>Annulla</Button>
-            <Button type="submit" disabled={createUser.isPending}>Crea</Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={createUser.isPending}>
+              Crea
+            </Button>
           </div>
         </form>
       </DialogContent>

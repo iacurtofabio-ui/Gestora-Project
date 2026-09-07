@@ -28,10 +28,6 @@ namespace GestoraWebApi.Services.Postazioni
         private readonly IClock _clock;
         private readonly IEsecutoreTransazione _transazione;
 
-        // Valori consentiti per la capienza massima
-        private static readonly int[] CapienzaConsentita = { 2, 4, 8 };
-        private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
-
         public PostazioneService(IPostazioneRepository postazioneRepository, IMapper mapper, IZonaRepository zonaRepository,
                                   IMemoryCache cache, IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
                                   IFasciaOrariaRepository fasciaOrariaRepository, IClock clock,
@@ -57,7 +53,7 @@ namespace GestoraWebApi.Services.Postazioni
             await _transazione.EseguiAsync(async () =>
             {
                 await _postazioneRepository.AddAsync(postazione);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Creata postazione numero {postazione.Numero}", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Creata postazione numero {postazione.Numero}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             // Cache invalidata dopo il commit.
@@ -77,7 +73,7 @@ namespace GestoraWebApi.Services.Postazioni
             await _transazione.EseguiAsync(async () =>
             {
                 await _postazioneRepository.DeleteAsync(postazione);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata postazione numero {postazione.Numero} (ID {postazioneId})", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Eliminata postazione numero {postazione.Numero} (ID {postazioneId})", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             _cache.Remove(CacheKeys.PostazioniAttive);
@@ -106,16 +102,6 @@ namespace GestoraWebApi.Services.Postazioni
 
             return dto;
 
-        }
-
-        public Task UpdateAsync(PostazioneDTO entity)
-        {
-            throw new NotImplementedException();
-        }
-
-        Task<PostazioneDTO> IService<PostazioneDTO>.GetByIdAsync(long id)
-        {
-            throw new NotImplementedException();
         }
 
         private async Task ValidatePostazioneAsync(PostazioneDTO dto)
@@ -165,7 +151,7 @@ namespace GestoraWebApi.Services.Postazioni
             await _transazione.EseguiAsync(async () =>
             {
                 await _postazioneRepository.UpdateAsync(postazione);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata postazione numero {postazione.Numero} (ID {postazione.Id})", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Modificata postazione numero {postazione.Numero} (ID {postazione.Id})", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             _cache.Remove(CacheKeys.PostazioniAttive);
@@ -191,7 +177,7 @@ namespace GestoraWebApi.Services.Postazioni
                           .ToList() ?? new List<long>()
             }).ToList();
 
-            _cache.Set(CacheKeys.PostazioniAttive, result, CacheDuration);
+            _cache.Set(CacheKeys.PostazioniAttive, result, CacheKeys.Durata);
 
             return result;
         }
@@ -304,18 +290,12 @@ namespace GestoraWebApi.Services.Postazioni
             await _transazione.EseguiAsync(async () =>
             {
                 await _postazioneRepository.UpdateAsync(postazione);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                    $"Postazione numero {postazione.Numero} (ID {postazioneId}) associata alla zona ID {zonaId}", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(),
+                    $"Postazione numero {postazione.Numero} (ID {postazioneId}) associata alla zona ID {zonaId}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             _cache.Remove(CacheKeys.PostazioniAttive);
         }
 
-        private string GetAuthenticatedUserId()
-            => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
-               ?? throw new UnauthorizedAccessException("Utente non autenticato.");
-
-        private string? GetIpAddress()
-            => IndirizzoClient.Ottieni(_httpContextAccessor.HttpContext);
     }
 }

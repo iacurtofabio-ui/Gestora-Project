@@ -16,7 +16,9 @@ import { lazy, Suspense, type ComponentType } from 'react'
  * la chiamata a lazy() resterebbe, e con lei un chunk vuoto da scaricare.
  */
 const Pannello: ComponentType<{ initialIsOpen?: boolean }> = import.meta.env.DEV
-  ? lazy(() => import('@tanstack/react-query-devtools').then(m => ({ default: m.ReactQueryDevtools })))
+  ? lazy(() =>
+      import('@tanstack/react-query-devtools').then((m) => ({ default: m.ReactQueryDevtools }))
+    )
   : () => null
 
 export function DevtoolsQuery() {

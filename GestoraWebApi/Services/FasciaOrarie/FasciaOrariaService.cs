@@ -23,8 +23,6 @@ namespace GestoraWebApi.Services.FasciaOrarie
         private readonly ILogActivityService _logActivity;
         private readonly IEsecutoreTransazione _transazione;
 
-        private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
-
         public FasciaOrariaService(IFasciaOrariaRepository fasciaRepository, IMapper mapper, IMemoryCache cache,
                                     IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
                                     IEsecutoreTransazione transazione)
@@ -57,8 +55,8 @@ namespace GestoraWebApi.Services.FasciaOrarie
             await _transazione.EseguiAsync(async () =>
             {
                 await _fasciaRepository.AddAsync(fascia);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                    $"Creata fascia oraria {dto.OrarioInizio}-{dto.OrarioFine} ({dto.GiornoSettimana})", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(),
+                    $"Creata fascia oraria {dto.OrarioInizio}-{dto.OrarioFine} ({dto.GiornoSettimana})", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             // Cache invalidata dopo il commit.
@@ -142,7 +140,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             await _transazione.EseguiAsync(async () =>
             {
                 await _fasciaRepository.DeleteAsync(fascia);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Eliminata fascia oraria ID {fasciaId}", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Eliminata fascia oraria ID {fasciaId}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             _cache.Remove(CacheKeys.FasceAttive);
@@ -168,17 +166,9 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             var fasceAttive = await _fasciaRepository.GetFasceAttiveAsync();
 
-            var result = fasceAttive.Select(f => new FasciaOrariaDTO
-            {
-                Id = f.Id,
-                GiornoSettimana = f.GiornoSettimana,
-                MaxCoperti = f.MaxCoperti,
-                Attiva = f.Attiva,
-                OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
-                OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
-            }).ToList();
+            var result = fasceAttive.Select(MapToDto).ToList();
 
-            _cache.Set(CacheKeys.FasceAttive, result, CacheDuration);
+            _cache.Set(CacheKeys.FasceAttive, result, CacheKeys.Durata);
 
             return result;
         }
@@ -192,17 +182,9 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             var fasce = await _fasciaRepository.GetFasceByGiornoAsync(giorno);
 
-            var result = fasce.Select(f => new FasciaOrariaDTO
-            {
-                Id = f.Id,
-                GiornoSettimana = f.GiornoSettimana,
-                MaxCoperti = f.MaxCoperti,
-                Attiva = f.Attiva,
-                OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
-                OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
-            }).ToList();
+            var result = fasce.Select(MapToDto).ToList();
 
-            _cache.Set(cacheKey, result, CacheDuration);
+            _cache.Set(cacheKey, result, CacheKeys.Durata);
 
             return result;
         }
@@ -218,17 +200,19 @@ namespace GestoraWebApi.Services.FasciaOrarie
                 return null;
             }
 
-            return new FasciaOrariaDTO
-            {
-                //usare _mapper per convertire FasciaOraria con FasciaOrariaDTO
-                Id = fascia.Id,
-                GiornoSettimana = fascia.GiornoSettimana,
-                MaxCoperti = fascia.MaxCoperti,
-                Attiva = fascia.Attiva,
-                OrarioInizio = fascia.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
-                OrarioFine = fascia.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
-            };
+            return MapToDto(fascia);
         }
+
+        /// <summary>REV-060: unico punto della proiezione FasciaOraria -> FasciaOrariaDTO, prima ripetuta identica in 4 metodi.</summary>
+        private static FasciaOrariaDTO MapToDto(FasciaOraria f) => new()
+        {
+            Id = f.Id,
+            GiornoSettimana = f.GiornoSettimana,
+            MaxCoperti = f.MaxCoperti,
+            Attiva = f.Attiva,
+            OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
+            OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
+        };
 
         public async Task UpdateAsync(FasciaOrariaDTO dto)
         {
@@ -263,7 +247,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             await _transazione.EseguiAsync(async () =>
             {
                 await _fasciaRepository.UpdateAsync(existing);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(), $"Modificata fascia oraria ID {dto.Id}", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Modificata fascia oraria ID {dto.Id}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             _cache.Remove(CacheKeys.FasceAttive);
@@ -274,27 +258,12 @@ namespace GestoraWebApi.Services.FasciaOrarie
             }
         }
 
-        Task<FasciaOrariaDTO> IService<FasciaOrariaDTO>.GetByIdAsync(long id)
-        {
-            throw new NotImplementedException();
-        }
-
         public async Task<List<FasciaOrariaDTO>> GetAllFasceAsync()
         {
 
             var fasce = await _fasciaRepository.GetAllFasceAsync();
 
-            var result = fasce.Select(f => new FasciaOrariaDTO
-            {
-                Id = f.Id,
-                GiornoSettimana = f.GiornoSettimana,
-                MaxCoperti = f.MaxCoperti,
-                Attiva = f.Attiva,
-                OrarioInizio = f.OrarioInizio.ToTimeSpan().ToString(@"hh\:mm"),
-                OrarioFine = f.OrarioFine.ToTimeSpan().ToString(@"hh\:mm")
-            }).ToList();
-
-            return result;
+            return fasce.Select(MapToDto).ToList();
         }
 
         public async Task UpdateStatoAsync(long id, bool attiva)
@@ -315,19 +284,12 @@ namespace GestoraWebApi.Services.FasciaOrarie
             await _transazione.EseguiAsync(async () =>
             {
                 await _fasciaRepository.UpdateAsync(fascia);
-                await _logActivity.LogAsync(GetAuthenticatedUserId(),
-                    $"Fascia oraria ID {id} impostata come {(attiva ? "attiva" : "non attiva")}", GetIpAddress());
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(),
+                    $"Fascia oraria ID {id} impostata come {(attiva ? "attiva" : "non attiva")}", _httpContextAccessor.HttpContext.GetIpAddress());
             });
 
             _cache.Remove(CacheKeys.FasceAttive);
             _cache.Remove(CacheKeys.FascePerGiorno + (int)fascia.GiornoSettimana);
         }
-
-        private string GetAuthenticatedUserId()
-            => _httpContextAccessor.HttpContext?.User.GetAuthenticatedUserId()
-               ?? throw new UnauthorizedAccessException("Utente non autenticato.");
-
-        private string? GetIpAddress()
-            => IndirizzoClient.Ottieni(_httpContextAccessor.HttpContext);
     }
 }

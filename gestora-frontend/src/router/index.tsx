@@ -24,8 +24,24 @@ export const router = createBrowserRouter([
   { path: '/', element: <Navigate to="/login" replace />, errorElement },
   // REV-007: finche' non esiste un amministratore, l'unica pagina raggiungibile e' /setup.
   { path: '/setup', element: <SetupPage />, errorElement },
-  { path: '/login', element: <SetupGuard><LoginPage /></SetupGuard>, errorElement },
-  { path: '/register', element: <SetupGuard><RegisterPage /></SetupGuard>, errorElement },
+  {
+    path: '/login',
+    element: (
+      <SetupGuard>
+        <LoginPage />
+      </SetupGuard>
+    ),
+    errorElement,
+  },
+  {
+    path: '/register',
+    element: (
+      <SetupGuard>
+        <RegisterPage />
+      </SetupGuard>
+    ),
+    errorElement,
+  },
   { path: '/unauthorized', element: <UnauthorizedPage />, errorElement },
 
   {
@@ -49,9 +65,7 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     errorElement,
-    children: [
-      { path: '/prenotazioni', element: <PrenotazionePage /> },
-    ],
+    children: [{ path: '/prenotazioni', element: <PrenotazionePage /> }],
   },
   {
     element: (
@@ -60,8 +74,6 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     errorElement,
-    children: [
-      { path: '/admin-utenti', element: <AdminUtentiPage /> },
-    ],
-  }
+    children: [{ path: '/admin-utenti', element: <AdminUtentiPage /> }],
+  },
 ])

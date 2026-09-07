@@ -24,15 +24,26 @@ const schema = z.object({
 
 export default function ResetPasswordModal({ utente, open, onClose }: Props) {
   const resetPassword = useResetPassword()
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ResetPasswordDTO>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ResetPasswordDTO>({
     resolver: zodResolver(schema),
   })
 
   const onSubmit = (data: ResetPasswordDTO) => {
     if (!utente) return
-    resetPassword.mutate({ id: utente.id, data }, {
-      onSuccess: () => { reset(); onClose() }
-    })
+    resetPassword.mutate(
+      { id: utente.id, data },
+      {
+        onSuccess: () => {
+          reset()
+          onClose()
+        },
+      }
+    )
   }
 
   return (
@@ -54,7 +65,9 @@ export default function ResetPasswordModal({ utente, open, onClose }: Props) {
             )}
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>Annulla</Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Annulla
+            </Button>
             <Button type="submit" disabled={resetPassword.isPending}>
               {resetPassword.isPending ? 'Conferma...' : 'Conferma'}
             </Button>

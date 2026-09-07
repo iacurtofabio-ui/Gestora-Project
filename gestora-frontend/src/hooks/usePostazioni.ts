@@ -3,11 +3,12 @@ import apiClient from '@/lib/axios'
 import type { PostazioneDTO, PostazioneFormDTO, RiepilogoSala } from '@/types/postazione'
 import { segnalaErrore } from '@/lib/apiError'
 import { toast } from 'sonner'
+import { Endpoints } from '@/lib/endpoints'
 
 export function usePostazioni(zonaId: number, options?: { enabled?: boolean }) {
   return useQuery<PostazioneDTO[]>({
     queryKey: ['postazioni', zonaId],
-    queryFn: () => apiClient.get(`/Postazione/get-postazioni-per-zona?zonaId=${zonaId}`).then(r => r.data),
+    queryFn: () => apiClient.get(Endpoints.postazione.perZona(zonaId)).then((r) => r.data),
     enabled: options?.enabled ?? true,
   })
 }
@@ -15,7 +16,7 @@ export function usePostazioni(zonaId: number, options?: { enabled?: boolean }) {
 export function useRiepilogoSala(options?: { enabled?: boolean }) {
   return useQuery<RiepilogoSala>({
     queryKey: ['postazioni', 'riepilogo-sala'],
-    queryFn: () => apiClient.get('/Postazione/riepilogo-sala').then(r => r.data),
+    queryFn: () => apiClient.get(Endpoints.postazione.riepilogoSala).then((r) => r.data),
     enabled: options?.enabled ?? true,
   })
 }
@@ -23,7 +24,7 @@ export function useRiepilogoSala(options?: { enabled?: boolean }) {
 export function useCreaPostazione() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: PostazioneFormDTO) => apiClient.post('/Postazione/crea-postazione', data),
+    mutationFn: (data: PostazioneFormDTO) => apiClient.post(Endpoints.postazione.crea, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
       toast.success('Postazione creata con successo')
@@ -35,19 +36,19 @@ export function useCreaPostazione() {
 export function useUpdatePostazione() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: PostazioneDTO) => apiClient.put('/Postazione/update-postazione', data),
+    mutationFn: (data: PostazioneDTO) => apiClient.put(Endpoints.postazione.update, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
       toast.success('Postazione aggiornata con successo')
     },
-    onError: segnalaErrore('Errore durante l\'aggiornamento'),
+    onError: segnalaErrore("Errore durante l'aggiornamento"),
   })
 }
 
 export function useDeletePostazione() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => apiClient.delete(`/Postazione/delete-postazione?id=${id}`),
+    mutationFn: (id: number) => apiClient.delete(Endpoints.postazione.delete(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
       toast.success('Postazione eliminata con successo')
