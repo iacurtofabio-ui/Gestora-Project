@@ -2,12 +2,60 @@
 
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
-Ultima sessione: 07/09/2026 (quarta sessione della giornata)
-Ultima cosa fatta: **Fase 10 (esperienza d'uso) chiusa lato codice, non ancora committata.**
+Ultima sessione: 08/09/2026
+Ultima cosa fatta: **NEW-007 indagato e chiuso come falso allarme.** Nessuna modifica al codice.
+La Fase 11 non è più bloccata; resta da committare la Fase 10 (vedi sotto).
+
+Prima di questa: **Fase 10 (esperienza d'uso) chiusa e verificata manualmente — non ancora
+committata.**
 `tsc -b --force` 0 errori, `npm test` **26/26 invariato** (i 4 test di REV-047 aggiornati per il
 nuovo `Dialog` di Radix in `PrenotazioneModal`, comportamento verificato invariato), `npm run
 build` pulita, eslint 0 errori. **Nessuna modifica al backend, nessuna migration.**
-Task 🧑 previsto: **un giro di prova da telefono sui tre ruoli**, vedi in fondo a questa sezione.
+**Prove manuali di Fabio superate**, da PC e da smartphone (25 controlli su REV-071…081, NEW-002,
+NEW-006): tutto corretto. Emersi alcuni miglioramenti minori non bloccanti, che Fabio tiene in un
+file di appunti personale d'uso quotidiano e porterà in una fase successiva — non sono difetti
+della Fase 10, restano fuori dal tracker finché non li formalizza.
+
+### ✅ NEW-007 — chiuso l'08/09/2026, falso allarme
+
+La segnalazione del 07/09 (due prenotazioni sullo stesso tavolo 4, stessa data e apparentemente
+stessa fascia) **non corrisponde a un difetto**. Verificato sui dati di produzione con cinque
+query su `railway connect Postgres`. Nessuna modifica al codice.
+
+**Cosa dicono i dati.** L'indice `UX_PrenotazionePostazione_Slot` esiste in produzione con la
+definizione esatta del codice — nessuno schema drift fra migration e database — e in tutta la
+tabella non c'è **una sola** coppia `(PostazioneId, DataPrenotazione, FasciaOrariaId)` duplicata.
+Il tavolo 4 il 09/09 è preso da due prenotazioni, ma in **fasce diverse e non sovrapposte**: la
+31 sulla fascia 4 (20:00–21:30) e la 30 sulla fascia 10 (21:30–23:30). È il riuso corretto del
+tavolo nel secondo turno. Nessuna prenotazione, in tutto il database, usa una fascia appartenente
+a un giorno della settimana diverso dalla propria data.
+
+**Da dove nasce la lettura sbagliata.** Le due righe condividono il numero **21:30**, che
+nell'una è l'ora di fine e nell'altra l'ora di inizio. Ci hanno messo del loro le **sette fasce
+`20:00–21:30`** in configurazione, una per giorno della settimana, tutte con la stessa etichetta.
+Anche i "due utenti diversi" sono apparenti: le tre prenotazioni del 09/09 hanno lo **stesso
+`UserId`** (l'admin), e `Raro` è il campo `NomeCliente`, l'annotazione per le prenotazioni prese
+al telefono.
+
+**Controprova sulla visualizzazione**, perché il sospetto successivo era che fosse la tabella a
+mostrare l'orario sbagliato: `PrenotazioniRepository` fa l'`Include` della `FasciaOraria`,
+`PrenotazioneMappingProfile` ricava `OraInizio`/`OraFine` da quell'entità e `PrenotazionePage` li
+stampa così come arrivano. Non c'è un punto in cui possa comparire un orario diverso da quello
+vero: nel peggiore dei casi la colonna resterebbe **vuota**, mai sbagliata.
+
+> **Regola di metodo confermata**: la segnalazione veniva da una lettura a occhio di una tabella;
+> la prima cosa fatta è stata interrogare i dati, non toccare il codice. Delle tre ipotesi
+> iniziali nessuna era quella giusta — la risposta era una quarta possibilità, che nessuna delle
+> tre contemplava. Formulare ipotesi va bene, purché la query arrivi prima del fix.
+
+**Emerso durante l'indagine, registrato ma non corretto** (foglio Fix e Bug, riga 57, "Da fare"):
+in `FasciaOrariaService.AddAsync` il controllo `GuardSovrapposizioneAsync` riceve `dto.Id` come id
+da escludere dal confronto. In creazione quel campo dovrebbe valere `0`, ma arriva dal client:
+chi invia un `Id` uguale a quello di una fascia esistente si fa escludere proprio quella dal
+controllo e crea una fascia sovrapposta sullo stesso giorno. Non risulta sfruttato — la
+configurazione in produzione è pulita, 10 fasce senza sovrapposizioni — ma le fasce sono la base
+su cui poggia l'unicità dello slot. Correzione: ignorare `dto.Id` in creazione e usarlo solo in
+`UpdateAsync`, dove escludere la fascia che si sta modificando è corretto. Da valutare in Fase 11.
 
 ### ⚠️ Da committare all'inizio della prossima sessione
 
@@ -90,10 +138,13 @@ Esperienza d'uso: REV-071…REV-081, NEW-002, NEW-006. Nessuna migration, nessun
 > prenotazione, scegliere una data con una fascia già al tetto massimo di coperti e vedere comparire
 > "esaurita" nell'opzione più il motivo sotto la select.
 
-> **🧑 Task per Fabio**: un giro di prova da telefono sui tre ruoli (Admin, Staff, Cliente) —
-> menu a scomparsa, tabelle che scorrono senza rompere il layout, form leggibili. Nessun altro
-> test manuale bloccante: il resto è comportamento coperto dai test automatici o puramente visivo
-> e verificabile restringendo la finestra del browser.
+> **🧑 Task per Fabio — SUPERATO (07/09/2026).** Giro di prova da PC e da smartphone sui tre
+> ruoli, 25 controlli su tutti i punti della fase (checklist data in chat, non salvata a file):
+> menu a scomparsa, tabelle scorrevoli, pulsanti uniformi, ESC/focus trap su `PrenotazioneModal`,
+> stati vuoti, caricamento/errori parziali, semaforo di disponibilità. **Tutto corretto.**
+> Emersi alcuni miglioramenti minori, non bloccanti: Fabio li tiene in un file di appunti
+> personale che aggiorna man mano che usa l'app, li formalizzerà più avanti — non sono difetti di
+> questa fase.
 
 ### Fase 9 — riepilogo (codice chiuso 07/09/2026)
 
