@@ -273,10 +273,10 @@ test usare `TestClock` (istante fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, pattern Arrange/Act/Assert. Un file per service
-(`FasciaOrariaServiceTe.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
+(`FasciaOrariaServiceTests.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
 `PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`, `DisponibilitaServiceTests.cs`,
 `DashboardServiceTests.cs`) più `Validators/PrenotazioneCreateDTOValidatorTests.cs` e
-`Infrastructure/DbExceptionTranslatorTests.cs`. **237 test totali** (07/09/2026, Fase 7).
+`Infrastructure/DbExceptionTranslatorTests.cs`. **239 test totali** (08/09/2026, Fase 11).
 Nota: `PrenotazioniServiceTests` configura il contesto InMemory con
 `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — l'InMemory non
 supporta le transazioni e senza quella riga il service, che ora ne apre una, farebbe fallire

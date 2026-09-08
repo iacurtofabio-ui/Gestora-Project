@@ -3,11 +3,15 @@
 ## LEGGI QUESTO PRIMA DI TUTTO — STATO SESSIONE
 
 Ultima sessione: 08/09/2026
-Ultima cosa fatta: **NEW-007 indagato e chiuso come falso allarme.** Nessuna modifica al codice.
-Fase 10 committata, pushata e mergiata su `main`. **La Fase 11 è sbloccata e non c'è nulla in
-sospeso: si può partire.**
+Ultima cosa fatta: **Fase 11 aperta — chiusura del progetto.** Tag **`v1.0.5`** pubblicato sulla
+Fase 10, che era in produzione ma non versionata. **Blocco A chiuso**: il controllo di
+sovrapposizione delle fasce non è più aggirabile in creazione (`dotnet test` **239/239**, erano
+237). **La pulizia dei dati di test esce dalla fase**: per decisione dell'08/09 sarà un **reset
+completo dei due database** a fine progetto (NEW-005 aggiornato, vedi sotto). Resta quindi solo
+la chiusura formale: **commit, merge e tag `v1.0.6`**.
 
-Prima di questa: **Fase 10 (esperienza d'uso) chiusa e verificata manualmente.**
+Prima di questa: **NEW-007 indagato e chiuso come falso allarme**, nessuna modifica al codice; e
+**Fase 10 (esperienza d'uso) chiusa e verificata manualmente.**
 `tsc -b --force` 0 errori, `npm test` **26/26 invariato** (i 4 test di REV-047 aggiornati per il
 nuovo `Dialog` di Radix in `PrenotazioneModal`, comportamento verificato invariato), `npm run
 build` pulita, eslint 0 errori. **Nessuna modifica al backend, nessuna migration.**
@@ -15,6 +19,69 @@ build` pulita, eslint 0 errori. **Nessuna modifica al backend, nessuna migration
 NEW-006): tutto corretto. Emersi alcuni miglioramenti minori non bloccanti, che Fabio tiene in un
 file di appunti personale d'uso quotidiano e porterà in una fase successiva — non sono difetti
 della Fase 10, restano fuori dal tracker finché non li formalizza.
+
+### Fase 11 — chiusura del progetto (aperta 08/09/2026)
+
+**Ambito deciso con Fabio, volutamente stretto**: è una fase di **sola chiusura**. Le migliorie
+d'uso che Fabio raccoglie nel suo file di appunti personale **non entrano** in questa fase e il
+file non è stato aperto: sarà letto e formalizzato punto per punto, con ID e priorità, in una
+**fase separata successiva**. Nel tracker c'è una riga segnaposto (*Fix e Bug*, riga 58) perché
+quel backlog non resti invisibile a chi rilegge il file fra un mese.
+
+**Blocco 0 — igiene ✅**
+Tag **`v1.0.5`** su `45ad335`, pubblicato **prima** di aprire la fase: versiona esattamente ciò
+che gira in produzione, invece di finire mescolato alla Fase 11. Poi commit della documentazione
+(`bff0c3c`). Era anche emerso che il working tree **non** era pulito come diceva lo stato: la
+chiusura di NEW-007 era scritta in `CLAUDE.md` ma mai committata.
+
+**Blocco A — sovrapposizione delle fasce aggirabile in creazione ✅**
+Il difetto registrato in *Fix e Bug* riga 57 era **più largo di come era stato scritto**:
+`dto.Id` non finiva solo in `GuardSovrapposizioneAsync` (dove faceva escludere dal confronto
+proprio la fascia con cui ci si sovrappone), ma veniva **anche copiato sull'entità inserita**
+(`Id = dto.Id`), cioè si tentava di forzare una chiave primaria che genera il database. Corretti
+entrambi i punti in `FasciaOrariaService.AddAsync`: `0` al guard in creazione, `Id` non copiato.
+`UpdateAsync` **invariato** — lì escludere dal confronto la fascia che si sta modificando è
+corretto, ed è un `Id` verificato perché l'entità viene caricata prima.
+Fatto in **TDD**: i due test scritti prima, visti fallire per il motivo giusto — la fascia
+sovrapposta veniva creata **senza alcuna eccezione**, non era un fallimento di forma.
+`dotnet test` **239/239** (erano 237). Nessuna migration, nessun cambio di contratto per il
+frontend, `UpdateAsync` e il resto del backend non toccati.
+
+> **Regola di metodo, di nuovo**: la riga del tracker descriveva il sintomo che si era notato
+> (il guard), non l'intero difetto. Prima di correggere una riga di backlog scritta giorni prima,
+> **rileggere il codice** invece di fidarsi della descrizione: qui la descrizione copriva metà
+> del problema.
+
+**Blocco D — chiusura** (la pulizia dei dati **non** fa più parte di questa fase, vedi sotto)
+Restano merge, tag di chiusura (proposta: **`v1.0.6`** — è un fix di correttezza, non entra
+comportamento nuovo) e aggiornamento finale di questo blocco.
+
+### 🔄 NEW-005 aggiornato — reset completo dei database, non pulizia mirata (deciso 08/09/2026)
+
+**Decisione di Fabio**: invece di cancellare riga per riga i dati di prova, a implementazioni e
+fix conclusi si farà un **reset completo di entrambi i database**, locale e produzione. La
+pulizia mirata esce quindi dalla Fase 11.
+
+**Perché è anche la scelta tecnicamente più solida.** La cancellazione mirata si sarebbe bloccata
+da sola: una prenotazione in stato `Completata` non si può **né eliminare** (`DeleteAsync` accetta
+solo `Attiva` e `Annullata`, altrimenti 409) **né annullare** (`AnnullaPrenotazioneAsync` rifiuta
+esplicitamente le completate). La sua riga in `PrenotazioniPostazioni` resta quindi viva, e
+`PostazioneService.DeleteAsync` blocca l'eliminazione del tavolo se esiste **una qualsiasi** riga
+di collegamento — attenzione, qui il controllo guarda **tutto lo storico**, a differenza di
+REV-099, che riguarda solo la *modifica*. Senza il tavolo non si elimina nemmeno la zona
+(`ZonaService.DeleteAsync` rifiuta una zona ancora assegnata a una postazione). Vicolo cieco
+completo, raggiungibile solo con `DELETE` diretti a database.
+
+> ⚠️ **Da rileggere quando si farà il reset**, sono i tre punti che si dimenticano:
+> 1. le tabelle **`QRTZ_*` non stanno nelle migration EF**: dopo `dotnet ef database update` va
+>    rieseguito `Scripts/quartz_postgres.sql`, altrimenti l'app non parte;
+> 2. il primo Admin si ricrea da **`POST /api/Setup/admin`**, che si riapre da solo quando non
+>    esiste alcun Admin (REV-007) — nessuna variabile Railway o Vercel da toccare;
+> 3. sparisce anche l'**audit trail** (tabella `Logging`), non solo i dati di prova: è una
+>    conseguenza voluta della decisione, non un effetto collaterale da scoprire dopo.
+>
+> Vale anche la procedura di reset locale già documentata più sotto: il backend va **spento**
+> prima del drop, altrimenti la connessione aperta lo blocca.
 
 ### ✅ NEW-007 — chiuso l'08/09/2026, falso allarme
 
@@ -48,24 +115,24 @@ vero: nel peggiore dei casi la colonna resterebbe **vuota**, mai sbagliata.
 > iniziali nessuna era quella giusta — la risposta era una quarta possibilità, che nessuna delle
 > tre contemplava. Formulare ipotesi va bene, purché la query arrivi prima del fix.
 
-**Emerso durante l'indagine, registrato ma non corretto** (foglio Fix e Bug, riga 57, "Da fare"):
+**Emerso durante l'indagine, registrato e poi corretto in Fase 11** (foglio Fix e Bug, riga 57):
 in `FasciaOrariaService.AddAsync` il controllo `GuardSovrapposizioneAsync` riceve `dto.Id` come id
 da escludere dal confronto. In creazione quel campo dovrebbe valere `0`, ma arriva dal client:
 chi invia un `Id` uguale a quello di una fascia esistente si fa escludere proprio quella dal
 controllo e crea una fascia sovrapposta sullo stesso giorno. Non risulta sfruttato — la
 configurazione in produzione è pulita, 10 fasce senza sovrapposizioni — ma le fasce sono la base
-su cui poggia l'unicità dello slot. Correzione: ignorare `dto.Id` in creazione e usarlo solo in
-`UpdateAsync`, dove escludere la fascia che si sta modificando è corretto. Da valutare in Fase 11.
+su cui poggia l'unicità dello slot. **Corretto nel Blocco A della Fase 11**, dove è emerso che il
+difetto era doppio (vedi sopra): oltre al guard, `dto.Id` veniva copiato anche sull'entità
+inserita.
 
 ### Stato di dev e main — tutto allineato (08/09/2026)
 
 - `main` = `dev` = `origin` = **`45ad335`**, working tree pulito. Fase 10 (`8485ea4`) e la
   documentazione di chiusura (`45ad335`) sono in produzione: frontend ridistribuito da Vercel al
   push su `main`, nessuna migration, nessuna finestra di manutenzione.
-- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), `v1.0.3` (Fase 7), `v1.0.4` (Fase 8).
-  **Fase 9 e Fase 10 non sono taggate.** Per la Fase 9 era una scelta (solo refactoring interno);
-  per la Fase 10 non è stato deciso nulla, ed è un caso diverso — cambia il comportamento a
-  schermo su tutte le pagine. Da decidere se pubblicare una `v1.0.5` prima o durante la Fase 11.
+- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), `v1.0.3` (Fase 7), `v1.0.4` (Fase 8),
+  **`v1.0.5` (Fase 10, pubblicato l'08/09/2026 su `45ad335`)**. La **Fase 9 resta non taggata**
+  per scelta: solo refactoring interno, nessun cambio di comportamento da versionare.
 
 > **Nota sul conteggio dei file, da riusare a ogni commit.** Il commit della Fase 8 conteneva 11
 > file nuovi, ma `git status` breve ne mostrava **10**: raggruppa le cartelle non tracciate, e
@@ -753,6 +820,9 @@ negli appunti** (`Set-Clipboard`, mai a video né in chat) e sostituiti su Railw
   le zone — finché la postazione ha righe join non è né modificabile né eliminabile (REV-099).
   Nota: una zona di test **attiva** compare nelle disponibilità reali; se dà fastidio va
   disattivata, non eliminata.
+  ⚠️ **Superato dalla decisione dell'08/09/2026**: si farà un **reset completo dei due database**
+  invece della pulizia mirata descritta qui — che si sarebbe comunque bloccata sulle prenotazioni
+  già `Completata`. Dettaglio e trappole nella sezione "🔄 NEW-005 aggiornato" in testa al file.
 
 ### ✅ Rilascio v1.0.1 (03/09/2026)
 

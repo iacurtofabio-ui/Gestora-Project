@@ -144,6 +144,73 @@ namespace GestoraWebApi.Tests.Services
             _repoMock.Verify(r => r.AddAsync(It.IsAny<FasciaOraria>()), Times.Never);
         }
 
+        // --- Fase 11: in creazione l'Id arriva dal client e non deve avere alcun effetto ---
+
+        /// <summary>
+        /// In creazione il controllo di sovrapposizione non deve escludere nulla dal confronto.
+        /// Passando come Id quello di una fascia esistente, chi chiama si farebbe escludere
+        /// proprio la fascia con cui si sovrappone, creando due fasce sovrapposte sullo stesso
+        /// giorno — e le fasce sono la base su cui poggia l'unicità dello slot.
+        /// </summary>
+        [Fact]
+        public async Task AddAsync_ThrowsConflictException_AncheSeIlClientInviaLIdDellaFasciaSovrapposta()
+        {
+            // Arrange: fascia attiva 12:00-14:00 lunedì, Id 7
+            var fasciaEsistente = new FasciaOraria { Id = 7, Attiva = true, GiornoSettimana = DayOfWeek.Monday,
+                                                       OrarioInizio = new TimeOnly(12, 0), OrarioFine = new TimeOnly(14, 0) };
+
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria> { fasciaEsistente }.AsQueryable().BuildMockDbSet().Object);
+
+            var dto = new FasciaOrariaDTO
+            {
+                Id = 7, // stesso Id della fascia esistente: è il tentativo di aggirare il controllo
+                GiornoSettimana = DayOfWeek.Monday,
+                OrarioInizio = "13:00",
+                OrarioFine = "15:00",
+                MaxCoperti = 10,
+                Attiva = true
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(dto));
+            _repoMock.Verify(r => r.AddAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        /// <summary>
+        /// L'Id di una fascia nuova lo genera il database: quello inviato dal client non deve
+        /// finire sull'entità inserita, altrimenti si tenta di forzare la chiave primaria.
+        /// </summary>
+        [Fact]
+        public async Task AddAsync_IgnoraLIdInviatoDalClient()
+        {
+            // Arrange: nessuna fascia esistente, quindi nessuna sovrapposizione possibile
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+
+            FasciaOraria? inserita = null;
+            _repoMock.Setup(r => r.AddAsync(It.IsAny<FasciaOraria>()))
+                     .Callback<FasciaOraria>(f => inserita = f)
+                     .Returns(Task.CompletedTask);
+
+            var dto = new FasciaOrariaDTO
+            {
+                Id = 42,
+                GiornoSettimana = DayOfWeek.Monday,
+                OrarioInizio = "12:00",
+                OrarioFine = "14:00",
+                MaxCoperti = 10,
+                Attiva = true
+            };
+
+            // Act
+            await _service.AddAsync(dto);
+
+            // Assert
+            Assert.NotNull(inserita);
+            Assert.Equal(0, inserita!.Id);
+        }
+
         // --- FIX-004 C: un orario non parsabile deve fallire in modo esplicito, non salvare 00:00 ---
 
         [Fact]

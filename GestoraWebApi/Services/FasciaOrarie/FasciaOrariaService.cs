@@ -39,11 +39,15 @@ namespace GestoraWebApi.Services.FasciaOrarie
             var orarioInizio = ParseOrario(dto.OrarioInizio, nameof(dto.OrarioInizio));
             var orarioFine = ParseOrario(dto.OrarioFine, nameof(dto.OrarioFine));
 
-            await GuardSovrapposizioneAsync(dto.Id, dto.GiornoSettimana, orarioInizio, orarioFine);
+            // In creazione l'Id del DTO arriva dal client e non deve avere alcun effetto: non
+            // esclude nulla dal controllo di sovrapposizione (passando l'Id di una fascia
+            // esistente ci si farebbe escludere proprio quella) e non finisce sull'entità
+            // inserita, la cui chiave la genera il database. È usato solo in UpdateAsync, dove
+            // escludere dal confronto la fascia che si sta modificando è corretto.
+            await GuardSovrapposizioneAsync(0, dto.GiornoSettimana, orarioInizio, orarioFine);
 
             var fascia = new FasciaOraria
             {
-                Id = dto.Id,
                 GiornoSettimana = dto.GiornoSettimana,
                 MaxCoperti = dto.MaxCoperti,
                 Attiva = dto.Attiva,
