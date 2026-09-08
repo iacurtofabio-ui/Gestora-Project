@@ -4,10 +4,10 @@
 
 Ultima sessione: 08/09/2026
 Ultima cosa fatta: **NEW-007 indagato e chiuso come falso allarme.** Nessuna modifica al codice.
-La Fase 11 non è più bloccata; resta da committare la Fase 10 (vedi sotto).
+Fase 10 committata, pushata e mergiata su `main`. **La Fase 11 è sbloccata e non c'è nulla in
+sospeso: si può partire.**
 
-Prima di questa: **Fase 10 (esperienza d'uso) chiusa e verificata manualmente — non ancora
-committata.**
+Prima di questa: **Fase 10 (esperienza d'uso) chiusa e verificata manualmente.**
 `tsc -b --force` 0 errori, `npm test` **26/26 invariato** (i 4 test di REV-047 aggiornati per il
 nuovo `Dialog` di Radix in `PrenotazioneModal`, comportamento verificato invariato), `npm run
 build` pulita, eslint 0 errori. **Nessuna modifica al backend, nessuna migration.**
@@ -57,25 +57,20 @@ configurazione in produzione è pulita, 10 fasce senza sovrapposizioni — ma le
 su cui poggia l'unicità dello slot. Correzione: ignorare `dto.Id` in creazione e usarlo solo in
 `UpdateAsync`, dove escludere la fascia che si sta modificando è corretto. Da valutare in Fase 11.
 
-### ⚠️ Da committare all'inizio della prossima sessione
+### Stato di dev e main — tutto allineato (08/09/2026)
 
-Questa sessione ha lavorato **senza committare** (protocollo: commit e push sempre da Visual
-Studio, mai da Claude). Tutta la Fase 10 è in un solo blocco coerente di modifiche frontend — a
-differenza della Fase 9, qui non c'è un giro Prettier separato da isolare, un solo commit va bene.
+- `main` = `dev` = `origin` = **`45ad335`**, working tree pulito. Fase 10 (`8485ea4`) e la
+  documentazione di chiusura (`45ad335`) sono in produzione: frontend ridistribuito da Vercel al
+  push su `main`, nessuna migration, nessuna finestra di manutenzione.
+- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), `v1.0.3` (Fase 7), `v1.0.4` (Fase 8).
+  **Fase 9 e Fase 10 non sono taggate.** Per la Fase 9 era una scelta (solo refactoring interno);
+  per la Fase 10 non è stato deciso nulla, ed è un caso diverso — cambia il comportamento a
+  schermo su tutte le pagine. Da decidere se pubblicare una `v1.0.5` prima o durante la Fase 11.
 
 > **Nota sul conteggio dei file, da riusare a ogni commit.** Il commit della Fase 8 conteneva 11
 > file nuovi, ma `git status` breve ne mostrava **10**: raggruppa le cartelle non tracciate, e
 > `src/lib/__tests__/` era una riga sola con dentro due file. Visual Studio fa lo stesso. Per
 > l'elenco reale serve `git status --untracked-files=all`.
-
-### Stato di dev e main
-
-- `main` = `dev` = `2dccd6a`, Fase 9 (pulizia) in produzione — nessun tag: solo refactoring
-  interno, nessun cambio di comportamento da versionare come rilascio. La Fase 10 non è ancora
-  su `dev`: tocca solo il frontend, un deploy Vercel al push su `main`, nessuna finestra di
-  manutenzione necessaria.
-- Tag pubblicati: `v1.0.0`, `v1.0.1`, `v1.0.2` (Fase 6), `v1.0.3` (Fase 7), `v1.0.4` (Fase 8) —
-  fermi al tag della Fase 8, come sopra.
 
 ### Fase 10 — riepilogo (codice chiuso 07/09/2026)
 
