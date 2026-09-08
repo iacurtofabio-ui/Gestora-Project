@@ -1,8 +1,8 @@
 # gestora-frontend — Frontend
 
-Questo file vale solo quando si lavora dentro `gestora-frontend/`. Per stato sessione, iter di
-progetto e protocollo tracker vedi il `CLAUDE.md` alla radice del repo — resta valido sempre.
-Per gli endpoint backend vedi `GestoraWebApi/CLAUDE.md`.
+Questo file vale solo quando si lavora dentro `gestora-frontend/`. Per stato del progetto,
+decisioni e protocollo tracker vedi il `CLAUDE.md` alla radice del repo — resta valido sempre.
+Per gli endpoint backend vedi `GestoraWebApi/CLAUDE.md`. Per i comandi vedi `RUNBOOK.md`.
 
 ## Stack
 
@@ -52,9 +52,10 @@ campi form, senza id). Il backend decide l'id, mai il frontend.
 **Hook**:
 - query: `queryKey` include tutti i parametri che cambiano il risultato (filtri, pagina);
   `queryFn` chiama `apiClient` e restituisce `r.data`
-- mutation: `onSuccess` invalida la cache con `invalidateQueries` + `toast.success`; `onError`
-  legge `errors[]` dal backend, fallback su `message`, fallback su testo statico. Se serve sia
-  `id` che `body`, si raggruppano in `{ id, data }`
+- mutation: `onSuccess` invalida la cache con `invalidateQueries` + `toast.success`;
+  `onError: segnalaErrore('testo di ripiego')` — **mai** scrivere la gestione errore a mano.
+  Se serve sia `id` che `body`, si raggruppano in `{ id, data }`
+- i path degli endpoint si prendono da `lib/endpoints.ts`, **mai scritti inline** (REV-082)
 
 **Modal** — un solo modal gestisce sia create che edit: prop oggetto `undefined` = create
 (form vuoto), valorizzata = edit (form ripopolato via `useEffect` + `reset`, fondamentale per
@@ -67,8 +68,46 @@ modal), `modalAperto` (boolean), `idDaEliminare` (undefined | id, controlla `Con
 i moduli per conferma prima di eliminare. Pattern: `idDaEliminare !== undefined` controlla
 l'apertura.
 
-**Error handling** — identico in tutti gli `onError`: 1) legge `errors[]` (campo/messaggio da
-FluentValidation), 2) fallback su `message`, 3) fallback su testo statico di default.
+## Helper e componenti condivisi — usare questi, non riscriverli
+
+Nati dalle Fasi 8-10 per togliere codice ripetuto. Se stai per scrivere una di queste cose a
+mano, esiste già.
+
+| Dove | Cosa fa |
+|---|---|
+| `lib/apiError.ts` | `messaggioErrore` / `segnalaErrore` per le **scritture**, `messaggioErroreCaricamento` per le **letture**. Distingue anche il caso "richiesta mai partita" (server spento, rete assente) da un errore del server |
+| `lib/endpoints.ts` | Tutti i path degli endpoint, raggruppati per area come nel backend |
+| `lib/validazioni.ts` | Le regole condivise dei form, password inclusa: 8 caratteri, maiuscola, numero, carattere speciale. Prima ce n'erano **quattro versioni diverse** e solo una era giusta |
+| `lib/date.ts` | `oggiInItalia`, `lunediSettimanaCorrenteInItalia`. Fuso `Europe/Rome` fissato nel codice: il locale è del ristorante, non del dispositivo di chi guarda. **Mai** usare `toISOString()` per una data di calendario |
+| `lib/jwt.ts` | Unico punto che legge il token. È una **lettura**, non una verifica: la firma non è controllabile dal browser |
+| `lib/session.ts` | Ponte fra l'intercettore Axios (che vive fuori da React) e i componenti, per la scadenza sessione senza ricaricare la pagina |
+| `lib/giorni.ts` | `GIORNI_SETTIMANA`, prima duplicata in due file |
+| `lib/queryClient.ts` | Impostazioni di React Query: niente nuovi tentativi sui 4xx, nessun tentativo sulle mutation (creerebbe doppioni) |
+| `components/PageState.tsx` | `PageLoading` / `PageError`: sostituiscono **solo il contenuto**, lasciando intestazione e filtri a schermo |
+| `components/EmptyState.tsx` | Messaggio per le liste vuote |
+| `components/Paginazione.tsx` | Barra di navigazione delle pagine |
+| `components/ConfirmDialog.tsx` | Conferma prima di un'azione distruttiva. Accetta `titolo` e `testoConferma`: annullare ed eliminare non devono avere la stessa faccia |
+| `components/ErrorBoundary.tsx` | Rete di sicurezza **sopra** il router. Unico componente a classe del progetto: React non offre un equivalente con gli hook |
+| `router/RouteErrorPage.tsx` | Rete di sicurezza **dentro** il router. Serve perché React Router cattura gli errori delle pagine prima dell'ErrorBoundary |
+
+Tutti i pulsanti d'azione usano `<Button>` di shadcn (REV-075). Unica eccezione voluta: il link
+"Logout" nell'header, che resta testo semplice.
+
+Tutte le etichette dei form sono collegate al proprio campo con `htmlFor` / `id` (REV-072). Sui
+form di Login e Registrazione l'etichetta c'è ma è `sr-only`, perché il design usa il segnaposto.
+
+## Test
+
+**26 test** con Vitest + Testing Library, lanciati con `npm test`:
+lettura difensiva del token (10), helper degli errori (5), `ProtectedRoute` su accesso e ruoli
+(6), scelta della fascia oraria in `PrenotazioneModal` (5).
+
+> ⚠️ `npm test` **non controlla i tipi**. Serve anche `npm run build`, che li controlla: in Fase 8
+> la build ha trovato un campo scritto male in un fixture che i test non vedevano.
+
+> ⚠️ `hooks/usePrenotazioni.ts` è **mockato per intero** nei test di `PrenotazioneModal`. Per
+> questo `useCheckDisponibilita` sta in un modulo separato: messo lì dentro sarebbe sparito con
+> lo stesso mock.
 
 ## Moduli implementati
 

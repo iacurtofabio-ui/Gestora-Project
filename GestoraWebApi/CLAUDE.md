@@ -19,8 +19,12 @@ Pattern: Controller → Service → Repository (layered).
 - `Repositories/{Area}/` — accesso dati via EF Core
 - `Infrastructure/Middleware/ExceptionMiddleware.cs` — mapping eccezione → status code
   centralizzato: `NotFoundException`/`KeyNotFoundException` → 404, `ValidationException` → 400
-  con `errors[]` per campo, `ArgumentException` → 400, `InvalidOperationException` → 409,
-  resto → 500. **Non lanciare risposte HTTP dai service** — solo eccezioni tipizzate.
+  con `errors[]` per campo, `ArgumentException` → 400, `ForbiddenException` → 403,
+  `ConflictException` → 409, resto → 500. **Non lanciare risposte HTTP dai service** — solo
+  eccezioni tipizzate.
+  ⚠️ `InvalidOperationException` **non è più mappata** (REV-026, Fase 3): le regole di dominio che
+  rifiutano un'operazione sollevano `ConflictException`. Una `InvalidOperationException` che
+  arriva al middleware è un errore interno vero, e deve restare un 500.
 - `Migrations/` — EF Core, applicate manualmente in locale (`dotnet ef database update`)
 
 ## Endpoint — riferimento reale
@@ -44,8 +48,8 @@ marcato come fallito e resta online la versione precedente.
 `JobsController` (`POST trigger/{jobName}`, solo Admin) — forza l'esecuzione immediata di un job
 Quartz già registrato (`PrenotazioniJob`, `PrenotazioniCleanupJob`), senza aspettare il cron.
 Utile per verificare un flusso automatizzato a comando o per rieseguirlo manualmente in caso di
-necessità operativa. Aggiunto il 27/08/2026, presente solo in locale — valutare se portarlo anche
-in produzione.
+necessità operativa. Aggiunto il 27/08/2026 e committato: non ha alcun filtro per ambiente, quindi
+**è attivo anche in produzione**, protetto solo da `[Authorize(Roles = Admin)]`.
 
 Auth: `POST register`, `POST login`, `POST assign-role`, `DELETE remove-role`, `GET get-users`,
 `GET get-user/{id}`, `PUT update-user/{id}`, `DELETE delete-user/{id}`, `POST reset-password/{id}`.
@@ -112,9 +116,14 @@ array se ne ha più di uno — il frontend deve normalizzare sempre a array, ved
 
 `ILogActivityService`/`Logging` (tabella dedicata) registra userId/azione/IP. Era già usato in
 `AuthenticationUserController`; esteso a tutte le scritture di `ZonaService`, `PostazioneService`,
-`FasciaOrariaService` (oltre a `PrenotazioniService`, che lo aveva già). Ogni service ha il
-proprio `IHttpContextAccessor` + helper privati `GetAuthenticatedUserId()`/`GetIpAddress()` —
-pattern copiato da `PrenotazioniService`, non centralizzato in un middleware.
+`FasciaOrariaService` (oltre a `PrenotazioniService`, che lo aveva già).
+
+`GetAuthenticatedUserId()` e `GetIpAddress()` sono **centralizzati** in
+`Extensions/HttpContextExtensions.cs` (REV-059, Fase 9): prima erano copiati identici in 4 service
+e 2 controller. Sotto stanno `ClaimsPrincipalExtensions` e `Common/IndirizzoClient`, che fanno il
+lavoro vero. ⚠️ Per l'indirizzo IP leggere la nota su `IndirizzoClient` più sotto prima di
+toccarlo: sbagliare l'anello della catena falsa sia l'audit trail sia il limite ai tentativi di
+login.
 
 ## Flussi automatizzati (Quartz.NET)
 
@@ -129,18 +138,22 @@ Entrambi verificati manualmente il 27/08/2026 tramite `JobsController` (vedi sop
 aspettando il cron/il cutoff reale — pattern da riusare per testare qualunque job futuro senza
 attese.
 
-Nessun test unitario copre oggi `AutomaticCompletPrenotazioniAsync`/`AutomaticDeletePrenotazioniAsync`.
+Coperti da test dalla Fase 5: la logica di `AutomaticCompletPrenotazioniAsync` /
+`AutomaticDeletePrenotazioniAsync` in `PrenotazioniServiceTests` (con `TestClock`, istante fisso),
+i gusci Quartz in `Background/JobsNotturniTests.cs` — dove si verifica che un'eccezione del
+service **non** esca dal job, altrimenti Quartz la tratterebbe come esecuzione mancata.
 
 ## Assegnazione tavoli (riscritta 31/08/2026, checkpoint 2b)
 
 `Services/PostazioneAssignment/AssegnazioneTavoli.cs` — motore **puro e statico**, nessuna
 dipendenza da repository o DbContext: tutta la logica di scelta dei tavoli vive qui ed è testata
-direttamente (`PostazioneAssignmentServiceTests`, 15 test). `PostazioneAssignmentService` resta
+direttamente (`AssegnazioneTavoliTests`, 15 test; il service che lo usa ne ha altri 13 in
+`PostazioneAssignmentServiceTests`). `PostazioneAssignmentService` resta
 il solo responsabile di leggere i dati (tavoli attivi, tavoli già occupati nella fascia) e poi
 delega al motore. **Non rimettere logica di scelta dentro il service**: è proprio ciò che rendeva
 l'algoritmo precedente non testabile.
 
-Regole (decisioni di prodotto, vedi `ROADMAP_REVISIONE.md` — non riaprirle):
+Regole (decisioni di prodotto, vedi `CLAUDE.md` di radice §4 — non riaprirle):
 - capienza di un'unione = somma delle capienze, **+2 (`BonusTestate`) solo se l'unione è composta
   esclusivamente da tavoli da 2 posti** e ha almeno 2 tavoli; ogni altra combinazione = somma
   semplice
@@ -268,15 +281,20 @@ test usare `TestClock` (istante fisso).
 - Segreti: connection string e JWT Secret di sviluppo vivono in **User Secrets**
   (`dotnet user-secrets`, non in `appsettings.Development.json` che ora contiene solo
   placeholder vuoti — SEC-001 risolto 13/08/2026). Percorso dello store e comandi in
-  `Utilities.txt` alla root del progetto. In produzione: solo env var Railway.
+  `RUNBOOK.md` alla radice del progetto, sezione *User Secrets*. In produzione: solo env var
+  Railway.
 
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, pattern Arrange/Act/Assert. Un file per service
 (`FasciaOrariaServiceTests.cs`, `PostazioneServiceTests.cs`, `PostazioneAssignmentServiceTests.cs`,
 `PrenotazioniServiceTests.cs`, `ZonaServiceTests.cs`, `DisponibilitaServiceTests.cs`,
-`DashboardServiceTests.cs`) più `Validators/PrenotazioneCreateDTOValidatorTests.cs` e
-`Infrastructure/DbExceptionTranslatorTests.cs`. **239 test totali** (08/09/2026, Fase 11).
+`DashboardServiceTests.cs`, `LogActivityServiceTests.cs`) più il motore puro
+(`AssegnazioneTavoliTests.cs`), i job (`Background/JobsNotturniTests.cs`), i validator
+(`Validators/`), il mapping (`Mappings/PrenotazioneMappingProfileTests.cs`), il repository
+(`Repositories/PrenotazioniRepositoryTests.cs`), il modello (`Context/GestoraContextModelTests.cs`),
+`Common/IndirizzoClientTests.cs` e `Infrastructure/DbExceptionTranslatorTests.cs`.
+**239 test totali** (08/09/2026, Fase 11).
 Nota: `PrenotazioniServiceTests` configura il contesto InMemory con
 `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — l'InMemory non
 supporta le transazioni e senza quella riga il service, che ora ne apre una, farebbe fallire
