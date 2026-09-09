@@ -19,11 +19,17 @@
 | Vulnerabilità note nelle librerie | 0 |
 | Branch | `main` = `dev` = `origin`, allineati |
 
-**Ultima cosa fatta**: Fase 12 — riordino di tutta la documentazione. I documenti chiusi sono
-stati spostati in `docs/archivio/`, lo stato del progetto adesso vive in tre file soli.
+**Ultima cosa fatta**: Fase 13 — identità visiva e pagina pubblica. L'app aveva la tavolozza
+grigia di partenza mai cambiata, un tema scuro scritto ma mai attivato, e `/` che rimandava
+dritto al login: chi apriva il link trovava un form di accesso e se ne andava. Ora c'è una
+tavolozza calda verificata per leggibilità, il tema scuro funziona, e la radice è una vetrina
+pubblica dove si può controllare la disponibilità **senza registrarsi**.
 
-**Cosa viene dopo**: la fase in cui apriamo il file di appunti d'uso di Fabio e trasformiamo i
-miglioramenti che ha raccolto in voci di lavoro con priorità (`DOC-001` in `BACKLOG.md`).
+A fine giornata Fabio ha provato l'app in locale e ha riscritto alcuni testi della pagina
+pubblica (titolo, i tre passaggi, le zone). Nessuna modifica al codice, solo parole.
+
+**Cosa viene dopo**: un giro di correzioni sull'aspetto, deciso guardando l'app in funzione
+(`UI-001` in `BACKLOG.md`). Poi la fase sul file di appunti d'uso (`DOC-001`).
 
 ---
 
@@ -77,8 +83,13 @@ Railway, che con .NET 9 non funzionava).
 **React Router v7** (attenzione: qualsiasi nota che parli di v6 è vecchia), **TanStack Query v5**
 per le chiamate al server, **React Hook Form + Zod** per i form, **shadcn/ui + Tailwind CSS v4**
 per l'aspetto, **Axios** con un intercettore che allega il token.
+Tavolozza calda propria con tema chiaro/scuro, verificata per leggibilità con
+`gestora-frontend/scripts/contrasto.mjs`.
 Test con **Vitest + Testing Library**. Deploy su **Vercel**, che ripubblica da solo a ogni push
 su `main`.
+
+**`/` è pubblica**: presenta il locale e lascia controllare la disponibilità senza registrarsi.
+⚠️ Su quella pagina non c'è nessun token: l'unico endpoint chiamabile è `check-disponibilita`.
 
 ### Due ambienti separati in modo stabile
 
@@ -116,10 +127,10 @@ Prese il 28/08/2026. Il testo completo è in `docs/archivio/ROADMAP_REVISIONE.md
 
 ---
 
-## 5. Come sono andate le 11 fasi di revisione
+## 5. Come sono andate le fasi di revisione
 
 Dal 28/08 all'08/09/2026, dopo il primo rilascio, il progetto è stato rivisto da capo: 99
-segnalazioni numerate, chiuse in 11 fasi.
+segnalazioni numerate, chiuse in 11 fasi, più due fasi aggiunte dopo (documentazione e aspetto).
 
 | Fase | Cosa ha portato | Tag |
 |---|---|---|
@@ -135,6 +146,7 @@ segnalazioni numerate, chiuse in 11 fasi.
 | 10 | Esperienza d'uso: responsive, accessibilità, semaforo disponibilità | `v1.0.5` |
 | 11 | Chiusura: fix sovrapposizione fasce | `v1.0.6` |
 | 12 | Ordine e pulizia della documentazione | — |
+| 13 | Identità visiva, tema scuro e pagina pubblica | — |
 
 Il racconto completo, con i difetti emersi e **le 9 regole di metodo imparate sbagliando**, è in
 `docs/archivio/STORICO_FASI.md`. Vale la pena rileggerlo: è la parte più utile da raccontare a
@@ -144,12 +156,14 @@ un colloquio.
 
 ## 6. Cosa è aperto
 
-Tre cose, nessuna urgente. Il dettaglio è in **`BACKLOG.md`**.
+Il dettaglio è in **`BACKLOG.md`**.
 
-1. **`DOC-001`** — formalizzare il file di appunti d'uso di Fabio. È il prossimo lavoro vero.
+1. **`UI-001`** — correzioni sull'aspetto, raccolte provando l'app in funzione. **È il prossimo
+   lavoro.**
+2. **`DOC-001`** — formalizzare il file di appunti d'uso di Fabio.
    ⚠️ Il file `AppuntiFix.txt` **non si apre** finché non parte quella fase.
-2. **`OPS-001`** — reset completo dei due database, quando tutte le implementazioni sono chiuse
-3. **Pulizie minori** e le idee per la **v2.0**
+3. **`OPS-001`** — reset completo dei due database, quando tutte le implementazioni sono chiuse
+4. **Pulizie minori** e le idee per la **v2.0**
 
 ---
 

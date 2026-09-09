@@ -31,7 +31,7 @@ export default function Paginazione({
   const ultimoDellaPagina = primoDellaPagina === 0 ? 0 : primoDellaPagina + elementiInPagina - 1
 
   return (
-    <div className="flex items-center justify-between p-4 border-t text-sm text-gray-600">
+    <div className="flex items-center justify-between p-4 border-t text-sm text-muted-foreground">
       <span>
         {totaleElementi === 0
           ? 'Nessuna prenotazione'

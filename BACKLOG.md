@@ -13,6 +13,27 @@ vista d'insieme che si guarda per decidere cosa fare.
 
 ## 🔵 Da fare prima
 
+### `UI-001` — Correzioni sull'aspetto
+
+**Cos'è.** La Fase 13 ha dato all'app un aspetto suo, ma è stata scritta guardando il codice.
+Provandola in funzione l'08/09/2026 sono emerse cose da sistemare: spaziature, dimensioni,
+proporzioni, testi. Sono correzioni di rifinitura, non difetti.
+
+**Stato.** L'elenco non è ancora scritto: Fabio lo sta raccogliendo provando l'app. Si parte da
+lì nella prossima sessione.
+
+**Già fatto l'08/09**: riscritti alcuni testi della pagina pubblica (titolo, i tre passaggi, le
+descrizioni delle zone). Solo parole, nessuna modifica al codice.
+
+> Quando si tocca un colore va sempre rilanciato `node scripts/contrasto.mjs` dentro
+> `gestora-frontend/`: dice se qualche combinazione testo/fondo è diventata illeggibile.
+
+> ⚠️ **Da non confondere con `DOC-001`.** Qui si parla di **come si vede** l'app, e sono cose
+> notate adesso. `DOC-001` riguarda il file di appunti che Fabio tiene da settimane su **come
+> funziona**, e quel file resta chiuso.
+
+---
+
 ### `DOC-001` — Formalizzare il file di appunti d'uso
 
 **Cos'è.** Usando l'app tutti i giorni, Fabio ha annotato dei miglioramenti in un file personale
@@ -48,7 +69,9 @@ Il merito non si discute adesso: si decide quando si apre il file.
 
 **Cos'è.** Cancellare e ricreare da zero il database locale **e** quello di produzione, per
 togliere di mezzo tutti i dati di prova accumulati: la zona "Test concorrenza", i tavoli e le
-prenotazioni finte, l'utente `testfase6` in locale.
+prenotazioni finte, e in locale gli utenti `testfase6` e `fase13check` (quest'ultimo creato
+l'08/09/2026 per provare il tema scuro sulle pagine dietro l'accesso — **solo database locale**,
+la produzione non è stata toccata).
 
 **Quando.** **Alla fine**, quando non ci sono più implementazioni né fix da fare. Farlo prima
 significa ricreare dati di test e rifarlo daccapo.

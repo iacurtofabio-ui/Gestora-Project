@@ -2,17 +2,22 @@ import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { MenuIcon, XIcon } from 'lucide-react'
+import { LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { onSessionExpired } from '@/lib/session'
 import { Button } from '@/components/ui/button'
+import { Logo } from '@/components/Logo'
+import { ThemeToggle } from '@/components/ThemeToggle'
+import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 
 function linkClass({ isActive }: { isActive: boolean }) {
   // REV-081: prima la sidebar non segnalava in che pagina ci si trovasse.
   return cn(
-    'px-3 py-2 rounded text-sm font-medium',
-    isActive ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-100'
+    'text-corpo rounded-md px-3 py-2 font-medium transition-colors',
+    isActive
+      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+      : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
   )
 }
 
@@ -89,17 +94,22 @@ export default function AppLayout() {
   )
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-background">
       {/* Sidebar da desktop: sempre visibile, come prima. */}
-      <aside className="hidden md:block w-64 bg-white border-r shrink-0">{sidebarContent}</aside>
+      <aside className="hidden md:flex md:flex-col w-64 bg-sidebar border-r border-sidebar-border shrink-0">
+        <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
+          <Logo className="text-sidebar-foreground" />
+        </div>
+        {sidebarContent}
+      </aside>
 
       {/* Pannello mobile: overlay scuro + sidebar sopra il contenuto, apribile dall'header. */}
       {menuAperto && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <div className="fixed inset-0 bg-black/40" onClick={() => setMenuAperto(false)} />
-          <aside className="relative z-50 w-64 bg-white border-r h-full flex flex-col">
-            <div className="h-16 flex items-center justify-between px-4 border-b">
-              <span className="font-semibold text-gray-800">Gestora</span>
+          <aside className="relative z-50 w-64 bg-sidebar border-r border-sidebar-border h-full flex flex-col">
+            <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+              <Logo className="text-sidebar-foreground" />
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -115,7 +125,7 @@ export default function AppLayout() {
       )}
 
       <div className="flex flex-col flex-1 min-w-0">
-        <header className="h-16 bg-white border-b px-4 md:px-6 flex items-center justify-between gap-4">
+        <header className="h-16 bg-card border-b px-4 md:px-6 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="ghost"
@@ -129,13 +139,20 @@ export default function AppLayout() {
             {/* REV-081: prima l'header mostrava solo l'email, senza il ruolo — a colpo d'occhio
                 non si distingueva un Cliente da uno Staff. */}
             <div className="min-w-0">
-              <p className="text-sm text-gray-800 truncate">{user?.email}</p>
-              <p className="text-xs text-gray-400 truncate">{user?.roles.join(', ')}</p>
+              <p className="text-corpo truncate text-foreground">{user?.email}</p>
+              <p className="text-nota truncate text-muted-foreground">{user?.roles.join(', ')}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="text-sm text-red-500 hover:underline shrink-0">
-            Logout
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <ThemeToggle />
+            <Separator orientation="vertical" className="mx-1 h-6" />
+            {/* Fase 10 aveva lasciato il logout come testo semplice, unica azione dell'app a non
+                essere un pulsante. Con l'header rifatto non ha più senso tenerlo diverso. */}
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOutIcon className="size-4" />
+              <span className="hidden sm:inline">Esci</span>
+            </Button>
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <Outlet />

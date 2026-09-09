@@ -2,10 +2,17 @@ import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { useFascePerGiorno } from '@/hooks/useFasceOrarie'
 import { useZoneAttive } from '@/hooks/useZone'
 import { useCreaPrenotazione, useModificaPrenotazione } from '@/hooks/usePrenotazioni'
@@ -159,25 +166,31 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{inModifica ? 'Modifica Prenotazione' : 'Nuova Prenotazione'}</DialogTitle>
+          <DialogTitle className="text-titolo">
+            {inModifica ? 'Modifica prenotazione' : 'Nuova prenotazione'}
+          </DialogTitle>
+          <DialogDescription className="text-corpo text-muted-foreground">
+            {inModifica
+              ? 'Salvando, i tavoli vengono riassegnati in base a data, fascia e coperti.'
+              : 'Il tavolo lo sceglie Gestora: serve solo il giorno, il turno e quante persone.'}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="space-y-1">
             <Label htmlFor="prenotazione-data">Data</Label>
             <Input id="prenotazione-data" type="date" {...register('dataPrenotazione')} />
             {errors.dataPrenotazione && (
-              <p className="text-red-500 text-xs mt-1">{errors.dataPrenotazione.message}</p>
+              <p className="text-nota text-destructive">{errors.dataPrenotazione.message}</p>
             )}
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="prenotazione-fascia">Fascia Oraria</Label>
-            <select
+            <Label htmlFor="prenotazione-fascia">Fascia oraria</Label>
+            <NativeSelect
               id="prenotazione-fascia"
               {...register('fasciaOrariaId', { valueAsNumber: true })}
-              className="border rounded px-3 py-2 w-full text-sm"
               disabled={giornoSettimana === undefined}
             >
               <option value="">
@@ -195,36 +208,35 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
                   </option>
                 )
               })}
-            </select>
+            </NativeSelect>
             {giornoSettimana !== undefined && fasceOrarie.data?.length === 0 && (
-              <p className="text-gray-400 text-xs mt-1">
+              <p className="text-nota text-muted-foreground">
                 Nessuna fascia oraria attiva per questo giorno.
               </p>
             )}
             {/* NEW-002: il motivo del rifiuto si vede subito, non solo dopo aver premuto Salva. */}
             {disponibilitaFasciaScelta && !disponibilitaFasciaScelta.disponibilePerRichiesta && (
-              <p className="text-amber-600 text-xs mt-1">{disponibilitaFasciaScelta.messaggio}</p>
+              <p className="text-nota text-warning">{disponibilitaFasciaScelta.messaggio}</p>
             )}
             {errors.fasciaOrariaId && (
-              <p className="text-red-500 text-xs mt-1">{errors.fasciaOrariaId.message}</p>
+              <p className="text-nota text-destructive">{errors.fasciaOrariaId.message}</p>
             )}
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="prenotazione-zona">Zona (opzionale)</Label>
+            <Label htmlFor="prenotazione-zona">Zona preferita (facoltativa)</Label>
             {/* REV-015: il campo era gestito a mano con onChange + setValue e non era
                             registrato nel form. Il valore arrivava al submit, ma la select restava
                             fuori dal controllo di react-hook-form: reset() non la ripuliva, e
                             riaprendo il modal si vedeva ancora la zona scelta prima mentre il form
                             era tornato a "nessuna preferenza". Ora e' un campo registrato come gli altri. */}
-            <select
+            <NativeSelect
               id="prenotazione-zona"
               {...register('zonaId', {
                 // La select restituisce sempre stringhe: la stringa vuota e'
                 // l'assenza di preferenza, che il backend si aspetta come null.
                 setValueAs: (v) => (v === '' || v === null ? null : Number(v)),
               })}
-              className="border rounded px-3 py-2 w-full text-sm"
             >
               <option value="">-- Nessuna preferenza --</option>
               {zone.data?.map((z) => (
@@ -232,9 +244,9 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
                   {z.nome}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             {inModifica && (
-              <p className="text-gray-400 text-xs mt-1">
+              <p className="text-nota text-muted-foreground">
                 Salvando, i tavoli vengono riassegnati in base a questa preferenza.
               </p>
             )}
@@ -253,33 +265,40 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
           )}
 
           <div className="space-y-1">
-            <Label htmlFor="prenotazione-coperti">Numero Coperti</Label>
+            <Label htmlFor="prenotazione-coperti">Numero di coperti</Label>
             <Input
               id="prenotazione-coperti"
               type="number"
               {...register('numeroCoperti', { valueAsNumber: true })}
             />
             {errors.numeroCoperti && (
-              <p className="text-red-500 text-xs mt-1">{errors.numeroCoperti.message}</p>
+              <p className="text-nota text-destructive">{errors.numeroCoperti.message}</p>
             )}
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="prenotazione-note">Note (opzionale)</Label>
+            <Label htmlFor="prenotazione-note">Note (facoltative)</Label>
             <textarea
               id="prenotazione-note"
               {...register('note')}
-              className="border rounded px-3 py-2 w-full text-sm"
               rows={3}
+              placeholder="Allergie, seggiolone, tavolo tranquillo…"
+              className="text-corpo w-full rounded-md border border-input bg-transparent px-2.5 py-1.5 outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
             />
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          {/* Il verbo del pulsante e' quello dell'azione, non "Invia": chi legge sa gia' cosa
+              succede quando lo preme. */}
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
               Annulla
             </Button>
             <Button type="submit" disabled={inCorso}>
-              {inCorso ? 'Salvataggio...' : 'Salva'}
+              {inCorso
+                ? 'Salvataggio…'
+                : inModifica
+                  ? 'Salva modifiche'
+                  : 'Crea prenotazione'}
             </Button>
           </div>
         </form>

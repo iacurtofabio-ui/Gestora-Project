@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -76,7 +77,7 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{postazione ? 'Modifica Postazione' : 'Nuova Postazione'}</DialogTitle>
+          <DialogTitle className="text-titolo">{postazione ? 'Modifica tavolo' : 'Nuovo tavolo'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="space-y-1">
@@ -87,7 +88,9 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
               type="number"
               placeholder="Numero"
             />
-            {errors.numero && <p className="text-red-500 text-sm mt-1">{errors.numero.message}</p>}
+            {errors.numero && (
+              <p className="text-nota text-destructive">{errors.numero.message}</p>
+            )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="postazione-capienza">Capienza massima</Label>
@@ -98,24 +101,22 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
               placeholder="Capienza massima"
             />
             {errors.capienzaMassima && (
-              <p className="text-red-500 text-sm mt-1">{errors.capienzaMassima.message}</p>
+              <p className="text-nota text-destructive">{errors.capienzaMassima.message}</p>
             )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="postazione-zona">Zona</Label>
-            <select
-              id="postazione-zona"
-              {...register('zonaId', { valueAsNumber: true })}
-              className="w-full border rounded px-3 py-2 text-sm"
-            >
+            <NativeSelect id="postazione-zona" {...register('zonaId', { valueAsNumber: true })}>
               <option value="">-- Seleziona zona --</option>
               {zone.data?.map((z) => (
                 <option key={z.id} value={z.id}>
                   {z.nome}
                 </option>
               ))}
-            </select>
-            {errors.zonaId && <p className="text-red-500 text-sm mt-1">{errors.zonaId.message}</p>}
+            </NativeSelect>
+            {errors.zonaId && (
+              <p className="text-nota text-destructive">{errors.zonaId.message}</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -127,7 +128,7 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
             <Label htmlFor="postazione-attiva">Attiva</Label>
           </div>
           <Button type="submit" disabled={inCorso}>
-            {inCorso ? 'Salvataggio...' : 'Salva'}
+            {inCorso ? 'Salvataggio…' : postazione ? 'Salva modifiche' : 'Crea tavolo'}
           </Button>
         </form>
       </DialogContent>

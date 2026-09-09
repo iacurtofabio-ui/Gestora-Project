@@ -19,6 +19,50 @@ const buttonVariants = cva(
         destructive:
           'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
         link: 'text-primary underline-offset-4 hover:underline',
+        /*
+         * Azione di riga (direzione «Turno»).
+         *
+         * Il pieno segnala l'azione primaria della PAGINA, e ce n'e' una sola: "Aggiungi
+         * prenotazione". Venti pulsanti pieni incolonnati in una tabella non sono venti azioni
+         * primarie, sono una campitura blu che ruba l'attenzione alle bande — dove la
+         * saturazione ha un significato.
+         *
+         * A riposo la voce e' testo nel colore segnale a peso medio: pienamente leggibile
+         * (7:1 sulla superficie della card, in entrambi i temi), non attenuata e non grigia.
+         * Si riempie quando il puntatore entra nella RIGA (`group/riga`, non solo sul pulsante:
+         * cosi' l'azione si accende mentre si legge la riga, non dopo averla centrata) e quando
+         * arriva il fuoco da tastiera.
+         *
+         * Su touch l'hover non esiste: quello a riposo e' l'unico stato che l'utente vedra',
+         * ed e' per questo che deve stare in piedi da solo. `pointer-coarse` porta l'area di
+         * tocco a 44x44 senza allungare le righe su desktop.
+         */
+        azione: [
+          // A riposo: contorno + colore segnale. Il contorno non e' un vezzo — senza, a riposo
+          // questo e' testo colorato e basta, e non si capisce che si puo' premere finche' non
+          // ci passi sopra. Su touch l'hover non arriva MAI, quindi a riposo e' l'unico stato
+          // che quell'utente vedra': deve dire da solo "sono un comando".
+          'bg-transparent text-primary font-medium border-azione-bordo',
+          'hover:bg-primary hover:text-primary-foreground hover:border-primary',
+          'focus-visible:bg-primary focus-visible:text-primary-foreground focus-visible:border-primary',
+          'group-hover/riga:bg-primary group-hover/riga:text-primary-foreground group-hover/riga:border-primary',
+          'group-focus-within/riga:bg-primary group-focus-within/riga:text-primary-foreground group-focus-within/riga:border-primary',
+          'pointer-coarse:min-h-11 pointer-coarse:min-w-11',
+        ].join(' '),
+        /* Come sopra, ma per l'apri-menu: a riposo e' il colore del testo secondario, perche'
+           non e' un'azione, e' un contenitore di azioni. */
+        azioneMenu: [
+          // L'apri-menu resta senza contorno: sta accanto all'azione con il contorno, e due
+          // contorni affiancati li farebbero leggere come due comandi di pari peso — che e'
+          // esattamente la fila di pulsanti uguali da cui si veniva. L'icona «…» e' gia' di per
+          // se' un'affordance nota, e a riposo si vede perche' e' scura su fondo chiaro.
+          'bg-transparent text-muted-foreground',
+          'hover:bg-muted hover:text-foreground',
+          'focus-visible:bg-muted focus-visible:text-foreground',
+          'aria-expanded:bg-muted aria-expanded:text-foreground',
+          'group-hover/riga:text-foreground',
+          'pointer-coarse:min-h-11 pointer-coarse:min-w-11',
+        ].join(' '),
       },
       size: {
         default:

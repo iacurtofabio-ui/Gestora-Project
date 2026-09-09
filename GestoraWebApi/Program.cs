@@ -1,6 +1,7 @@
 using GestoraWebApi.Auth;
 using GestoraWebApi.Background;
 using GestoraWebApi.Context;
+using GestoraWebApi.Development;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
 using Microsoft.AspNetCore.Identity;
@@ -243,6 +244,41 @@ using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     await RoleSeeder.SeedAsync(roleManager);
+}
+
+// ---------------------------------------------------------------------------------------
+// Comandi di sviluppo. Non fanno partire il server: eseguono e basta.
+//
+// Vivono qui e non in un progetto separato perche' hanno bisogno degli stessi servizi gia'
+// registrati (UserManager per l'hashing delle password, il DbContext per il dominio):
+// duplicarne la configurazione altrove significherebbe tenerne due allineate a mano.
+//
+// Nessuno dei due parte senza il proprio argomento esplicito, e nessuno dei due parte fuori da
+// Development. Il seed ha in piu' un controllo sull'host del database: vedi SeedSviluppo.
+// ---------------------------------------------------------------------------------------
+if (app.Environment.IsDevelopment() && args.Contains(SeedSviluppo.ArgomentoSeed))
+{
+    var seedLogger = app.Services.GetRequiredService<ILogger<Program>>();
+    var giornataPiena = args.Contains(SeedSviluppo.ArgomentoGiornataPiena);
+    await SeedSviluppo.EseguiAsync(app.Services, seedLogger, giornataPiena);
+    return;
+}
+
+if (app.Environment.IsDevelopment() && args.Contains(SeedSviluppo.ArgomentoPassword))
+{
+    var passwordLogger = app.Services.GetRequiredService<ILogger<Program>>();
+    var posizione = Array.IndexOf(args, SeedSviluppo.ArgomentoPassword);
+
+    if (posizione + 2 >= args.Length)
+    {
+        passwordLogger.LogError(
+            "Uso: dotnet run -- {Argomento} <email> <nuova password>", SeedSviluppo.ArgomentoPassword);
+        return;
+    }
+
+    await SeedSviluppo.ReimpostaPasswordAsync(
+        app.Services, args[posizione + 1], args[posizione + 2], passwordLogger);
+    return;
 }
 
 // Avviso esplicito se il database non è allineato al codice. Le migration restano applicate a
