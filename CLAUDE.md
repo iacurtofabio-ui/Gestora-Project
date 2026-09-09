@@ -76,7 +76,8 @@ Gestora/
 ├── CLAUDE.md             questo file
 ├── BACKLOG.md            cosa resta da fare
 ├── RUNBOOK.md            come si fanno le operazioni
-└── TrackAttività_Gestora.xlsx
+├── TrackGestora_v2.xlsx  il tracker attivo
+└── TrackAttività_Gestora.xlsx   congelato, archivio dei primi mesi
 ```
 
 ### Backend — ASP.NET Core 9
@@ -232,56 +233,60 @@ Altre regole:
 
 ## 8. Il tracker
 
-`TrackAttività_Gestora.xlsx`, in questa cartella. È il **tracker unico e ufficiale**: se compare
-un altro file che sembra un tracker, è un doppione — segnalarlo a Fabio, non aggiornarlo.
+**`TrackGestora_v2.xlsx`**, in questa cartella. È il **tracker unico e ufficiale** dal
+09/09/2026. Se compare un altro file che sembra un tracker, è un doppione — segnalarlo a Fabio,
+non aggiornarlo.
 
-> Nota pratica: il nome ha caratteri accentati, trovare il file con `Get-ChildItem Track*.xlsx`.
-> Claude lo legge e scrive da PowerShell con Excel COM, i fogli si indirizzano per **numero**
-> perché i nomi contengono emoji.
+> **`TrackAttività_Gestora.xlsx` è congelato.** Resta nel repo come archivio storico dei primi
+> mesi (13 fogli, inventari tecnici, storia delle 13 fasi). **Non si aggiorna più**: si legge
+> solo per ritrovare qualcosa del passato.
+>
+> Nota pratica: il nome del file nuovo non ha accenti e i fogli non hanno emoji, quindi si
+> indirizzano **per nome** e non più per numero. Claude legge e scrive da PowerShell con Excel
+> COM, tramite uno script `.ps1` salvato **UTF-8 con BOM** (non comandi inline: gli accenti si
+> rompono). Valori sempre come `[string]`, per copiare formati `Copy(destinazione)`, mai
+> `PasteSpecial`.
 
 ### A cosa serve ogni foglio
 
-| # | Foglio | Cosa contiene |
-|---|---|---|
-| 1 | Dashboard | Il colpo d'occhio: stato dei moduli e numeri |
-| 2 | Appunti e Step | **Il diario di lavoro**: cosa si è fatto, sessione per sessione |
-| 3 | Roadmap | Le funzionalità, implementate e no |
-| 4 | Piano di Sviluppo | Le fasi con date di inizio e fine |
-| 5 | Fix e Bug | **I difetti**, con stato |
-| 6-13 | Refactoring, Modelli, Repository, Services, Controllers, Test, Auth & Security, Jobs, Migration | Inventari tecnici |
+| Foglio | Cosa contiene |
+|---|---|
+| **Oggi** | **Il foglio che si apre ogni mattina**: solo le righe aperte, in ordine di priorità |
+| **Referto** | L'esito dell'audit: un rilievo per riga, con il file dove si verifica e l'esito del triage. In fondo, la lista di **cosa non è stato controllato** |
+| **Fatte** | Le righe chiuse, con la data e **come sono state verificate** |
+| **Decisioni** | Perché abbiamo fatto così. Include le 10 decisioni di prodotto e tutti i «non si fa» |
+| **Diario** | Una riga per sessione: cosa si è fatto, dove siamo arrivati |
 
 ### Protocollo di aggiornamento
 
-**A inizio sessione**: leggere questo file + il foglio *Appunti e Step*.
+Tre regole, non dieci. Il tracker vecchio è morto di burocrazia: quattro fogli da aggiornare
+insieme per un solo lavoro finito.
 
-**Quando si completa qualcosa**: aggiornare *Appunti e Step*, *Roadmap*, *Piano di Sviluppo* e
-*Fix e Bug* **insieme**, non solo uno.
+1. **A inizio sessione**: leggere questo file + il foglio *Oggi*. Basta quello.
+2. **Quando una riga è finita**: `Stato` → `Fatto`, e a fine sessione **spostarla in *Fatte***
+   con la data e una riga su come è stata verificata. Una riga senza prova di verifica non è
+   chiusa.
+3. **Quando si decide qualcosa** — architettura, o un «non si fa» — riga in *Decisioni*, subito,
+   con il motivo. Una decisione senza motivo scritto si riapre ogni tre settimane.
 
-**Quando si prende una decisione architetturale**: aggiungerla subito in *Note e Decisioni*
-dentro *Appunti e Step*.
-
-**Quando si aggiunge un endpoint o un componente**: registrarlo subito nel foglio corrispondente.
-
-**A fine sessione**: aggiornare la sezione 1 di questo file, poi Fabio committa.
+**A fine sessione**: una riga in *Diario*, aggiornare la sezione 1 di questo file, poi Fabio
+committa.
 
 ### Colori degli stati — obbligatori, nessuna eccezione
 
 | Stato | Colore |
 |---|---|
-| Completato | verde `#C6EFCE` |
-| Da fare / Parziale / In corso | giallo `#FFEB9C` |
+| Fatto | verde `#C6EFCE` |
+| Da fare / In corso | giallo `#FFEB9C` |
 | Pianificato | azzurro `#DDE9F7` |
-| Non necessario | grigio `#D9D9D9` |
-| Futuro | grigio chiaro `#EDEDED` |
+| Non si fa | grigio `#D9D9D9` |
 
-> Verde e azzurro sono stati **campionati dalle celle** il 09/09/2026, non ricopiati: gli hex
-> annotati prima (`#C6E7CE` e `#DDEBF7`) non compaiono da nessuna parte nel file, che usa
-> `#C6EFCE` e `#DDE9F7`. La decisione dell'08/09 — «si usa quello già presente in tutte le
-> celle» — non cambia: cambiano i numeri scritti, che erano sbagliati.
+> Gli hex sono stati **campionati dalle celle** il 09/09/2026, non ricopiati: i valori annotati
+> prima (`#C6E7CE` e `#DDEBF7`) non comparivano da nessuna parte nel file.
 >
-> Regola pratica per il futuro: quando si aggiunge una riga, **leggere il colore da una cella
-> già esistente con lo stesso stato** invece di riscrivere l'hex. Così una svista non può
-> introdurre una terza tonalità.
+> Regola pratica: quando si aggiunge una riga, **leggere il colore da una cella già esistente
+> con lo stesso stato** invece di riscrivere l'hex. Così una svista non può introdurre una terza
+> tonalità.
 
 ---
 
@@ -294,7 +299,8 @@ dentro *Appunti e Step*.
 | Come si resetta il database, si applica una migration, si pubblica | `RUNBOOK.md` |
 | Endpoint, architettura e note del backend | `GestoraWebApi/CLAUDE.md` |
 | Pattern, routing e note del frontend | `gestora-frontend/CLAUDE.md` |
-| Diario di lavoro e inventari tecnici | `TrackAttività_Gestora.xlsx` |
+| Cosa manca oggi, referto dell'audit, decisioni, diario | `TrackGestora_v2.xlsx` |
+| Storia dei primi mesi e inventari tecnici (congelato) | `TrackAttività_Gestora.xlsx` |
 | Com'è andata una fase, cosa abbiamo imparato | `docs/archivio/STORICO_FASI.md` |
 | Cosa vuol dire una sigla `REV-xxx` | `docs/archivio/REVISIONE_END_TO_END.md` |
 | Il testo integrale delle 10 decisioni | `docs/archivio/ROADMAP_REVISIONE.md` |
