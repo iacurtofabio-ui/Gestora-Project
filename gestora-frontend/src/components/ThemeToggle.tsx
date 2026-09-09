@@ -1,4 +1,4 @@
-import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
+import { CheckIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,12 +36,17 @@ export function ThemeToggle() {
           <DropdownMenuItem
             key={valore}
             onSelect={() => impostaTema(valore)}
-            // Il segno di spunta indica la scelta dell'utente, non quella in vigore: con
-            // "come il sistema" le due possono non coincidere ed è giusto così.
-            className={tema === valore ? 'bg-accent' : ''}
+            // La voce scelta si distingue con il peso e con la spunta, non con una
+            // campitura: lo sfondo di una voce di menu vuol dire "sei qui con il puntatore",
+            // e usarlo anche per "questa e' la scelta attiva" fa dire due cose allo stesso
+            // segnale. Stessa regola del Select, vedi ui/select.tsx.
+            className={tema === valore ? 'font-medium' : ''}
           >
             <Icona className="size-4" />
             {etichetta}
+            {/* La spunta indica la scelta dell'utente, non il tema in vigore: con "come il
+                sistema" le due possono non coincidere, ed e' giusto cosi'. */}
+            {tema === valore && <CheckIcon className="ml-auto size-4" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

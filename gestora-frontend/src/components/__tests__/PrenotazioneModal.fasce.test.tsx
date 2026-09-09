@@ -73,7 +73,7 @@ describe('PrenotazioneModal - scelta della fascia oraria', () => {
     render(<PrenotazioneModal isOpen onClose={() => {}} />)
 
     expect(selectFascia()).toBeDisabled()
-    expect(screen.getByText('-- Seleziona prima una data --')).toBeInTheDocument()
+    expect(screen.getByText('Scegli prima una data')).toBeInTheDocument()
     // Nessun giorno scelto: non si interroga il backend per le fasce.
     expect(fascePerGiorno).toHaveBeenCalledWith(undefined)
   })

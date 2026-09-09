@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Stato — aggiornato al 08/09/2026
+## 1. Stato — aggiornato al 09/09/2026
 
 **Il progetto è finito e in produzione.** Ultima versione pubblicata: **`v1.0.6`**.
 
@@ -14,22 +14,31 @@
 | Backend | `https://gestora-project-production.up.railway.app` — Railway |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel |
 | Database | PostgreSQL su Railway, stesso progetto del backend |
-| Test | **239** backend (xUnit) + **26** frontend (Vitest), tutti verdi |
+| Test | **239** backend (xUnit) + **35** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7 applicate, in locale e in produzione (elenco nel foglio *Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 0 |
 | Branch | `main` = `dev` = `origin`, allineati |
 
-**Ultima cosa fatta**: Fase 13 — identità visiva e pagina pubblica. L'app aveva la tavolozza
-grigia di partenza mai cambiata, un tema scuro scritto ma mai attivato, e `/` che rimandava
-dritto al login: chi apriva il link trovava un form di accesso e se ne andava. Ora c'è una
-tavolozza calda verificata per leggibilità, il tema scuro funziona, e la radice è una vetrina
-pubblica dove si può controllare la disponibilità **senza registrarsi**.
+**Ultima cosa fatta**: il redesign **«Turno»**, in tre fasi. La Fase 13 aveva dato all'app un
+aspetto, ma tre difetti restavano: il tema scuro tendeva al marrone, i componenti sembravano gli
+esempi della documentazione di shadcn, e non c'era gerarchia — card, bottoni e campi avevano
+tutti lo stesso raggio e lo stesso peso.
 
-A fine giornata Fabio ha provato l'app in locale e ha riscritto alcuni testi della pagina
-pubblica (titolo, i tre passaggi, le zone). Nessuna modifica al codice, solo parole.
+La direzione scelta è «Turno»: **la sala vista nel tempo**. L'unità di base non è più la card, è
+la fascia oraria come **banda che si riempie di coperti** — il dato che conta durante il
+servizio smette di essere un numero in una cella e diventa la forma della schermata. Attorno,
+tutto è disciplinato: neutri a croma zero nel tema scuro, quattro livelli di superficie a passo
+regolare, sei ruoli tipografici e tre scaglioni di raggio, tutti dichiarati come token.
 
-**Cosa viene dopo**: un giro di correzioni sull'aspetto, deciso guardando l'app in funzione
-(`UI-001` in `BACKLOG.md`). Poi la fase sul file di appunti d'uso (`DOC-001`).
+Nel giro sono usciti anche difetti veri: un segnaposto (`SOTTOAccedi`) pubblicato in produzione
+sulla pagina di accesso, due pulsanti affiancati con il verbo «Annulla» ed effetti opposti,
+l'evidenziazione dei menu invisibile nel tema scuro, e due modali senza via d'uscita.
+
+**Cosa viene dopo**: la prova a mano. Il redesign è stato **scritto e misurato, non guardato** —
+la lista di controllo è in `GestoraDocs/verifica-redesign.md` e la verifica è in carico a Fabio
+(`UI-001` in `BACKLOG.md`). Per avere dati veri su cui provare c'è un seed di sviluppo:
+`dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Poi la fase sul file di appunti d'uso
+(`DOC-001`).
 
 ---
 
@@ -147,6 +156,7 @@ segnalazioni numerate, chiuse in 11 fasi, più due fasi aggiunte dopo (documenta
 | 11 | Chiusura: fix sovrapposizione fasce | `v1.0.6` |
 | 12 | Ordine e pulizia della documentazione | — |
 | 13 | Identità visiva, tema scuro e pagina pubblica | — |
+| «Turno» | Redesign completo: banda dei coperti, tema scuro neutro, gerarchia, azioni di riga | — |
 
 Il racconto completo, con i difetti emersi e **le 9 regole di metodo imparate sbagliando**, è in
 `docs/archivio/STORICO_FASI.md`. Vale la pena rileggerlo: è la parte più utile da raccontare a
@@ -258,14 +268,20 @@ dentro *Appunti e Step*.
 
 | Stato | Colore |
 |---|---|
-| Completato | verde `#C6E7CE` |
+| Completato | verde `#C6EFCE` |
 | Da fare / Parziale / In corso | giallo `#FFEB9C` |
-| Pianificato | azzurro `#DDEBF7` |
+| Pianificato | azzurro `#DDE9F7` |
 | Non necessario | grigio `#D9D9D9` |
 | Futuro | grigio chiaro `#EDEDED` |
 
-> Il verde è `#C6E7CE`, non `#C6EFCE`: il protocollo scritto e il file dicevano due cose diverse,
-> l'08/09/2026 si è scelto quello già usato in tutte le celle.
+> Verde e azzurro sono stati **campionati dalle celle** il 09/09/2026, non ricopiati: gli hex
+> annotati prima (`#C6E7CE` e `#DDEBF7`) non compaiono da nessuna parte nel file, che usa
+> `#C6EFCE` e `#DDE9F7`. La decisione dell'08/09 — «si usa quello già presente in tutte le
+> celle» — non cambia: cambiano i numeri scritti, che erano sbagliati.
+>
+> Regola pratica per il futuro: quando si aggiunge una riga, **leggere il colore da una cella
+> già esistente con lo stesso stato** invece di riscrivere l'hex. Così una svista non può
+> introdurre una terza tonalità.
 
 ---
 
@@ -283,6 +299,7 @@ dentro *Appunti e Step*.
 | Cosa vuol dire una sigla `REV-xxx` | `docs/archivio/REVISIONE_END_TO_END.md` |
 | Il testo integrale delle 10 decisioni | `docs/archivio/ROADMAP_REVISIONE.md` |
 | Perché un documento è stato archiviato | `docs/archivio/README.md` |
+| Come si prova a mano il redesign, schermata per schermata | `GestoraDocs/verifica-redesign.md` |
 
 ### Il grafo del codice (graphify)
 

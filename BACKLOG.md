@@ -1,6 +1,6 @@
 # Gestora — cosa resta da fare
 
-Aggiornato l'**08/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **09/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -13,17 +13,31 @@ vista d'insieme che si guarda per decidere cosa fare.
 
 ## 🔵 Da fare prima
 
-### `UI-001` — Correzioni sull'aspetto
+### `UI-001` — Prova a mano del redesign «Turno»
 
-**Cos'è.** La Fase 13 ha dato all'app un aspetto suo, ma è stata scritta guardando il codice.
-Provandola in funzione l'08/09/2026 sono emerse cose da sistemare: spaziature, dimensioni,
-proporzioni, testi. Sono correzioni di rifinitura, non difetti.
+**Cos'era.** La Fase 13 aveva dato all'app un aspetto suo, ma scritto guardando il codice: da
+sistemare spaziature, proporzioni, testi.
 
-**Stato.** L'elenco non è ancora scritto: Fabio lo sta raccogliendo provando l'app. Si parte da
-lì nella prossima sessione.
+**Cos'è diventato.** Il 09/09/2026 il punto è stato assorbito da un lavoro più grande: il
+redesign **«Turno»**, tre fasi che hanno rifatto identità visiva, gerarchia e stati su tutte le
+pagine. Il dettaglio è nel tracker, foglio *Appunti e Step*, blocco «REDESIGN «TURNO»».
 
-**Già fatto l'08/09**: riscritti alcuni testi della pagina pubblica (titolo, i tre passaggi, le
-descrizioni delle zone). Solo parole, nessuna modifica al codice.
+**Cosa resta.** La verifica a schermo, che nessuno ha ancora fatto — il redesign è stato
+scritto e misurato, non guardato. È in carico a Fabio, con la lista di controllo in
+**`GestoraDocs/verifica-redesign.md`**: dice dove andare, cosa fare e cosa si deve vedere, ed è
+in ordine di resa (le prime dieci voci sono quelle che pagano di più).
+
+Per avere dati su cui provare davvero, dalla cartella `GestoraWebApi`:
+
+```
+dotnet run -- --seed-sviluppo
+```
+
+Popola il database **locale** con un dataset costruito per rompere il layout (nomi lunghi,
+26 fasce, una fascia oltre il tetto, una zona senza tavoli, un utente con tre ruoli). Accesso:
+`admin@gestora.local` / `Sviluppo1!`.
+
+**Poi**: i difetti che escono diventano voci nel tracker e si sistemano prima del rilascio.
 
 > Quando si tocca un colore va sempre rilanciato `node scripts/contrasto.mjs` dentro
 > `gestora-frontend/`: dice se qualche combinazione testo/fondo è diventata illeggibile.

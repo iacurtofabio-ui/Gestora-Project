@@ -515,8 +515,9 @@ In ordine di sospetto:
    tabella: ora sono un elenco lungo sopra il contenuto vero, e potrebbe spingerlo troppo in basso.
 5. **P14 — il menu «…» a 375px.** Vicino al bordo destro su schermo stretto è lo scenario in cui il
    posizionamento automatico sbaglia più spesso.
-6. **S1 — gli scheletri di caricamento.** Le larghezze sono le stesse costanti della tabella, ma
-   solo su Prenotazioni: sulle altre pagine le ho scritte a mano e potrebbero non corrispondere.
+6. **S1 — gli scheletri di caricamento.** Ogni pagina passa allo scheletro le stesse costanti di
+   larghezza che usa la sua tabella, quindi in teoria non possono divergere. Resta da vedere se
+   l'altezza delle righe corrisponde: quella non è condivisa.
 
 ## Quello che ho già verificato, e come
 

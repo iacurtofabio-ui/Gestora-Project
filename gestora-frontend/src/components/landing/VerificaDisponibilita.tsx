@@ -79,7 +79,7 @@ export function VerificaDisponibilita() {
         </form>
 
         {disponibilita.isFetching && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <p className="flex items-center gap-2 text-corpo text-muted-foreground">
             <Loader2Icon className="size-4 animate-spin" />
             Sto controllando i turni…
           </p>
@@ -97,7 +97,7 @@ export function VerificaDisponibilita() {
         {ricerca && !disponibilita.isFetching && !disponibilita.isError && (
           <div className="space-y-2">
             {fasce.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-corpo text-muted-foreground">
                 Per quel giorno non ci sono turni configurati. Prova con un'altra data.
               </p>
             ) : (
@@ -139,7 +139,7 @@ export function VerificaDisponibilita() {
 
                 {almenoUnaLibera ? (
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
-                    <p className="text-sm text-muted-foreground flex-1">
+                    <p className="text-corpo text-muted-foreground flex-1">
                       Per prenotare serve un account: si crea in un minuto.
                     </p>
                     <Button asChild>
@@ -147,7 +147,7 @@ export function VerificaDisponibilita() {
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground pt-1">
+                  <p className="text-corpo text-muted-foreground pt-1">
                     Quel giorno siamo al completo. Prova con un altro giorno o con un numero diverso
                     di persone.
                   </p>

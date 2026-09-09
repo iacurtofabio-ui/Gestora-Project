@@ -195,8 +195,8 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
             >
               <option value="">
                 {giornoSettimana === undefined
-                  ? '-- Seleziona prima una data --'
-                  : '-- Seleziona --'}
+                  ? 'Scegli prima una data'
+                  : 'Scegli un turno'}
               </option>
               {fasceOrarie.data?.map((f) => {
                 const disp = disponibilitaPerFascia.get(f.id)
@@ -238,7 +238,7 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
                 setValueAs: (v) => (v === '' || v === null ? null : Number(v)),
               })}
             >
-              <option value="">-- Nessuna preferenza --</option>
+              <option value="">Nessuna preferenza</option>
               {zone.data?.map((z) => (
                 <option key={z.id} value={z.id}>
                   {z.nome}

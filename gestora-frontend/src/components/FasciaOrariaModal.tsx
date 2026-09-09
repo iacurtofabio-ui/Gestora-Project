@@ -79,28 +79,28 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="space-y-1">
-            <Label htmlFor="fascia-inizio">Ora Inizio</Label>
+            <Label htmlFor="fascia-inizio">Ora di inizio</Label>
             <Input id="fascia-inizio" {...register('orarioInizio')} type="time" />
             {errors.orarioInizio && (
               <p className="text-nota text-destructive">{errors.orarioInizio.message}</p>
             )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="fascia-fine">Ora Fine</Label>
+            <Label htmlFor="fascia-fine">Ora di fine</Label>
             <Input id="fascia-fine" {...register('orarioFine')} type="time" />
             {errors.orarioFine && (
               <p className="text-nota text-destructive">{errors.orarioFine.message}</p>
             )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="fascia-giorno">Giorno Settimana</Label>
+            <Label htmlFor="fascia-giorno">Giorno della settimana</Label>
             <NativeSelect
               id="fascia-giorno"
               {...register('giornoSettimana', {
                 valueAsNumber: true,
               })}
             >
-              <option value="">-- Seleziona giorno --</option>
+              <option value="">Scegli un giorno</option>
               {GIORNI_SETTIMANA.map((nome, indice) => (
                 <option key={indice} value={indice}>
                   {nome}
@@ -138,9 +138,17 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
             />
             <Label htmlFor="fascia-attiva">Attiva</Label>
           </div>
-          <Button type="submit" disabled={inCorso}>
-            {inCorso ? 'Salvataggio…' : fascia ? 'Salva modifiche' : 'Crea fascia'}
-          </Button>
+          {/* Stesso piede di tutti gli altri modali: una riga di separazione, la rinuncia in
+              chiaro e l'azione in pieno. Prima qui il pulsante di conferma era da solo e a
+              tutta larghezza, senza modo di uscire se non con la X in alto. */}
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={inCorso}>
+              {inCorso ? 'Salvataggio…' : fascia ? 'Salva modifiche' : 'Crea fascia'}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
