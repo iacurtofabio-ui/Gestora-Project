@@ -35,16 +35,22 @@ namespace GestoraWebApi.Development
         public const string ArgomentoPassword = "--reimposta-password";
 
         /// <summary>
-        /// Variante del seed che riempie OGNI fascia di oggi oltre il proprio tetto.
+        /// Variante che scrive di proposito uno stato INCOERENTE: piu' coperti prenotati di
+        /// quanti la fascia ne ammetta.
         ///
-        /// Serve a un caso solo: la Dashboard mostra "N oltre il tetto" quando i coperti del
-        /// giorno superano la capienza complessiva. Con dati realistici quello stato non si
-        /// raggiunge mai — bastano poche fasce vuote a riportare il totale in positivo — quindi
-        /// senza questa variante quel ramo dell'interfaccia non e' provabile a mano.
+        /// ⚠️ E' uno stato che l'applicazione VIETA. Passando dal servizio non si puo' ottenere:
+        /// PrenotazioniService.ValidatePrenotazioneAsync rifiuta la prenotazione. Nella realta'
+        /// puo' nascere solo dalla corsa fra due prenotazioni simultanee sulla stessa fascia,
+        /// perche' il tetto e' verificato con una SUM seguita da un INSERT e non e' protetto da
+        /// nessun vincolo del database (a differenza del tavolo, che ha l'unique index sullo slot).
         ///
-        ///   dotnet run -- --seed-sviluppo --giornata-piena
+        /// Serve a una cosa sola: provare come l'interfaccia REAGISCE a un dato incoerente, se e
+        /// quando capita. Non va usata per valutare il comportamento normale dell'app, e i numeri
+        /// che produce non sono numeri plausibili.
+        ///
+        ///   dotnet run -- --seed-sviluppo --stato-incoerente
         /// </summary>
-        public const string ArgomentoGiornataPiena = "--giornata-piena";
+        public const string ArgomentoStatoIncoerente = "--stato-incoerente";
 
         /// <summary>Credenziali dell'amministratore di sviluppo, ricreate a ogni seed.</summary>
         public const string AdminEmail = "admin@gestora.local";
@@ -115,7 +121,7 @@ namespace GestoraWebApi.Development
         // ---------------------------------------------------------------------------------
 
         public static async Task EseguiAsync(
-            IServiceProvider servizi, ILogger logger, bool giornataPiena = false)
+            IServiceProvider servizi, ILogger logger, bool statoIncoerente = false)
         {
             using var scope = servizi.CreateScope();
             var configurazione = scope.ServiceProvider.GetRequiredService<IConfiguration>();
@@ -138,7 +144,8 @@ namespace GestoraWebApi.Development
             var zone = await CreaZoneAsync(db);
             await CreaTavoliAsync(db, zone);
             var fasce = await CreaFasceAsync(db);
-            await CreaPrenotazioniAsync(db, fasce, utenti, logger, giornataPiena);
+            await CreaPrenotazioniAsync(db, fasce, utenti, logger, statoIncoerente);
+            await VerificaCoerenzaAsync(db, logger, statoIncoerente);
 
             logger.LogInformation(
                 "Seed completato. Accesso: {Email} / {Password}", AdminEmail, AdminPassword);
@@ -354,7 +361,7 @@ namespace GestoraWebApi.Development
             List<FasciaOraria> fasce,
             List<ApplicationUser> utenti,
             ILogger logger,
-            bool giornataPiena)
+            bool statoIncoerente)
         {
             if (utenti.Count == 0)
             {
@@ -374,23 +381,25 @@ namespace GestoraWebApi.Development
             {
                 var fascia = fasceDiOggi[i];
 
-                // Tre casi costruiti apposta, uno per ciascuno dei primi tre turni:
+                // Casi costruiti apposta, tutti LEGITTIMI: ognuno e' uno stato che si puo'
+                // davvero raggiungere prenotando dall'applicazione.
                 //   0 -> ESATTAMENTE AL TETTO: la fascia mostra "0 disponibili" e la scritta
-                //        "pieno". E' il caso che lo staff cerca a colpo d'occhio.
-                //   1 -> OLTRE IL TETTO: piu' coperti della capienza. Il modello non lo impedisce
-                //        a livello di database (il limite lo applica il servizio in fase di
-                //        creazione), quindi si puo' ottenere solo da qui.
-                //        ⚠️ Sul singolo turno resta invisibile: la Dashboard calcola i disponibili
-                //        con Math.Max(0, ...), quindi si legge "0" come per una fascia piena.
-                //        Si vede solo nel totale di giornata, che e' la somma vera.
-                //   2 -> QUASI PIENO: sopra l'85%, la soglia che fa virare la banda su "attenzione".
-                // Con --giornata-piena ogni fascia va sopra il proprio tetto: e' l'unico modo
-                // per portare il totale della giornata oltre la capienza complessiva.
-                var copertiDaRaggiungere = giornataPiena ? fascia.MaxCoperti + 5 : i switch
+                //        "pieno". E' il caso che lo staff cerca a colpo d'occhio, ed e' anche il
+                //        limite superiore che il dominio ammette.
+                //   1 -> QUASI PIENO: sopra l'85%, la soglia che fa virare la banda su "attenzione".
+                //   2 -> UN SOLO COPERTO LIBERO: il gradino appena sotto il pieno, dove il
+                //        messaggio deve restare diverso da "esaurito".
+                //   3 -> VUOTA: nessuna prenotazione. Anche il turno deserto e' un caso da vedere.
+                // Il seed non produce piu' fasce oltre il tetto: era uno stato che l'applicazione
+                // vieta, e mostrarlo faceva sembrare un difetto della logica quello che era solo
+                // un difetto del seed. Per provare la resa di un dato incoerente c'e' un flag
+                // apposta, vedi ArgomentoStatoIncoerente.
+                var copertiDaRaggiungere = statoIncoerente ? fascia.MaxCoperti + 5 : i switch
                 {
                     0 => fascia.MaxCoperti,
-                    1 => fascia.MaxCoperti + 9,
-                    2 => (int)(fascia.MaxCoperti * 0.9),
+                    1 => (int)(fascia.MaxCoperti * 0.9),
+                    2 => fascia.MaxCoperti - 1,
+                    3 => 0,
                     _ => casuale.Next(0, fascia.MaxCoperti / 2)
                 };
 
@@ -478,6 +487,60 @@ namespace GestoraWebApi.Development
                 prenotazioni.Count,
                 prenotazioni.Count(p => p.DataPrenotazione == oggi),
                 fasceDiOggi.Count);
+        }
+
+        /// <summary>
+        /// Controlla che il seed non abbia scritto stati che il dominio vieta.
+        ///
+        /// Serve perche' questo file scrive con EF direttamente, saltando il servizio e quindi
+        /// tutti i suoi controlli: e' comodo, ed e' esattamente il modo in cui la prima versione
+        /// del seed ha prodotto una fascia con 61 coperti su 52 senza che nessuno se ne accorgesse
+        /// fino a quando non e' comparsa a schermo. Un seed che puo' mentire e' peggio di nessun
+        /// seed: si finisce per cercare un difetto nell'applicazione che sta nei dati.
+        /// </summary>
+        private static async Task VerificaCoerenzaAsync(
+            GestoraContext db, ILogger logger, bool statoIncoerente)
+        {
+            var sforamenti = await db.Prenotazioni
+                .Where(p => p.Stato != StatoPrenotazione.Annullata)
+                .GroupBy(p => new { p.DataPrenotazione, p.FasciaOrariaId })
+                .Select(g => new
+                {
+                    g.Key.DataPrenotazione,
+                    g.Key.FasciaOrariaId,
+                    Prenotati = g.Sum(p => p.NumeroCoperti)
+                })
+                .Join(db.FasciaOrarie, x => x.FasciaOrariaId, f => f.Id,
+                    (x, f) => new { x.DataPrenotazione, f.OrarioInizio, x.Prenotati, f.MaxCoperti })
+                .Where(x => x.Prenotati > x.MaxCoperti)
+                .ToListAsync();
+
+            if (sforamenti.Count == 0)
+            {
+                logger.LogInformation("Controllo di coerenza: nessuna fascia oltre il proprio tetto.");
+                return;
+            }
+
+            foreach (var s in sforamenti)
+            {
+                logger.LogWarning(
+                    "Fascia {Data} {Ora}: {Prenotati} coperti su un tetto di {Max}.",
+                    s.DataPrenotazione, s.OrarioInizio, s.Prenotati, s.MaxCoperti);
+            }
+
+            if (statoIncoerente)
+            {
+                logger.LogWarning(
+                    "{Quante} fasce oltre il tetto: e' voluto, hai usato {Argomento}. " +
+                    "Sono stati che l'applicazione vieta: non giudicare da qui il comportamento normale.",
+                    sforamenti.Count, ArgomentoStatoIncoerente);
+                return;
+            }
+
+            // Senza il flag uno sforamento e' un difetto del seed, non un dato di prova.
+            throw new InvalidOperationException(
+                $"Il seed ha prodotto {sforamenti.Count} fasce oltre il proprio tetto, ma non e' stato " +
+                $"chiesto {ArgomentoStatoIncoerente}. E' un errore del seed: correggerlo prima di usare questi dati.");
         }
 
         /// <summary>

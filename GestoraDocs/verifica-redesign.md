@@ -25,6 +25,11 @@ Cancella i dati di dominio del database **locale** e li riscrive con un dataset 
 rompere il layout. Non parte se l'ambiente non è Development, se manca l'argomento, o se la
 stringa di connessione non punta a questa macchina.
 
+I casi che contiene sono tutti **legittimi**: stati che si possono davvero raggiungere prenotando
+dall'applicazione. A fine esecuzione un controllo verifica che nessuna fascia superi il proprio
+tetto e si ferma se succede — un seed che produce dati impossibili fa cercare difetti
+nell'applicazione che stanno nei dati.
+
 Poi avvia backend e frontend come sempre (`dotnet run` e `npm run dev`).
 
 ### Entrare
@@ -101,12 +106,12 @@ Nient'altro nella pagina deve muoversi entrando.
 **D3 — Le fasce di oggi**
 Il seed ne mette **quattordici**, una per ogni ora dalle 8 alle 22.
 Ogni riga: orario a sinistra, barra al centro, «prenotati / capienza» a destra.
-La **prima** (08:00) deve essere piena, rossa, e finire con «· pieno».
-La **seconda** (09:00) deve essere anch'essa piena e rossa: ha più coperti del suo tetto, ma la
-scritta dice comunque 0 disponibili — è così di proposito, il backend non mostra numeri negativi
-sulla singola fascia.
-La **terza** (10:00) deve essere gialla, non rossa: è al 90%.
-Le altre devono essere blu.
+La **prima** (08:00) è esattamente al tetto: barra piena, rossa, con «· pieno» in fondo.
+La **seconda** (09:00) è al 90%: barra **gialla**, non rossa.
+La **terza** (10:00) ha **un solo coperto libero**: deve restare gialla e **non** dire «pieno» —
+è il gradino appena sotto l'esaurito e non deve confondersi con esso.
+La **quarta** (11:00) è **vuota**: barra grigia per intero, «0 / capienza».
+Le altre devono essere blu, riempite in proporzione.
 
 **D4 — I numeri di contorno**
 Sotto le fasce, «Il resto della giornata»: quattro numeri in fila dentro un unico riquadro,
@@ -118,14 +123,25 @@ In fondo, la tabella dei sette giorni. Deve essere silenziosa: nessun colore acc
 intestazioni piccolo e grigio. Non deve competere con la barra in cima.
 
 <a id="d6"></a>
-**D6 — Oltre il tetto** ⚠️
-Rilancia il seed nella variante piena, su una riga sola:
-`dotnet run -- --seed-sviluppo --giornata-piena`
-Ricarica la Dashboard. Accanto alla scritta «coperti prenotati sulla capienza del giorno» deve
-comparire, in rosso, «· N oltre il tetto».
-⚠️ *È l'unico modo per vedere quel testo: con dati normali il totale non supera mai la capienza,
-quindi è codice che non è mai stato mostrato a nessuno.*
-Poi rifai il seed normale prima di continuare.
+**D6 — Come reagisce a un dato incoerente** ⚠️ *(saltalo se non ti interessa adesso)*
+
+Uno stato con più coperti prenotati del tetto **l'applicazione lo vieta**: prenotando non lo puoi
+ottenere. Può nascere solo dalla corsa fra due prenotazioni simultanee sulla stessa fascia, che
+oggi non è chiusa da nessun vincolo del database — è il difetto `CAP-001` in `BACKLOG.md`, che
+stai per sistemare.
+
+Se vuoi vedere come si comporta l'interfaccia in quel caso, su una riga sola:
+
+```
+dotnet run -- --seed-sviluppo --stato-incoerente
+```
+
+Accanto a «coperti prenotati sulla capienza del giorno» deve comparire in rosso «· N oltre il
+tetto». Sulla singola fascia invece **non si vede niente**: `DashboardService` schiaccia i
+negativi con `Math.Max(0, ...)` e si legge «0 disponibili», identico a una fascia piena.
+
+⚠️ *I numeri prodotti da questa variante non sono numeri plausibili: servono a provare la resa,
+non a giudicare il comportamento normale. Rifai il seed normale prima di continuare.*
 
 ### 768px
 

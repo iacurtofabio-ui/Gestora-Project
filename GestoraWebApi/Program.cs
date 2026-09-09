@@ -259,8 +259,8 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment() && args.Contains(SeedSviluppo.ArgomentoSeed))
 {
     var seedLogger = app.Services.GetRequiredService<ILogger<Program>>();
-    var giornataPiena = args.Contains(SeedSviluppo.ArgomentoGiornataPiena);
-    await SeedSviluppo.EseguiAsync(app.Services, seedLogger, giornataPiena);
+    var statoIncoerente = args.Contains(SeedSviluppo.ArgomentoStatoIncoerente);
+    await SeedSviluppo.EseguiAsync(app.Services, seedLogger, statoIncoerente);
     return;
 }
 

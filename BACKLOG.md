@@ -13,6 +13,42 @@ vista d'insieme che si guarda per decidere cosa fare.
 
 ## 🔵 Da fare prima
 
+### `CAP-001` — Il tetto dei coperti non è garantito
+
+**Cos'è.** Il limite di coperti di una fascia è controllato **solo dal codice applicativo**
+(`PrenotazioniService.ValidatePrenotazioneAsync`). Nel database non c'è niente che lo imponga: a
+differenza del tavolo, protetto dall'indice unico `UX_PrenotazionePostazione_Slot`, i coperti non
+hanno un vincolo equivalente.
+
+**Perché è un problema.** Il controllo è una `SUM` sulle prenotazioni esistenti seguita da un
+`INSERT`. PostgreSQL gira in `READ COMMITTED` e `BeginTransactionAsync()` non chiede un livello
+diverso: due prenotazioni simultanee sulla stessa fascia possono entrambe leggere «48 su 52»,
+entrambe passare il controllo per 4 coperti, ed entrambe scrivere. Risultato: 56 su 52.
+
+È la stessa corsa che per i tavoli era stata chiusa con l'indice unico. Per i coperti manca.
+
+**Emerso il 09/09/2026** verificando perché il seed di sviluppo aveva prodotto una fascia con 61
+coperti su 52. Il seed è stato corretto (scriveva saltando il servizio), ma la verifica ha fatto
+trovare il buco vero.
+
+**Cosa fare — tre punti.**
+1. **Rendere il tetto un vincolo vero.** La strada più semplice è bloccare la riga della fascia
+   (`SELECT ... FOR UPDATE`) prima della `SUM`, dentro la transazione: serializza le prenotazioni
+   sulla stessa fascia, che è esattamente ciò che serve.
+2. **Spostare `ValidatePrenotazioneAsync` dentro la transazione anche in `UpdateAsync`.** In
+   `AddAsync` sta già dentro; in modifica sta fuori (riga ~161), quindi lì la finestra è più larga.
+   Allineamento a costo zero.
+3. **Smettere di nascondere lo sforamento.** `DashboardService` riga 101 calcola
+   `Math.Max(0, MaxCoperti - copertiPrenotati)`: uno sforamento si legge «0 disponibili», identico
+   a una fascia esattamente piena. Un dato incoerente va mostrato, non schiacciato — altrimenti se
+   il punto 1 fallisce nessuno se ne accorge.
+
+**Come provarlo.** `dotnet run -- --seed-sviluppo --stato-incoerente` scrive lo stato incoerente
+di proposito (saltando il servizio), per vedere come reagisce l'interfaccia.
+
+---
+
+
 ### `UI-001` — Prova a mano del redesign «Turno»
 
 **Cos'era.** La Fase 13 aveva dato all'app un aspetto suo, ma scritto guardando il codice: da
