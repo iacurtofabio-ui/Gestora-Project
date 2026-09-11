@@ -2,11 +2,39 @@
   "permissions": {
     "deny": [
       "Bash(rm -rf *)",
+      "PowerShell(Remove-Item -Recurse -Force*)",
+      "PowerShell(rm -Recurse -Force*)",
+
       "Bash(git push --force*)",
       "Bash(git push -f*)",
+      "PowerShell(git push --force*)",
+      "PowerShell(git push -f*)",
+
       "Bash(git clean -f*)",
+      "PowerShell(git clean -f*)",
+
       "Bash(git reset --hard*)",
-      "PowerShell(Remove-Item -Recurse -Force*)"
+      "PowerShell(git reset --hard*)",
+
+      "Bash(git commit*)",
+      "PowerShell(git commit*)",
+      "Bash(git push*)",
+      "PowerShell(git push*)",
+      "Bash(git rm*)",
+      "PowerShell(git rm*)",
+      "Bash(git mv*)",
+      "PowerShell(git mv*)",
+
+      "Bash(dotnet ef database update*)",
+      "PowerShell(dotnet ef database update*)",
+
+      "Read(.env)",
+      "Read(.env.*)",
+      "Bash(cat .env*)",
+      "Bash(type .env*)",
+      "PowerShell(Get-Content .env*)",
+      "PowerShell(cat .env*)",
+      "PowerShell(type .env*)"
     ]
   },
   "hooks": {
@@ -16,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CMD=$(python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get('tool_input', d).get('command', ''))\" 2>/dev/null || true); case \"$CMD\" in *grep*|*rg*|*ripgrep*|*find*|*fd*|*ack*|*ag*) if [ -f graphify-out/graph.json ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"MANDATORY: graphify-out/graph.json exists. You MUST run `graphify query \\\"<question>\\\"` before grepping raw files. Only grep after graphify has oriented you or to modify/debug specific lines.\"}}'; fi || true ;; esac"
+            "command": "CMD=$(python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get('tool_input', d).get('command', ''))\" 2>/dev/null || true); case \"$CMD\" in *' grep '*|*' rg '*|*ripgrep*|*' find '*|*' fd '*|*' ack '*|grep\\ *|rg\\ *) if [ -f graphify-out/graph.json ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"Nota progetto Gestora: graphify-out/graph.json esiste. Prima di leggere file grezzi con grep/find, valuta se `graphify query \\\"<domanda>\\\"` orienta meglio. Va bene grep diretto per modificare/debuggare righe specifiche gia individuate.\"}}'; fi || true ;; esac"
           }
         ]
       },
@@ -25,16 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "HIT=$(python3 -c \"import json,sys; d=json.load(sys.stdin); t=d.get('tool_input', d); s=(str(t.get('file_path') or '')+' '+str(t.get('pattern') or '')+' '+str(t.get('path') or '')).lower().replace(chr(92), '/'); exts=('.py','.js','.ts','.tsx','.jsx','.go','.rs','.java','.rb','.c','.h','.cpp','.hpp','.cc','.cs','.kt','.swift','.php','.scala','.lua','.sh','.md','.rst','.txt','.mdx'); sys.stdout.write('1' if 'graphify-out/' not in s and any(e in s for e in exts) else '')\" 2>/dev/null || true); if [ \"$HIT\" = 1 ] && [ -f graphify-out/graph.json ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"MANDATORY: graphify-out/graph.json exists. You MUST run graphify before reading source files. Use `graphify query \\\"<question>\\\"` (scoped subgraph), `graphify explain \\\"<concept>\\\"`, or `graphify path \\\"<A>\\\" \\\"<B>\\\"`. Only read raw files after graphify has oriented you or to modify/debug specific lines. This rule applies to subagents too — include it in every subagent prompt involving code exploration.\"}}'; fi || true"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "CMD=$(python3 -c \"import json,sys; d=json.load(sys.stdin); print(d.get('tool_input', d).get('command', ''))\" 2>/dev/null || true); case \"$CMD\" in *git\\ commit*) echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"Promemoria progetto Gestora: prima di questo commit, hai verificato che l\\u0027ultimo `dotnet test` in GestoraWebApi sia verde? Se non lo hai lanciato di recente o hai modificato codice backend, eseguilo prima di procedere.\"}}' ;; esac"
+            "command": "HIT=$(python3 -c \"import json,sys; d=json.load(sys.stdin); t=d.get('tool_input', d); s=(str(t.get('file_path') or '')+' '+str(t.get('pattern') or '')+' '+str(t.get('path') or '')).lower().replace(chr(92), '/'); code_exts=('.py','.js','.ts','.tsx','.jsx','.go','.rs','.java','.rb','.c','.h','.cpp','.hpp','.cc','.cs','.kt','.swift','.php','.scala','.lua','.sh'); sys.stdout.write('1' if 'graphify-out/' not in s and any(s.endswith(e) for e in code_exts) else '')\" 2>/dev/null || true); if [ \"$HIT\" = 1 ] && [ -f graphify-out/graph.json ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"Nota progetto Gestora: graphify-out/graph.json esiste. Prima di leggere sorgenti di codice, valuta `graphify query \\\"<domanda>\\\"`, `graphify explain \\\"<concetto>\\\"` o `graphify path \\\"<A>\\\" \\\"<B>\\\"` per orientarti senza leggere tutto. Vale anche per i subagent di esplorazione codice.\"}}'; fi || true"
           }
         ]
       }
@@ -45,7 +64,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "HIT=$(python3 -c \"import json,sys; d=json.load(sys.stdin); t=d.get('tool_input', d); p=str(t.get('file_path') or '').replace(chr(92), '/'); sys.stdout.write('1' if '/GestoraWebApi/' in ('/'+p) and p.lower().endswith('.cs') else '')\" 2>/dev/null || true); if [ \"$HIT\" = 1 ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Promemoria progetto Gestora: hai modificato un file .cs in GestoraWebApi. Lancia `dotnet build` prima di considerare la modifica conclusa.\"}}'; fi || true"
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); t=d.get('tool_input', d); p=str(t.get('file_path') or '').replace(chr(92), '/'); is_backend=('/GestoraWebApi/' in ('/'+p) and p.lower().endswith('.cs')); is_frontend=('/gestora-frontend/src/' in ('/'+p) and p.lower().endswith(('.ts','.tsx'))); msg=None\nif is_backend: msg='Promemoria Gestora: file .cs modificato in GestoraWebApi. Lancia dotnet build prima di considerare conclusa la modifica.'\nelif is_frontend: msg='Promemoria Gestora: file frontend modificato. Lancia npm run build (controllo tipi) prima di considerare conclusa la modifica.'\nif msg: print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse','additionalContext':msg}}))\" 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "HIT=$(python3 -c \"import json,sys; d=json.load(sys.stdin); t=d.get('tool_input', d); p=str(t.get('file_path') or '').replace(chr(92), '/'); code_exts=('.cs','.ts','.tsx'); sys.stdout.write('1' if any(p.lower().endswith(e) for e in code_exts) else '')\" 2>/dev/null || true); if [ \"$HIT\" = 1 ] && [ -f graphify-out/graph.json ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"Promemoria Gestora: codice modificato, la mappa graphify potrebbe essere disallineata. Lancia graphify update . prima di affidarti di nuovo a graphify query su questa parte.\"}}'; fi || true"
           }
         ]
       }
