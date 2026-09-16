@@ -47,25 +47,27 @@ export default function EditUserModal({ utente, open, onClose }: Props) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Modifica utente</DialogTitle>
+          <DialogTitle className="text-titolo">Modifica utente</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1">
-            <Label htmlFor="edit-user-username">Username</Label>
+            <Label htmlFor="edit-user-username">Nome</Label>
             <Input id="edit-user-username" {...register('userName')} />
-            {errors.userName && <p className="text-red-500 text-sm">{errors.userName.message}</p>}
+            {errors.userName && (
+              <p className="text-nota text-destructive">{errors.userName.message}</p>
+            )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="edit-user-email">Email</Label>
             <Input id="edit-user-email" type="email" {...register('email')} />
-            {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
+            {errors.email && <p className="text-nota text-destructive">{errors.email.message}</p>}
           </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
               Annulla
             </Button>
             <Button type="submit" disabled={updateUser.isPending}>
-              {updateUser.isPending ? 'Salvataggio...' : 'Salva'}
+              {updateUser.isPending ? 'Salvataggio…' : 'Salva modifiche'}
             </Button>
           </div>
         </form>

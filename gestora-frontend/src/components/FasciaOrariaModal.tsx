@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -74,46 +75,45 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{fascia ? 'Modifica Fascia' : 'Nuova Fascia'}</DialogTitle>
+          <DialogTitle className="text-titolo">{fascia ? 'Modifica fascia oraria' : 'Nuova fascia oraria'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="space-y-1">
-            <Label htmlFor="fascia-inizio">Ora Inizio</Label>
+            <Label htmlFor="fascia-inizio">Ora di inizio</Label>
             <Input id="fascia-inizio" {...register('orarioInizio')} type="time" />
             {errors.orarioInizio && (
-              <p className="text-red-500 text-sm mt-1">{errors.orarioInizio.message}</p>
+              <p className="text-nota text-destructive">{errors.orarioInizio.message}</p>
             )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="fascia-fine">Ora Fine</Label>
+            <Label htmlFor="fascia-fine">Ora di fine</Label>
             <Input id="fascia-fine" {...register('orarioFine')} type="time" />
             {errors.orarioFine && (
-              <p className="text-red-500 text-sm mt-1">{errors.orarioFine.message}</p>
+              <p className="text-nota text-destructive">{errors.orarioFine.message}</p>
             )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="fascia-giorno">Giorno Settimana</Label>
-            <select
+            <Label htmlFor="fascia-giorno">Giorno della settimana</Label>
+            <NativeSelect
               id="fascia-giorno"
               {...register('giornoSettimana', {
                 valueAsNumber: true,
               })}
-              className="w-full border rounded px-3 py-2 text-sm"
             >
-              <option value="">-- Seleziona giorno --</option>
+              <option value="">Scegli un giorno</option>
               {GIORNI_SETTIMANA.map((nome, indice) => (
                 <option key={indice} value={indice}>
                   {nome}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             {errors.giornoSettimana && (
-              <p className="text-red-500 text-sm mt-1">{errors.giornoSettimana.message}</p>
+              <p className="text-nota text-destructive">{errors.giornoSettimana.message}</p>
             )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="fascia-max-coperti">Capienza massima (coperti)</Label>
-            <p className="text-xs text-gray-500">
+            <p className="text-nota text-muted-foreground">
               Numero massimo di persone prenotabili in questa fascia oraria, non il numero di
               prenotazioni.
             </p>
@@ -126,16 +126,29 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
               placeholder="Es. 40"
             />
             {errors.maxCoperti && (
-              <p className="text-red-500 text-sm mt-1">{errors.maxCoperti.message}</p>
+              <p className="text-nota text-destructive">{errors.maxCoperti.message}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <input id="fascia-attiva" {...register('attiva')} type="checkbox" className="h-4 w-4" />
+            <input
+              id="fascia-attiva"
+              {...register('attiva')}
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+            />
             <Label htmlFor="fascia-attiva">Attiva</Label>
           </div>
-          <Button type="submit" disabled={inCorso}>
-            {inCorso ? 'Salvataggio...' : 'Salva'}
-          </Button>
+          {/* Stesso piede di tutti gli altri modali: una riga di separazione, la rinuncia in
+              chiaro e l'azione in pieno. Prima qui il pulsante di conferma era da solo e a
+              tutta larghezza, senza modo di uscire se non con la X in alto. */}
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={inCorso}>
+              {inCorso ? 'Salvataggio…' : fascia ? 'Salva modifiche' : 'Crea fascia'}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

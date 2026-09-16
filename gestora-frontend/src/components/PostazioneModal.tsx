@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -76,59 +77,67 @@ export default function PostazioneModal({ isOpen, onClose, postazione }: Props) 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{postazione ? 'Modifica Postazione' : 'Nuova Postazione'}</DialogTitle>
+          <DialogTitle className="text-titolo">{postazione ? 'Modifica tavolo' : 'Nuovo tavolo'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="space-y-1">
-            <Label htmlFor="postazione-numero">Numero postazione</Label>
+            <Label htmlFor="postazione-numero">Numero del tavolo</Label>
             <Input
               id="postazione-numero"
               {...register('numero', { valueAsNumber: true })}
               type="number"
-              placeholder="Numero"
+              placeholder="Es. 12"
             />
-            {errors.numero && <p className="text-red-500 text-sm mt-1">{errors.numero.message}</p>}
+            {errors.numero && (
+              <p className="text-nota text-destructive">{errors.numero.message}</p>
+            )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="postazione-capienza">Capienza massima</Label>
+            <Label htmlFor="postazione-capienza">Posti a sedere</Label>
             <Input
               id="postazione-capienza"
               {...register('capienzaMassima', { valueAsNumber: true })}
               type="number"
-              placeholder="Capienza massima"
+              placeholder="Es. 4"
             />
             {errors.capienzaMassima && (
-              <p className="text-red-500 text-sm mt-1">{errors.capienzaMassima.message}</p>
+              <p className="text-nota text-destructive">{errors.capienzaMassima.message}</p>
             )}
           </div>
           <div className="space-y-1">
             <Label htmlFor="postazione-zona">Zona</Label>
-            <select
-              id="postazione-zona"
-              {...register('zonaId', { valueAsNumber: true })}
-              className="w-full border rounded px-3 py-2 text-sm"
-            >
-              <option value="">-- Seleziona zona --</option>
+            <NativeSelect id="postazione-zona" {...register('zonaId', { valueAsNumber: true })}>
+              <option value="">Scegli una zona</option>
               {zone.data?.map((z) => (
                 <option key={z.id} value={z.id}>
                   {z.nome}
                 </option>
               ))}
-            </select>
-            {errors.zonaId && <p className="text-red-500 text-sm mt-1">{errors.zonaId.message}</p>}
+            </NativeSelect>
+            {errors.zonaId && (
+              <p className="text-nota text-destructive">{errors.zonaId.message}</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <input
               id="postazione-attiva"
               {...register('attiva')}
               type="checkbox"
-              className="h-4 w-4"
+              className="h-4 w-4 accent-primary"
             />
             <Label htmlFor="postazione-attiva">Attiva</Label>
           </div>
-          <Button type="submit" disabled={inCorso}>
-            {inCorso ? 'Salvataggio...' : 'Salva'}
-          </Button>
+          {/* Stesso piede di tutti gli altri modali: una riga di separazione, la rinuncia in
+              chiaro e l'azione in pieno. Prima qui il pulsante di conferma era da solo e a
+              tutta larghezza, senza modo di uscire se non con la X in alto. */}
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={inCorso}>
+              {inCorso ? 'Salvataggio…' : postazione ? 'Salva modifiche' : 'Crea tavolo'}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

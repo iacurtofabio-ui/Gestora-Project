@@ -50,7 +50,7 @@ export default function ResetPasswordModal({ utente, open, onClose }: Props) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reset password — {utente?.userName}</DialogTitle>
+          <DialogTitle className="text-titolo">Reimposta la password di {utente?.userName}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-2">
           <div className="space-y-1">
@@ -62,19 +62,19 @@ export default function ResetPasswordModal({ utente, open, onClose }: Props) {
               {...register('newPassword')}
             />
             {errors.newPassword ? (
-              <p className="text-red-500 text-sm">{errors.newPassword.message}</p>
+              <p className="text-nota text-destructive">{errors.newPassword.message}</p>
             ) : (
-              <p className="text-xs text-gray-500">
+              <p className="text-nota text-muted-foreground">
                 Almeno 8 caratteri, una maiuscola, un numero e un carattere speciale.
               </p>
             )}
           </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
               Annulla
             </Button>
             <Button type="submit" disabled={resetPassword.isPending}>
-              {resetPassword.isPending ? 'Conferma...' : 'Conferma'}
+              {resetPassword.isPending ? 'Salvataggio…' : 'Reimposta password'}
             </Button>
           </div>
         </form>

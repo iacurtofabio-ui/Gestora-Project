@@ -1,104 +1,164 @@
-import { useDeleteZona, useZone } from '@/hooks/useZone'
 import { useState } from 'react'
+import { PlusIcon } from 'lucide-react'
+import { useDeleteZona, useZone } from '@/hooks/useZone'
 import type { ZonaDTO } from '@/types/zona'
 import ZonaModal from '@/components/ZonaModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { PageLoading, PageError } from '@/components/PageState'
+import { PageError, TableSkeleton } from '@/components/PageState'
 import { EmptyState } from '@/components/EmptyState'
+import { StatoAttivo } from '@/components/StatoAttivo'
+import { AzioniRiga } from '@/components/AzioniRiga'
+import { IntestazionePagina } from '@/components/IntestazionePagina'
 import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useAuth } from '@/hooks/useAuth'
+
+/** Larghezze reali delle colonne: le usa la tabella e le riusa lo scheletro di caricamento. */
+const COLONNE_ADMIN = ['minmax(10rem,1fr)', '10rem', '8rem']
+const COLONNE_LETTURA = ['minmax(10rem,1fr)', '10rem']
 
 export default function ZonePage() {
   const { user } = useAuth()
   const isAdmin = user?.roles.includes('Admin')
-  const response = useZone()
+  const zone = useZone()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [zonaSelezionata, setZonaSelezionata] = useState<ZonaDTO | undefined>(undefined)
   const deleteZona = useDeleteZona()
-  const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
+  const [zonaDaEliminare, setZonaDaEliminare] = useState<ZonaDTO | undefined>(undefined)
 
-  const numeroColonne = isAdmin ? 3 : 2
+  const colonne = isAdmin ? COLONNE_ADMIN : COLONNE_LETTURA
+
+  function apriNuova() {
+    setZonaSelezionata(undefined)
+    setIsModalOpen(true)
+  }
+
+  function apriModifica(zona: ZonaDTO) {
+    setZonaSelezionata(zona)
+    setIsModalOpen(true)
+  }
 
   return (
-    <div className="bg-white rounded-lg border">
-      <div className="flex justify-between items-center p-4 border-b">
-        <h2 className="text-sm font-semibold text-gray-700">Zone</h2>
-        {isAdmin && (
-          <Button
-            size="sm"
-            onClick={() => {
-              setZonaSelezionata(undefined)
-              setIsModalOpen(true)
-            }}
-          >
-            + Aggiungi
-          </Button>
+    <div className="mx-auto max-w-4xl space-y-4">
+      <IntestazionePagina
+        titolo="Zone"
+        conteggio={
+          zone.data ? `${zone.data.length} ${zone.data.length === 1 ? 'zona' : 'zone'}` : undefined
+        }
+        azione={
+          isAdmin && (
+            <Button size="sm" onClick={apriNuova}>
+              <PlusIcon />
+              Aggiungi zona
+            </Button>
+          )
+        }
+      />
+
+      <div className="overflow-hidden rounded-xl border bg-card">
+        {/* REV-074: intestazione e pulsante restano a schermo mentre la tabella carica o fallisce. */}
+        {zone.isLoading ? (
+          <div className="p-3">
+            <TableSkeleton righe={4} colonne={colonne} />
+          </div>
+        ) : zone.isError ? (
+          <PageError
+            error={zone.error}
+            fallback="Errore nel caricamento delle zone."
+            onRiprova={() => zone.refetch()}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table style={{ tableLayout: 'fixed', minWidth: '32rem' }}>
+              <colgroup>
+                {colonne.map((larghezza, i) => (
+                  <col key={i} style={{ width: larghezza }} />
+                ))}
+              </colgroup>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-nota font-medium text-muted-foreground">Nome</TableHead>
+                  <TableHead className="text-nota font-medium text-muted-foreground">
+                    Stato
+                  </TableHead>
+                  {isAdmin && (
+                    <TableHead className="text-nota text-right font-medium text-muted-foreground">
+                      Azioni
+                    </TableHead>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {zone.data?.length === 0 ? (
+                  <EmptyState
+                    colSpan={colonne.length}
+                    messaggio={
+                      isAdmin
+                        ? 'La sala non ha ancora zone. Una zona raggruppa i tavoli che stanno nello stesso posto — sala, dehors, sala privata — ed e’ il primo passo prima di aggiungere i tavoli.'
+                        : 'La sala non ha ancora zone. Le configura un amministratore.'
+                    }
+                    azione={
+                      isAdmin && (
+                        <Button size="sm" onClick={apriNuova}>
+                          <PlusIcon />
+                          Aggiungi la prima zona
+                        </Button>
+                      )
+                    }
+                  />
+                ) : (
+                  zone.data?.map((zona) => (
+                    <TableRow key={zona.id} className="group/riga">
+                      <TableCell className="text-corpo truncate font-medium">{zona.nome}</TableCell>
+                      <TableCell>
+                        <StatoAttivo attiva={zona.attiva} />
+                      </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <AzioniRiga
+                            descrizione={`la zona ${zona.nome}`}
+                            azionePrimaria={{
+                              etichetta: 'Modifica',
+                              onSelect: () => apriModifica(zona),
+                            }}
+                            distruttiva={{
+                              etichetta: 'Elimina zona',
+                              onSelect: () => setZonaDaEliminare(zona),
+                            }}
+                          />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
-      {/* REV-074: header e pulsante restano a schermo mentre la tabella carica o va in errore. */}
-      {response.isLoading ? (
-        <PageLoading />
-      ) : response.isError ? (
-        <PageError error={response.error} fallback="Errore nel caricamento delle zone." />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-3">Nome</th>
-                <th className="text-left p-3">Attiva</th>
-                {isAdmin && <th className="text-left p-3">Azioni</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {response.data?.length === 0 ? (
-                <EmptyState messaggio="Nessuna zona configurata." colSpan={numeroColonne} />
-              ) : (
-                response.data?.map((zona) => (
-                  <tr key={zona.id} className="border-b">
-                    <td className="p-3">{zona.nome}</td>
-                    <td className="p-3">{zona.attiva ? 'Sì' : 'No'}</td>
-                    {isAdmin && (
-                      <td className="p-3 flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setZonaSelezionata(zona)
-                            setIsModalOpen(true)
-                          }}
-                        >
-                          Modifica
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => setIdDaEliminare(zona.id)}
-                        >
-                          Elimina
-                        </Button>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+
       <ZonaModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         zona={zonaSelezionata}
       />
       <ConfirmDialog
-        open={idDaEliminare !== undefined}
-        descrizione="Sei sicuro di voler eliminare questa zona? L'operazione non è reversibile."
+        open={zonaDaEliminare !== undefined}
+        titolo={`Eliminare la zona ${zonaDaEliminare?.nome ?? ''}?`}
+        testoConferma="Elimina zona"
+        descrizione="Spariscono anche i tavoli che le appartengono, e con loro la possibilita' di assegnarli. Se ti serve solo toglierla dalla rotazione, disattivala invece di eliminarla: resta configurata e la puoi riaccendere."
         onConfirm={() => {
-          deleteZona.mutate(idDaEliminare!)
-          setIdDaEliminare(undefined)
+          deleteZona.mutate(zonaDaEliminare!.id)
+          setZonaDaEliminare(undefined)
         }}
-        onCancel={() => setIdDaEliminare(undefined)}
+        onCancel={() => setZonaDaEliminare(undefined)}
       />
     </div>
   )

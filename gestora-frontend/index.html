@@ -8,7 +8,29 @@
       name="description"
       content="Gestora — gestione di zone, tavoli, fasce orarie e prenotazioni per attività di ristorazione."
     />
-    <title>Gestora</title>
+    <title>Gestora — prenotazioni e gestione sala</title>
+    <!--
+      Applica il tema PRIMA che React parta.
+      Senza questo, al caricamento si vede un lampo bianco: il browser disegna la pagina con i
+      colori chiari, poi React monta, legge la preferenza e la ripassa a scuro. Lo script e'
+      scritto qui dentro, non importato, proprio perche' deve girare prima di tutto il resto.
+    -->
+    <script>
+      ;(function () {
+        try {
+          var scelta = localStorage.getItem('gestora-tema') || 'sistema'
+          var scuro =
+            scelta === 'scuro' ||
+            (scelta === 'sistema' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (scuro) {
+            document.documentElement.classList.add('dark')
+            document.documentElement.style.colorScheme = 'dark'
+          }
+        } catch (e) {
+          /* in navigazione privata l'accesso puo' fallire: si resta sul tema chiaro */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

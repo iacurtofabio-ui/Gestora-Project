@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Stato — aggiornato al 08/09/2026
+## 1. Stato — aggiornato al 09/09/2026
 
 **Il progetto è finito e in produzione.** Ultima versione pubblicata: **`v1.0.6`**.
 
@@ -14,16 +14,16 @@
 | Backend | `https://gestora-project-production.up.railway.app` — Railway |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel |
 | Database | PostgreSQL su Railway, stesso progetto del backend |
-| Test | **239** backend (xUnit) + **26** frontend (Vitest), tutti verdi |
+| Test | **239** backend (xUnit) + **35** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7 applicate, in locale e in produzione (elenco nel foglio *Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 0 |
 | Branch | `main` = `dev` = `origin`, allineati |
 
-**Ultima cosa fatta**: Fase 12 — riordino di tutta la documentazione. I documenti chiusi sono
-stati spostati in `docs/archivio/`, lo stato del progetto adesso vive in tre file soli.
-
-**Cosa viene dopo**: la fase in cui apriamo il file di appunti d'uso di Fabio e trasformiamo i
-miglioramenti che ha raccolto in voci di lavoro con priorità (`DOC-001` in `BACKLOG.md`).
+**Ultima cosa fatta**: il redesign **«Turno»** (banda dei coperti, tema scuro neutro, gerarchia
+visiva). Scritto e misurato, **non ancora verificato a mano** — checklist in
+`GestoraDocs/verifica-redesign.md`, verifica in carico a Fabio (`UI-001` in `BACKLOG.md`). Per
+dati veri su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto completo
+del redesign e dei difetti emersi in `docs/archivio/STORICO_FASI.md`.
 
 ---
 
@@ -61,7 +61,8 @@ Gestora/
 ├── CLAUDE.md             questo file
 ├── BACKLOG.md            cosa resta da fare
 ├── RUNBOOK.md            come si fanno le operazioni
-└── TrackAttività_Gestora.xlsx
+├── TrackGestora_v2.xlsx  il tracker attivo
+└── TrackAttività_Gestora.xlsx   congelato, archivio dei primi mesi
 ```
 
 ### Backend — ASP.NET Core 9
@@ -77,8 +78,13 @@ Railway, che con .NET 9 non funzionava).
 **React Router v7** (attenzione: qualsiasi nota che parli di v6 è vecchia), **TanStack Query v5**
 per le chiamate al server, **React Hook Form + Zod** per i form, **shadcn/ui + Tailwind CSS v4**
 per l'aspetto, **Axios** con un intercettore che allega il token.
+Tavolozza calda propria con tema chiaro/scuro, verificata per leggibilità con
+`gestora-frontend/scripts/contrasto.mjs`.
 Test con **Vitest + Testing Library**. Deploy su **Vercel**, che ripubblica da solo a ogni push
 su `main`.
+
+**`/` è pubblica**: presenta il locale e lascia controllare la disponibilità senza registrarsi.
+⚠️ Su quella pagina non c'è nessun token: l'unico endpoint chiamabile è `check-disponibilita`.
 
 ### Due ambienti separati in modo stabile
 
@@ -116,71 +122,24 @@ Prese il 28/08/2026. Il testo completo è in `docs/archivio/ROADMAP_REVISIONE.md
 
 ---
 
-## 5. Come sono andate le 11 fasi di revisione
+## 5. Come sono andate le fasi di revisione
 
 Dal 28/08 all'08/09/2026, dopo il primo rilascio, il progetto è stato rivisto da capo: 99
-segnalazioni numerate, chiuse in 11 fasi.
-
-| Fase | Cosa ha portato | Tag |
-|---|---|---|
-| 1 | Fondamenta di deploy: Dockerfile, health check sul database | — |
-| 2 | Nuovo algoritmo di assegnazione tavoli, disponibilità unificata | — |
-| 3 | Prenotazioni simultanee: indice unico, transazioni | — |
-| 4 | Sicurezza e schermata di primo avvio | `v1.0.1` |
-| 5 | Test del backend: da 31 a 74 | — |
-| 6 | Bug del frontend: schermata bianca, modifica ed eliminazione prenotazione | `v1.0.2` |
-| 7 | Robustezza del backend: paginazione, prestazioni, indirizzo IP reale | `v1.0.3` |
-| 8 | Robustezza del frontend: errori centralizzati, primi 26 test | `v1.0.4` |
-| 9 | Pulizia del codice, 0 vulnerabilità nelle librerie | — |
-| 10 | Esperienza d'uso: responsive, accessibilità, semaforo disponibilità | `v1.0.5` |
-| 11 | Chiusura: fix sovrapposizione fasce | `v1.0.6` |
-| 12 | Ordine e pulizia della documentazione | — |
-
-Il racconto completo, con i difetti emersi e **le 9 regole di metodo imparate sbagliando**, è in
-`docs/archivio/STORICO_FASI.md`. Vale la pena rileggerlo: è la parte più utile da raccontare a
-un colloquio.
+segnalazioni numerate, chiuse in 11 fasi, più due fasi aggiunte dopo (documentazione e aspetto),
+più il redesign «Turno». Il racconto completo, con i difetti emersi e le regole di metodo
+imparate sbagliando, è in `docs/archivio/STORICO_FASI.md`.
 
 ---
 
 ## 6. Cosa è aperto
 
-Tre cose, nessuna urgente. Il dettaglio è in **`BACKLOG.md`**.
+Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**.
 
-1. **`DOC-001`** — formalizzare il file di appunti d'uso di Fabio. È il prossimo lavoro vero.
-   ⚠️ Il file `AppuntiFix.txt` **non si apre** finché non parte quella fase.
-2. **`OPS-001`** — reset completo dei due database, quando tutte le implementazioni sono chiuse
-3. **Pulizie minori** e le idee per la **v2.0**
+**Priorità corrente**: `UI-001` — verifica a mano del redesign «Turno».
 
 ---
 
-## 7. Come lavoriamo insieme
-
-### Chi è Fabio
-
-Developer con 4 anni di esperienza su Dynamics 365 / Power Platform, in passaggio verso il full
-stack .NET + React. Conosce le basi di C#, .NET, Entity Framework, JavaScript, SQL Server, Git.
-**Poca esperienza sul frontend.** Obiettivo dichiarato: farsi assumere come full stack developer.
-
-### Come parlargli — regola aggiornata l'08/09/2026
-
-**Linguaggio tecnico di base.** Termini semplici, frasi corte, niente vocabolario da esperto per
-sembrare esperti. Se serve un termine tecnico si usa, ma va spiegato in una riga.
-
-L'obiettivo non è **saper parlare** da senior, è **saper fare** il lavoro. Un concetto spiegato
-bene con parole semplici vale più di uno spiegato con le parole giuste che non lascia niente.
-
-Altre regole:
-- **In italiano**, sempre, salvo nomi tecnici e codice
-- **Risposte concise**: non ripetere quello che ha appena detto
-- Affiancarlo come **senior che lavora insieme a lui**: spiegare le scelte, non consegnare solo
-  il codice
-- **Implementare direttamente** le modifiche, frontend incluso. Niente procedura guidata passo
-  passo con attesa che sia lui a scrivere: rallentava troppo sui fix piccoli
-- Quando c'è un concetto nuovo, spiegarlo comunque — breve, non un tutorial
-- Dire **subito** se qualcosa è sbagliato o migliorabile
-- Dire quando qualcosa **non è pronto per la produzione**, e perché
-
-### Regole non negoziabili
+## 7. Regole non negoziabili del progetto
 
 1. **Commit e push li fa sempre Fabio, mai Claude.** Claude fornisce il messaggio di commit con
    l'elenco delle modifiche. Formato: `feat: descrizione` oppure `feat: WIP - descrizione` se
@@ -194,64 +153,18 @@ Altre regole:
    È già capitato tre volte di lavorare su `main` invece che su `dev`.
 5. **Comandi PowerShell su una riga sola**: i blocchi su più righe si concatenano male nel suo
    terminale.
-
-### Modello e consumo
-
-- Partire da **Sonnet**. Suggerire `/model opus` solo per architettura complessa o refactoring
-  grossi. Il modello lo cambia Fabio.
-- **Stop ai giri a vuoto**: se un tentativo fallisce 3 volte di fila, fermarsi, dire di fare
-  `/compact` o `/clear`, e analizzare il problema alla radice invece di ritentare.
-- **Letture mirate**: percorsi specifici, mai "tutto il progetto", mai `node_modules`, `dist`,
-  `bin`, `obj`.
+6. **Implementare direttamente** le modifiche, frontend incluso, per correzioni e fix piccoli.
+   Niente procedura guidata passo passo con attesa: rallenta troppo su questo tipo di lavoro.
 
 ---
 
 ## 8. Il tracker
 
-`TrackAttività_Gestora.xlsx`, in questa cartella. È il **tracker unico e ufficiale**: se compare
-un altro file che sembra un tracker, è un doppione — segnalarlo a Fabio, non aggiornarlo.
+**`TrackGestora_v2.xlsx`**, in questa cartella, è il tracker unico e ufficiale. Aggiornamento
+manuale, nessuna automazione.
 
-> Nota pratica: il nome ha caratteri accentati, trovare il file con `Get-ChildItem Track*.xlsx`.
-> Claude lo legge e scrive da PowerShell con Excel COM, i fogli si indirizzano per **numero**
-> perché i nomi contengono emoji.
-
-### A cosa serve ogni foglio
-
-| # | Foglio | Cosa contiene |
-|---|---|---|
-| 1 | Dashboard | Il colpo d'occhio: stato dei moduli e numeri |
-| 2 | Appunti e Step | **Il diario di lavoro**: cosa si è fatto, sessione per sessione |
-| 3 | Roadmap | Le funzionalità, implementate e no |
-| 4 | Piano di Sviluppo | Le fasi con date di inizio e fine |
-| 5 | Fix e Bug | **I difetti**, con stato |
-| 6-13 | Refactoring, Modelli, Repository, Services, Controllers, Test, Auth & Security, Jobs, Migration | Inventari tecnici |
-
-### Protocollo di aggiornamento
-
-**A inizio sessione**: leggere questo file + il foglio *Appunti e Step*.
-
-**Quando si completa qualcosa**: aggiornare *Appunti e Step*, *Roadmap*, *Piano di Sviluppo* e
-*Fix e Bug* **insieme**, non solo uno.
-
-**Quando si prende una decisione architetturale**: aggiungerla subito in *Note e Decisioni*
-dentro *Appunti e Step*.
-
-**Quando si aggiunge un endpoint o un componente**: registrarlo subito nel foglio corrispondente.
-
-**A fine sessione**: aggiornare la sezione 1 di questo file, poi Fabio committa.
-
-### Colori degli stati — obbligatori, nessuna eccezione
-
-| Stato | Colore |
-|---|---|
-| Completato | verde `#C6E7CE` |
-| Da fare / Parziale / In corso | giallo `#FFEB9C` |
-| Pianificato | azzurro `#DDEBF7` |
-| Non necessario | grigio `#D9D9D9` |
-| Futuro | grigio chiaro `#EDEDED` |
-
-> Il verde è `#C6E7CE`, non `#C6EFCE`: il protocollo scritto e il file dicevano due cose diverse,
-> l'08/09/2026 si è scelto quello già usato in tutte le celle.
+> **`TrackAttività_Gestora.xlsx` è congelato**, non si aggiorna più: resta come archivio storico
+> dei primi mesi, si legge solo per ritrovare qualcosa del passato.
 
 ---
 
@@ -259,16 +172,18 @@ dentro *Appunti e Step*.
 
 | Cerchi... | Vai in... |
 |---|---|
-| Stato del progetto, decisioni, come lavoriamo | questo file |
+| Stato del progetto, decisioni, regole del progetto | questo file |
 | Cosa resta da fare | `BACKLOG.md` |
 | Come si resetta il database, si applica una migration, si pubblica | `RUNBOOK.md` |
 | Endpoint, architettura e note del backend | `GestoraWebApi/CLAUDE.md` |
 | Pattern, routing e note del frontend | `gestora-frontend/CLAUDE.md` |
-| Diario di lavoro e inventari tecnici | `TrackAttività_Gestora.xlsx` |
+| Cosa manca oggi, referto dell'audit, decisioni, diario | `TrackGestora_v2.xlsx` |
+| Storia dei primi mesi e inventari tecnici (congelato) | `TrackAttività_Gestora.xlsx` |
 | Com'è andata una fase, cosa abbiamo imparato | `docs/archivio/STORICO_FASI.md` |
 | Cosa vuol dire una sigla `REV-xxx` | `docs/archivio/REVISIONE_END_TO_END.md` |
 | Il testo integrale delle 10 decisioni | `docs/archivio/ROADMAP_REVISIONE.md` |
 | Perché un documento è stato archiviato | `docs/archivio/README.md` |
+| Come si prova a mano il redesign, schermata per schermata | `GestoraDocs/verifica-redesign.md` |
 
 ### Il grafo del codice (graphify)
 

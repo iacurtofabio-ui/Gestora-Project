@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { router } from './router/index'
 import { AuthProvider } from '@/context/AuthContext'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import { ThemeProvider } from '@/context/ThemeContext'
 import ConfigurazioneMancante from '@/components/ConfigurazioneMancante'
 import { configurazioneMancante } from '@/lib/axios'
 import { queryClient } from '@/lib/queryClient'
@@ -24,13 +25,15 @@ if (configurazioneMancante) {
       {/* REV-014: l'ErrorBoundary sta piu' in alto di AuthProvider, che e' proprio il punto in cui
         un dato di sessione corrotto faceva fallire il primo render lasciando la pagina bianca. */}
       <ErrorBoundary>
-        <AuthProvider>
-          <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
-            <DevtoolsQuery />
-            <Toaster richColors position="top-right" />
-          </QueryClientProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <QueryClientProvider client={queryClient}>
+              <RouterProvider router={router} />
+              <DevtoolsQuery />
+              <Toaster richColors position="top-right" />
+            </QueryClientProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </StrictMode>
   )

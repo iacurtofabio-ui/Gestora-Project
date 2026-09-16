@@ -64,21 +64,31 @@ export default function ZonaModal({ isOpen, onClose, zona }: Props) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{zona ? 'Modifica Zona' : 'Nuova Zona'}</DialogTitle>
+          <DialogTitle className="text-titolo">{zona ? 'Modifica zona' : 'Nuova zona'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="space-y-1">
             <Label htmlFor="zona-nome">Nome</Label>
-            <Input id="zona-nome" {...register('nome')} type="text" placeholder="Nome" />
-            {errors.nome && <p className="text-red-500 text-sm mt-1">{errors.nome.message}</p>}
+            <Input id="zona-nome" {...register('nome')} type="text" placeholder="Es. Dehors" />
+            {errors.nome && <p className="text-nota text-destructive">{errors.nome.message}</p>}
           </div>
           <div className="flex items-center gap-2">
-            <input id="zona-attiva" {...register('attiva')} type="checkbox" className="h-4 w-4" />
+            <input
+              id="zona-attiva"
+              {...register('attiva')}
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+            />
             <Label htmlFor="zona-attiva">Attiva</Label>
           </div>
-          <Button type="submit" disabled={inCorso}>
-            {inCorso ? 'Salvataggio...' : 'Salva'}
-          </Button>
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Annulla
+            </Button>
+            <Button type="submit" disabled={inCorso}>
+              {inCorso ? 'Salvataggio…' : zona ? 'Salva modifiche' : 'Crea zona'}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

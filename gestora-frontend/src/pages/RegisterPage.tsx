@@ -5,6 +5,10 @@ import { useNavigate, Link } from 'react-router-dom'
 import apiClient from '@/lib/axios'
 import { Endpoints } from '@/lib/endpoints'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Logo } from '@/components/Logo'
+import { Input } from '@/components/ui/input'
+import { ErroreForm } from '@/components/PageState'
 import { Label } from '@/components/ui/label'
 import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
 
@@ -42,65 +46,67 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-sm p-8 border rounded-lg shadow-sm">
-        <h1 className="text-2xl font-bold mb-6">Registrati</h1>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <div>
-            <Label htmlFor="register-username" className="sr-only">
-              Username
-            </Label>
-            <input
-              id="register-username"
-              {...register('username')}
-              type="text"
-              placeholder="Username"
-              className="w-full border rounded px-3 py-2"
-            />
-            {errors.username && (
-              <p className="text-red-500 text-sm mt-1">{errors.username.message}</p>
-            )}
-          </div>
-          <div>
-            <Label htmlFor="register-email" className="sr-only">
-              Email
-            </Label>
-            <input
-              id="register-email"
-              {...register('email')}
-              type="email"
-              placeholder="Email"
-              className="w-full border rounded px-3 py-2"
-            />
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
-          </div>
-          <div>
-            <Label htmlFor="register-password" className="sr-only">
-              Password
-            </Label>
-            <input
-              id="register-password"
-              {...register('password')}
-              type="password"
-              placeholder="Password"
-              className="w-full border rounded px-3 py-2"
-            />
-            {errors.password && (
-              <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
-            )}
-          </div>
-          {errors.root && <p className="text-red-500 text-sm">{errors.root.message}</p>}
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Registrazione...' : 'Registrati'}
-          </Button>
-        </form>
-        <p className="text-sm text-gray-500 mt-4 text-center">
-          Hai già un account?{' '}
-          <Link to="/login" className="underline">
-            Accedi
-          </Link>
-        </p>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
+      <Link to="/" aria-label="Torna alla pagina iniziale">
+        <Logo className="text-foreground" />
+      </Link>
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-titolo">Crea il tuo account</CardTitle>
+          <CardDescription>SOTTOCrea il tuo account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+            <div>
+              <Label htmlFor="register-username" className="sr-only">
+                Username
+              </Label>
+              <Input
+                id="register-username"
+                {...register('username')}
+                type="text"
+                placeholder="Username"
+              />
+              {errors.username && (
+                <p className="text-nota text-destructive mt-1">{errors.username.message}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="register-email" className="sr-only">
+                Email
+              </Label>
+              <Input id="register-email" {...register('email')} type="email" placeholder="Email" />
+              {errors.email && (
+                <p className="text-nota text-destructive mt-1">{errors.email.message}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="register-password" className="sr-only">
+                Password
+              </Label>
+              <Input
+                id="register-password"
+                {...register('password')}
+                type="password"
+                placeholder="Password"
+              />
+              {errors.password && (
+                <p className="text-nota text-destructive mt-1">{errors.password.message}</p>
+              )}
+            </div>
+            <ErroreForm messaggio={errors.root?.message} />
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Creazione…' : 'Crea account'}
+            </Button>
+          </form>
+          <p className="text-corpo mt-4 text-center text-muted-foreground">
+            Hai già un account?{' '}
+            <Link to="/login" className="underline underline-offset-4 hover:text-foreground">
+              Accedi
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

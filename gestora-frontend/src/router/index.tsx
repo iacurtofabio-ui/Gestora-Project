@@ -1,6 +1,8 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router-dom'
 import ProtectedRoute from './ProtectedRoute'
 import SetupGuard from './SetupGuard'
+import RedirectSeAutenticato from './RedirectSeAutenticato'
+import LandingPage from '@/pages/LandingPage'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import AppLayout from '@/layouts/AppLayout'
@@ -21,7 +23,21 @@ import RouteErrorPage from './RouteErrorPage'
 const errorElement = <RouteErrorPage />
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/login" replace />, errorElement },
+  // Fase 13: la radice era un rimando secco a /login, quindi chi apriva il link trovava un form
+  // di accesso senza credenziali. Ora c'e' una vetrina pubblica. Restano pero' due condizioni
+  // gia' presenti prima: senza un Admin si va comunque al primo avvio (SetupGuard), e chi ha gia'
+  // la sessione aperta va direttamente alla sua pagina invece che alla vetrina.
+  {
+    path: '/',
+    element: (
+      <SetupGuard>
+        <RedirectSeAutenticato>
+          <LandingPage />
+        </RedirectSeAutenticato>
+      </SetupGuard>
+    ),
+    errorElement,
+  },
   // REV-007: finche' non esiste un amministratore, l'unica pagina raggiungibile e' /setup.
   { path: '/setup', element: <SetupPage />, errorElement },
   {

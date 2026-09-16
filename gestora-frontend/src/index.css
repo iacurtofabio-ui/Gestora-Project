@@ -1,13 +1,139 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/geist';
+@import '@fontsource-variable/archivo';
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * ============================================================================
+ * DIREZIONE «TURNO» — sistema di token
+ * ============================================================================
+ *
+ * La sala vista NEL TEMPO. L'unita' visiva di base non e' la card: e' la fascia oraria,
+ * una banda orizzontale che si riempie di coperti. Freddo, denso, industriale: un tabellone
+ * di servizio, non un gestionale.
+ *
+ * Cosa e' cambiato rispetto alla tavolozza precedente e perche':
+ *
+ * 1. IL CALORE E' STATO TOLTO DA TUTTI I NEUTRI.
+ *    Prima ogni neutro aveva croma su tinta ~55 (arancio): background, card, popover,
+ *    secondary, muted, accent e sidebar. Sul tema scuro questo produceva un marrone, non un
+ *    grigio — era la causa del difetto 3. Ora i neutri del tema scuro hanno CROMA ZERO,
+ *    verificabile: sono scritti come oklch(L 0 0).
+ *
+ * 2. I NEUTRI CHIARI TENDONO ALL'AZZURRO, NON AL CREMA.
+ *    Croma ~0.005-0.017 su tinta ~248. E' un freddo appena percettibile, quanto basta perche'
+ *    il fondo non sia un grigio morto senza essere un altro colore.
+ *
+ * 3. UN SOLO COLORE DI MARCA: il blu segnale (--primary). I semantici (success / warning /
+ *    destructive) stanno un gradino sotto e non competono con lui.
+ *
+ * I colori sono in oklch(chiarezza croma tinta):
+ *   - chiarezza  0 = nero, 1 = bianco. E' il numero che decide il contrasto.
+ *   - croma      quanto e' acceso il colore. 0 = grigio puro.
+ *   - tinta      posizione sulla ruota: ~29 mattone, ~72 ambra, ~166 verde, ~264 blu.
+ *
+ * Ogni coppia testo/fondo e' verificata, non stimata. Dopo aver toccato un colore:
+ *   node scripts/contrasto.mjs
+ */
+
+/*
+ * ---------------------------------------------------------------------------
+ * Ripiego metrico per Archivo — serve a non avere spostamenti di layout (CLS)
+ * ---------------------------------------------------------------------------
+ * Il carattere e' self-hosted (Fontsource, nessuna CDN) ma arriva comunque dopo il primo
+ * disegno della pagina: per un istante il testo e' scritto con il carattere di sistema, poi
+ * viene riscritto con Archivo. Se i due hanno metriche diverse, in quell'istante il testo
+ * cambia larghezza e altezza e la pagina "salta".
+ *
+ * Questa faccia non scarica niente: prende il carattere gia' presente nel sistema e lo
+ * RIDIMENSIONA perche' occupi esattamente lo spazio che occupera' Archivo. I tre numeri sono
+ * misurati sul carattere vero, non stimati (vedi scripts/metriche-ripiego.mjs).
+ */
+@font-face {
+  font-family: 'Archivo Ripiego';
+  src:
+    local('Arial'),
+    local('Helvetica Neue'),
+    local('Liberation Sans');
+  size-adjust: 98.5%;
+  ascent-override: 89.2%;
+  descent-override: 21.3%;
+  line-gap-override: 0%;
+}
+
 @theme inline {
+  /* --- Carattere -----------------------------------------------------------
+     Archivo: una grottesca da segnaletica. Stretta abbastanza da tenere una tabella densa,
+     stabile alle dimensioni grandi dei numeri. Si carica un solo asse variabile, `wght`
+     100-900 (il pacchetto Fontsource ha anche `wdth`, non lo importiamo: sarebbe un secondo
+     file da scaricare per un asse che non usiamo). */
+  --font-sans: 'Archivo Variable', 'Archivo Ripiego', system-ui, sans-serif;
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+
+  /* --- Scala tipografica ---------------------------------------------------
+     Sei ruoli dichiarati. Prima non esistevano: lo stesso ruolo "titolo di sezione" era
+     scritto `text-2xl font-bold` in una pagina, `text-lg font-semibold` in un'altra e
+     `text-sm font-semibold` in una terza. */
+
+  /* I numeri che si leggono da lontano: coperti, capienza. */
+  --text-readout: 3rem;
+  --text-readout--line-height: 1;
+  --text-readout--letter-spacing: -0.03em;
+  --text-readout--font-weight: 700;
+
+  /* Variante compatta del readout, per le celle e le card piccole. */
+  --text-readout-sm: 1.75rem;
+  --text-readout-sm--line-height: 1.05;
+  --text-readout-sm--letter-spacing: -0.02em;
+  --text-readout-sm--font-weight: 700;
+
+  /* Titolo di pagina: uno solo per schermata. */
+  --text-titolo: 1.5rem;
+  --text-titolo--line-height: 1.15;
+  --text-titolo--letter-spacing: -0.02em;
+  --text-titolo--font-weight: 600;
+
+  /* Intestazione di blocco. In sentence case: niente maiuscoletto spaziato. */
+  --text-sezione: 0.875rem;
+  --text-sezione--line-height: 1.2;
+  --text-sezione--letter-spacing: 0.02em;
+  --text-sezione--font-weight: 600;
+
+  --text-corpo: 0.875rem;
+  --text-corpo--line-height: 1.5;
+  --text-corpo--font-weight: 400;
+
+  /* Orari e quantita' in tabella: leggermente piu' grandi e piu' pesanti del corpo, perche'
+     sono il dato che si cerca. Da usare insieme a `tabular-nums`. */
+  --text-orario: 0.9375rem;
+  --text-orario--line-height: 1.2;
+  --text-orario--letter-spacing: 0.01em;
+  --text-orario--font-weight: 500;
+
+  --text-nota: 0.75rem;
+  --text-nota--line-height: 1.4;
+  --text-nota--font-weight: 400;
+
+  /* --- Raggi: tre scaglioni, non uno solo ---------------------------------
+     Prima tutto derivava da un unico --radius, quindi card, bottoni e campi avevano di fatto
+     lo stesso raggio e nessuna gerarchia. Qui il raggio DICE che cosa e' una cosa:
+       2px   bande e righe: aderiscono alla griglia, sembrano vive
+       6-8px controlli: bottoni, campi, select
+       14px  cio' che galleggia davvero sopra la pagina: dialog, menu, popover
+     Il badge resta una pillola. */
+  --radius: 0.5rem;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 14px;
+  --radius-3xl: 18px;
+  --radius-4xl: 999px;
+
+  /* --- Colori --- */
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -25,6 +151,11 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -39,82 +170,185 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Il fondo su cui corre la banda dei coperti. Non e' --muted: su fondo pagina --muted quasi
+     non si distingue, e una banda vuota che non si vede non dice "c'e' ancora posto", dice
+     "manca qualcosa". */
+  --color-traccia: var(--traccia);
+
+  /* Il riempimento della banda quando la fascia si avvicina al tetto e quando lo ha raggiunto.
+     Non sono --warning e --destructive: quei due token devono restare leggibili come TESTO su
+     fondo chiaro, quindi sono scuri, e usati come campitura larga davano un ocra sporco e un
+     mattone spento. Qui il colore non porta testo — la parola "pieno" sta accanto, non dentro —
+     quindi puo' essere piu' acceso e leggersi da lontano, che e' il suo unico compito. */
+  --color-banda-attenzione: var(--banda-attenzione);
+  --color-banda-pieno: var(--banda-pieno);
+
+  /* L'evidenziazione di una voce di elenco (menu a tendina, Select), sotto il puntatore o
+     raggiunta con le frecce.
+     NON e' --accent. L'evidenziazione di una voce dice DOVE SEI, non che cosa succede: e' un
+     gradino di elevazione sopra la superficie del menu, non una campitura che significa qualcosa.
+     Il testo resta del colore normale — nessuna inversione. Su --accent, che vive sul fondo
+     pagina, il gradino risultava di 0,016 di chiarezza sopra il popover del tema scuro: cioe'
+     invisibile. */
+  --color-evidenza: var(--evidenza);
+
+  /* Il contorno dell'azione di riga a riposo.
+     E' un colore pieno e non `primary/35` perche' deve essere VERIFICABILE: un bordo con la
+     trasparenza cambia contrasto a seconda di cosa ha sotto, e lo script di controllo lo salta.
+     Sta sopra il 3:1 su tutte le superfici su cui puo' capitare — e' il minimo che la regola
+     WCAG 1.4.11 chiede al contorno di un comando. */
+  --color-azione-bordo: var(--azione-bordo);
+
+  /* Il livello di superficie intermedio del tema scuro (righe di tabella, barra laterale).
+     Sul tema chiaro coincide con la card: la stratificazione serve al buio. */
+  --color-superficie: var(--superficie);
 }
 
+/* ==========================================================================
+   TEMA CHIARO — acciaio e vetro
+   ========================================================================== */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Fondo grigio-azzurro freddo, non crema. Le superfici salgono verso il bianco. */
+  --background: oklch(0.957 0.005 248);
+  --foreground: oklch(0.207 0.012 254);
+  --superficie: oklch(1 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.207 0.012 254);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.207 0.012 254);
+
+  /* Blu segnale: l'unico colore di marca. La chiarezza sta a 0.476 perche' serve leggibile
+     sia come TESTO su fondo chiaro (6.2:1) sia come FONDO con testo bianco sopra (7.1:1). */
+  --primary: oklch(0.476 0.212 264);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.926 0.009 248);
+  --secondary-foreground: oklch(0.305 0.026 253);
+  --muted: oklch(0.935 0.007 248);
+  --muted-foreground: oklch(0.494 0.025 259);
+  --accent: oklch(0.916 0.013 252);
+  --accent-foreground: oklch(0.285 0.052 261);
+
+  --destructive: oklch(0.489 0.147 29);
+  --destructive-foreground: oklch(1 0 0);
+
+  --success: oklch(0.485 0.097 166);
+  --success-foreground: oklch(1 0 0);
+  --warning: oklch(0.54 0.112 72);
+  --warning-foreground: oklch(1 0 0);
+
+  /* Due bordi diversi, di proposito. Quello decorativo separa e puo' restare tenue; quello dei
+     campi da compilare dice dove si puo' scrivere, quindi deve stare sopra il 3:1. */
+  --border: oklch(0.855 0.014 248);
+  --input: oklch(0.625 0.022 256);
+  --ring: oklch(0.476 0.212 264);
+
+  --traccia: oklch(0.855 0.014 248);
+  /* Stessa tinta dei token di testo (72 e 29), diversa solo per chiarezza e intensita': lo
+     stesso stato non deve leggersi con due colori percettivamente diversi. */
+  --banda-attenzione: oklch(0.735 0.155 72);
+  --banda-pieno: oklch(0.605 0.205 29);
+
+  /* Il popover chiaro e' bianco: il gradino non puo' salire, quindi scende. */
+  --evidenza: oklch(0.92 0.008 248);
+  --azione-bordo: oklch(0.635 0.13 264);
+
+  /* Grafici: dal blu segnale al verde, cosi' restano distinguibili anche in scala di grigi. */
+  --chart-1: oklch(0.476 0.212 264);
+  --chart-2: oklch(0.58 0.13 235);
+  --chart-3: oklch(0.54 0.112 72);
+  --chart-4: oklch(0.485 0.097 166);
+  --chart-5: oklch(0.489 0.147 29);
+
+  /* La barra laterale sta un gradino SOTTO il fondo pagina: separa le due aree senza bordo
+     marcato, e lascia al contenuto la superficie piu' chiara. */
+  --sidebar: oklch(0.938 0.007 248);
+  --sidebar-foreground: oklch(0.305 0.026 253);
+  --sidebar-primary: oklch(0.476 0.212 264);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.897 0.017 251);
+  --sidebar-accent-foreground: oklch(0.257 0.047 261);
+  --sidebar-border: oklch(0.869 0.014 248);
+  --sidebar-ring: oklch(0.476 0.212 264);
 }
 
+/* ==========================================================================
+   TEMA SCURO — nero neutro, quattro livelli di superficie
+   ==========================================================================
+   Il fondo e' oklch(0.145 0 0): CROMA ZERO. E' il punto della revisione — prima era
+   oklch(0.195 0.012 55), cioe' un marrone.
+
+   Perche' 0.145 e non il nero pieno: vedi la nota in CLAUDE.md del frontend. In sintesi, su un
+   pannello IPS (non OLED) il nero pieno non e' piu' nero del grigio 0.145 — la retroilluminazione
+   resta accesa — ma costringe il primo gradino di elevazione a essere quattro volte piu' alto
+   degli altri, e la scala non si legge piu' come scala.
+
+   La scala e' regolare: ogni gradino vale circa 0.042 di chiarezza.
+
+     0.145  fondo pagina                 (ground)
+     0.187  righe di tabella, sidebar    (superficie)
+     0.231  card, header                 (card)
+     0.273  dialog, menu, popover        (popover — l'unico livello con ombra)
+   ========================================================================== */
 .dark {
   --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --foreground: oklch(0.939 0.005 258);
+  --superficie: oklch(0.187 0 0);
+  --card: oklch(0.231 0 0);
+  --card-foreground: oklch(0.939 0.005 258);
+  --popover: oklch(0.273 0 0);
+  --popover-foreground: oklch(0.939 0.005 258);
+
+  /* Il blu segnale schiarito. Qui il testo sopra torna scuro. */
+  --primary: oklch(0.732 0.138 266);
+  --primary-foreground: oklch(0.145 0 0);
+
+  --secondary: oklch(0.26 0 0);
+  --secondary-foreground: oklch(0.939 0.005 258);
+  --muted: oklch(0.239 0 0);
+  --muted-foreground: oklch(0.712 0.019 253);
+  --accent: oklch(0.289 0 0);
+  --accent-foreground: oklch(0.968 0.003 258);
+
+  --destructive: oklch(0.732 0.165 29);
+  --destructive-foreground: oklch(0.16 0.02 29);
+
+  --success: oklch(0.789 0.137 167);
+  --success-foreground: oklch(0.17 0.03 167);
+  --warning: oklch(0.798 0.127 81);
+  --warning-foreground: oklch(0.17 0.02 72);
+
+  /* Il bordo decorativo e' un bianco trasparente: sul fondo scuro e' la resa migliore e si
+     adatta al livello di superficie sotto. Il bordo dei campi invece e' colore pieno, perche'
+     deve essere verificabile sopra il 3:1 e con la trasparenza il contrasto dipenderebbe da
+     cosa c'e' dietro. */
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --input: oklch(0.555 0.022 256);
+  --ring: oklch(0.732 0.138 266);
+
+  --traccia: oklch(0.289 0 0);
+  --banda-attenzione: oklch(0.798 0.127 81);
+  --banda-pieno: oklch(0.7 0.185 29);
+
+  /* Un gradino pieno sopra --popover (0.273), lo stesso passo di 0,042 di tutta la scala. */
+  --evidenza: oklch(0.34 0 0);
+  --azione-bordo: oklch(0.555 0.13 264);
+
+  --chart-1: oklch(0.732 0.138 266);
+  --chart-2: oklch(0.75 0.11 235);
+  --chart-3: oklch(0.798 0.127 81);
+  --chart-4: oklch(0.789 0.137 167);
+  --chart-5: oklch(0.732 0.165 29);
+
+  --sidebar: oklch(0.187 0 0);
+  --sidebar-foreground: oklch(0.908 0.008 254);
+  --sidebar-primary: oklch(0.732 0.138 266);
+  --sidebar-primary-foreground: oklch(0.145 0 0);
+  --sidebar-accent: oklch(0.26 0 0);
+  --sidebar-accent-foreground: oklch(0.968 0.003 258);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.732 0.138 266);
 }
 
 @layer base {
@@ -126,5 +360,47 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ==========================================================================
+   LA BANDA DEI COPERTI
+   ==========================================================================
+   L'unico momento orchestrato dell'applicazione. All'ingresso della Dashboard le bande
+   crescono da zero alla loro quota, sfalsate di 40ms l'una dall'altra. Succede UNA volta:
+   da nessun'altra parte c'e' un'entrata animata.
+
+   La larghezza e' pilotata da --quota, impostata dal componente. Parte da 0% e viene portata
+   al valore reale subito dopo il primo disegno: e' quello che innesca la transizione.
+   ========================================================================== */
+.banda-riempimento {
+  width: var(--quota, 0%);
+  transition: width 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--ritardo, 0ms);
+}
+
+/* Aggiornamento in corso: la banda respira invece di smontare la pagina. */
+.banda-in-aggiornamento {
+  animation: banda-respiro 1.4s ease-in-out infinite;
+}
+
+@keyframes banda-respiro {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banda-riempimento {
+    transition: none;
+    transition-delay: 0ms;
+  }
+  .banda-in-aggiornamento {
+    animation: none;
+    opacity: 0.7;
   }
 }

@@ -1,6 +1,6 @@
 # Gestora — cosa resta da fare
 
-Aggiornato l'**08/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **09/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -12,6 +12,77 @@ vista d'insieme che si guarda per decidere cosa fare.
 ---
 
 ## 🔵 Da fare prima
+
+### `CAP-001` — Il tetto dei coperti non è garantito
+
+**Cos'è.** Il limite di coperti di una fascia è controllato **solo dal codice applicativo**
+(`PrenotazioniService.ValidatePrenotazioneAsync`). Nel database non c'è niente che lo imponga: a
+differenza del tavolo, protetto dall'indice unico `UX_PrenotazionePostazione_Slot`, i coperti non
+hanno un vincolo equivalente.
+
+**Perché è un problema.** Il controllo è una `SUM` sulle prenotazioni esistenti seguita da un
+`INSERT`. PostgreSQL gira in `READ COMMITTED` e `BeginTransactionAsync()` non chiede un livello
+diverso: due prenotazioni simultanee sulla stessa fascia possono entrambe leggere «48 su 52»,
+entrambe passare il controllo per 4 coperti, ed entrambe scrivere. Risultato: 56 su 52.
+
+È la stessa corsa che per i tavoli era stata chiusa con l'indice unico. Per i coperti manca.
+
+**Emerso il 09/09/2026** verificando perché il seed di sviluppo aveva prodotto una fascia con 61
+coperti su 52. Il seed è stato corretto (scriveva saltando il servizio), ma la verifica ha fatto
+trovare il buco vero.
+
+**Cosa fare — tre punti.**
+1. **Rendere il tetto un vincolo vero.** La strada più semplice è bloccare la riga della fascia
+   (`SELECT ... FOR UPDATE`) prima della `SUM`, dentro la transazione: serializza le prenotazioni
+   sulla stessa fascia, che è esattamente ciò che serve.
+2. **Spostare `ValidatePrenotazioneAsync` dentro la transazione anche in `UpdateAsync`.** In
+   `AddAsync` sta già dentro; in modifica sta fuori (riga ~161), quindi lì la finestra è più larga.
+   Allineamento a costo zero.
+3. **Smettere di nascondere lo sforamento.** `DashboardService` riga 101 calcola
+   `Math.Max(0, MaxCoperti - copertiPrenotati)`: uno sforamento si legge «0 disponibili», identico
+   a una fascia esattamente piena. Un dato incoerente va mostrato, non schiacciato — altrimenti se
+   il punto 1 fallisce nessuno se ne accorge.
+
+**Come provarlo.** `dotnet run -- --seed-sviluppo --stato-incoerente` scrive lo stato incoerente
+di proposito (saltando il servizio), per vedere come reagisce l'interfaccia.
+
+---
+
+
+### `UI-001` — Prova a mano del redesign «Turno»
+
+**Cos'era.** La Fase 13 aveva dato all'app un aspetto suo, ma scritto guardando il codice: da
+sistemare spaziature, proporzioni, testi.
+
+**Cos'è diventato.** Il 09/09/2026 il punto è stato assorbito da un lavoro più grande: il
+redesign **«Turno»**, tre fasi che hanno rifatto identità visiva, gerarchia e stati su tutte le
+pagine. Il dettaglio è nel tracker, foglio *Appunti e Step*, blocco «REDESIGN «TURNO»».
+
+**Cosa resta.** La verifica a schermo, che nessuno ha ancora fatto — il redesign è stato
+scritto e misurato, non guardato. È in carico a Fabio, con la lista di controllo in
+**`GestoraDocs/verifica-redesign.md`**: dice dove andare, cosa fare e cosa si deve vedere, ed è
+in ordine di resa (le prime dieci voci sono quelle che pagano di più).
+
+Per avere dati su cui provare davvero, dalla cartella `GestoraWebApi`:
+
+```
+dotnet run -- --seed-sviluppo
+```
+
+Popola il database **locale** con un dataset costruito per rompere il layout (nomi lunghi,
+26 fasce, una fascia oltre il tetto, una zona senza tavoli, un utente con tre ruoli). Accesso:
+`admin@gestora.local` / `Sviluppo1!`.
+
+**Poi**: i difetti che escono diventano voci nel tracker e si sistemano prima del rilascio.
+
+> Quando si tocca un colore va sempre rilanciato `node scripts/contrasto.mjs` dentro
+> `gestora-frontend/`: dice se qualche combinazione testo/fondo è diventata illeggibile.
+
+> ⚠️ **Da non confondere con `DOC-001`.** Qui si parla di **come si vede** l'app, e sono cose
+> notate adesso. `DOC-001` riguarda il file di appunti che Fabio tiene da settimane su **come
+> funziona**, e quel file resta chiuso.
+
+---
 
 ### `DOC-001` — Formalizzare il file di appunti d'uso
 
@@ -48,7 +119,9 @@ Il merito non si discute adesso: si decide quando si apre il file.
 
 **Cos'è.** Cancellare e ricreare da zero il database locale **e** quello di produzione, per
 togliere di mezzo tutti i dati di prova accumulati: la zona "Test concorrenza", i tavoli e le
-prenotazioni finte, l'utente `testfase6` in locale.
+prenotazioni finte, e in locale gli utenti `testfase6` e `fase13check` (quest'ultimo creato
+l'08/09/2026 per provare il tema scuro sulle pagine dietro l'accesso — **solo database locale**,
+la produzione non è stata toccata).
 
 **Quando.** **Alla fine**, quando non ci sono più implementazioni né fix da fare. Farlo prima
 significa ricreare dati di test e rifarlo daccapo.

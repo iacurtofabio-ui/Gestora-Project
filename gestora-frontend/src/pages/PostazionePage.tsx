@@ -1,13 +1,37 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { PlusIcon } from 'lucide-react'
 import { useZone } from '@/hooks/useZone'
 import { usePostazioni, useDeletePostazione, useRiepilogoSala } from '@/hooks/usePostazioni'
-import { useState } from 'react'
 import type { PostazioneDTO } from '@/types/postazione'
 import PostazioneModal from '@/components/PostazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { PageLoading, PageError } from '@/components/PageState'
+import { PageError, TableSkeleton } from '@/components/PageState'
 import { EmptyState } from '@/components/EmptyState'
+import { StatoAttivo } from '@/components/StatoAttivo'
+import { AzioniRiga } from '@/components/AzioniRiga'
+import { IntestazionePagina } from '@/components/IntestazionePagina'
 import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useAuth } from '@/hooks/useAuth'
+import { cn } from '@/lib/utils'
+
+const COLONNE_ADMIN = ['8rem', '8rem', 'minmax(8rem,1fr)', '8rem']
+const COLONNE_LETTURA = ['8rem', '8rem', 'minmax(8rem,1fr)']
 
 export default function PostazionePage() {
   const { user } = useAuth()
@@ -24,178 +48,239 @@ export default function PostazionePage() {
   const postazioni = usePostazioni(zonaSelezionataId ?? 0, {
     enabled: zonaSelezionataId !== undefined,
   })
-  const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
+  const [postazioneDaEliminare, setPostazioneDaEliminare] = useState<PostazioneDTO | undefined>(
+    undefined
+  )
 
-  if (zone.isLoading) return <PageLoading />
-  if (zone.isError) return <PageError error={zone.error} fallback="Errore nel caricamento delle zone." />
+  const colonne = isAdmin ? COLONNE_ADMIN : COLONNE_LETTURA
+  const zonaSelezionata = zone.data?.find((z) => z.id === zonaSelezionataId)
 
-  const numeroColonne = isAdmin ? 4 : 3
+  if (zone.isLoading)
+    return (
+      <div className="mx-auto max-w-4xl rounded-xl border bg-card p-3">
+        <TableSkeleton righe={4} colonne={colonne} />
+      </div>
+    )
+  if (zone.isError)
+    return (
+      <PageError
+        error={zone.error}
+        fallback="Errore nel caricamento delle zone."
+        onRiprova={() => zone.refetch()}
+        className="mx-auto max-w-4xl"
+      />
+    )
+
+  function apriNuova() {
+    setPostazioneSelezionata(undefined)
+    setIsModalOpen(true)
+  }
+
+  function apriModifica(postazione: PostazioneDTO) {
+    setPostazioneSelezionata(postazione)
+    setIsModalOpen(true)
+  }
 
   return (
-    <div className="space-y-4">
-      {isStaffOrAdmin && riepilogo.data && (
-        <div className="bg-white rounded-lg border">
-          <div className="p-4 border-b">
-            <h2 className="text-sm font-semibold text-gray-700">Riepilogo sala</h2>
-          </div>
-          <div className="p-4 flex flex-wrap gap-6 text-sm border-b">
-            <div>
-              <span className="text-gray-500">Tavoli attivi: </span>
-              <span className="font-semibold text-gray-800">{riepilogo.data.tavoliAttivi}</span>
+    <div className="mx-auto max-w-4xl space-y-8">
+      <IntestazionePagina
+        titolo="Tavoli"
+        conteggio={
+          riepilogo.data
+            ? `${riepilogo.data.tavoliAttivi} attivi · ${riepilogo.data.postiTotali} posti`
+            : undefined
+        }
+        azione={
+          isAdmin && (
+            <Button size="sm" onClick={apriNuova} disabled={zonaSelezionataId === undefined}>
+              <PlusIcon />
+              Aggiungi tavolo
+            </Button>
+          )
+        }
+      />
+
+      {/* ------------------------------------------------------------------
+          Decisione 9: il riepilogo della sala sta in cima ed e' SOLO informativo.
+          Nella direzione «Turno» diventa un elenco di righe con la copertura del tetto, non una
+          tabella dentro una card: e' un contesto, non un dato su cui si agisce.
+          ------------------------------------------------------------------ */}
+      {isStaffOrAdmin && riepilogo.data && riepilogo.data.fasce.length > 0 && (
+        <section className="space-y-1">
+          <h2 className="text-sezione text-muted-foreground">
+            I tavoli bastano a coprire il tetto?
+          </h2>
+          <ul>
+            {riepilogo.data.fasce.map((f) => (
+              <li
+                key={f.fasciaOrariaId}
+                className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1 border-b py-2.5 last:border-b-0 sm:grid-cols-[7rem_9rem_1fr]"
+              >
+                <span className="text-corpo capitalize">{f.giornoSettimana}</span>
+                <span className="text-orario tabular-nums whitespace-nowrap">
+                  {f.orarioInizio.slice(0, 5)}–{f.orarioFine.slice(0, 5)}
+                </span>
+                {/* Il colore da solo non basta: chi non distingue le tinte deve comunque leggere
+                    se il tetto e' coperto oppure no. */}
+                <span
+                  className={cn(
+                    'text-corpo col-span-2 tabular-nums sm:col-span-1',
+                    f.tettoCoperto ? 'text-muted-foreground' : 'text-warning'
+                  )}
+                >
+                  {f.postiTavoli} posti su {f.maxCoperti} di tetto
+                  {f.tettoCoperto ? '' : ' — i tavoli non bastano'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={zonaSelezionataId !== undefined ? String(zonaSelezionataId) : undefined}
+            onValueChange={(v) => setZonaSelezionataId(Number(v))}
+          >
+            <SelectTrigger className="h-8 w-[200px]" aria-label="Scegli la zona">
+              <SelectValue placeholder="Scegli una zona" />
+            </SelectTrigger>
+            <SelectContent>
+              {zone.data?.map((zona) => (
+                <SelectItem key={zona.id} value={String(zona.id)}>
+                  {zona.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border bg-card">
+          {/* REV-073: prima di scegliere una zona la tabella era vuota e sembrava un errore, non
+              uno stato d'attesa. Se poi non c'e' nemmeno una zona, il problema e' un altro e va
+              detto: i tavoli stanno dentro una zona, quindi la zona viene prima. */}
+          {zone.data?.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sezione">Prima servono le zone</p>
+              <p className="text-corpo mx-auto mt-1 mb-4 max-w-sm text-muted-foreground text-pretty">
+                Ogni tavolo sta dentro una zona, quindi la sala si configura da li'.
+              </p>
+              {isAdmin && (
+                <Button asChild size="sm">
+                  <Link to="/zone">Vai alle zone</Link>
+                </Button>
+              )}
             </div>
-            <div>
-              <span className="text-gray-500">Posti totali: </span>
-              <span className="font-semibold text-gray-800">{riepilogo.data.postiTotali}</span>
+          ) : zonaSelezionataId === undefined ? (
+            <div className="p-8 text-center">
+              <p className="text-corpo mx-auto max-w-sm text-muted-foreground text-pretty">
+                Scegli una zona qui sopra per vedere i suoi tavoli.
+              </p>
             </div>
-          </div>
-          {riepilogo.data.fasce.length > 0 && (
+          ) : postazioni.isLoading ? (
+            <div className="p-3">
+              <TableSkeleton righe={5} colonne={colonne} />
+            </div>
+          ) : postazioni.isError ? (
+            <PageError
+              error={postazioni.error}
+              fallback="Errore nel caricamento dei tavoli."
+              onRiprova={() => postazioni.refetch()}
+            />
+          ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-gray-500">
-                    <th className="text-left p-3 font-medium">Giorno</th>
-                    <th className="text-left p-3 font-medium">Orario</th>
-                    <th className="text-left p-3 font-medium">Tetto (coperti)</th>
-                    <th className="text-left p-3 font-medium">Copertura tavoli</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {riepilogo.data.fasce.map((f) => (
-                    <tr key={f.fasciaOrariaId} className="border-b">
-                      <td className="p-3 capitalize">{f.giornoSettimana}</td>
-                      <td className="p-3">
-                        {f.orarioInizio.slice(0, 5)} – {f.orarioFine.slice(0, 5)}
-                      </td>
-                      <td className="p-3">{f.maxCoperti}</td>
-                      <td className="p-3">
-                        <span className={f.tettoCoperto ? 'text-green-600' : 'text-amber-600'}>
-                          {f.postiTavoli} posti{' '}
-                          {f.tettoCoperto ? '· copre il tetto' : '· sotto il tetto'}
-                        </span>
-                      </td>
-                    </tr>
+              <Table style={{ tableLayout: 'fixed', minWidth: '32rem' }}>
+                <colgroup>
+                  {colonne.map((larghezza, i) => (
+                    <col key={i} style={{ width: larghezza }} />
                   ))}
-                </tbody>
-              </table>
+                </colgroup>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-nota font-medium text-muted-foreground">
+                      Tavolo
+                    </TableHead>
+                    <TableHead className="text-nota text-right font-medium text-muted-foreground">
+                      Posti
+                    </TableHead>
+                    <TableHead className="text-nota font-medium text-muted-foreground">
+                      Stato
+                    </TableHead>
+                    {isAdmin && (
+                      <TableHead className="text-nota text-right font-medium text-muted-foreground">
+                        Azioni
+                      </TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {postazioni.data?.length === 0 ? (
+                    <EmptyState
+                      colSpan={colonne.length}
+                      messaggio={`In ${zonaSelezionata?.nome ?? 'questa zona'} non c’e’ ancora nessun tavolo. Finche’ non ce n’e’ almeno uno, in questa zona non si puo’ sedere nessuno.`}
+                      azione={
+                        isAdmin && (
+                          <Button size="sm" onClick={apriNuova}>
+                            <PlusIcon />
+                            Aggiungi il primo tavolo
+                          </Button>
+                        )
+                      }
+                    />
+                  ) : (
+                    postazioni.data?.map((postazione) => (
+                      <TableRow key={postazione.id} className="group/riga">
+                        <TableCell className="text-orario tabular-nums">
+                          {postazione.numero}
+                        </TableCell>
+                        <TableCell className="text-orario text-right tabular-nums">
+                          {postazione.capienzaMassima}
+                        </TableCell>
+                        <TableCell>
+                          <StatoAttivo attiva={postazione.attiva} />
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <AzioniRiga
+                              descrizione={`il tavolo ${postazione.numero}`}
+                              azionePrimaria={{
+                                etichetta: 'Modifica',
+                                onSelect: () => apriModifica(postazione),
+                              }}
+                              distruttiva={{
+                                etichetta: 'Elimina tavolo',
+                                onSelect: () => setPostazioneDaEliminare(postazione),
+                              }}
+                            />
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           )}
         </div>
-      )}
-      <div className="bg-white rounded-lg border">
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-sm font-semibold text-gray-700">Postazioni</h2>
-          <div className="flex gap-3 items-center">
-            <select
-              className="border rounded px-3 py-1 text-sm"
-              value={zonaSelezionataId ?? ''}
-              onChange={(e) =>
-                setZonaSelezionataId(e.target.value ? Number(e.target.value) : undefined)
-              }
-            >
-              <option value="">-- Seleziona zona --</option>
-              {zone.data?.map((zona) => (
-                <option key={zona.id} value={zona.id}>
-                  {zona.nome}
-                </option>
-              ))}
-            </select>
-            {isAdmin && (
-              <Button
-                size="sm"
-                onClick={() => {
-                  setPostazioneSelezionata(undefined)
-                  setIsModalOpen(true)
-                }}
-              >
-                + Aggiungi
-              </Button>
-            )}
-          </div>
-        </div>
-        {zonaSelezionataId && (
-          <div className="px-4 py-2 text-sm text-gray-500 border-b">
-            Zona:{' '}
-            <span className="font-semibold text-gray-700">
-              {zone.data?.find((z) => z.id === zonaSelezionataId)?.nome}
-            </span>
-          </div>
-        )}
-        {/* REV-073: prima di scegliere una zona la tabella era vuota e sembrava un errore,
-            non uno stato d'attesa. */}
-        {zonaSelezionataId === undefined ? (
-          <div className="p-6 text-center text-sm text-gray-400">
-            Seleziona una zona per vedere le sue postazioni.
-          </div>
-        ) : postazioni.isLoading ? (
-          <PageLoading />
-        ) : postazioni.isError ? (
-          <PageError error={postazioni.error} fallback="Errore nel caricamento delle postazioni." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-3">Numero</th>
-                  <th className="text-left p-3">Capienza</th>
-                  <th className="text-left p-3">Attiva</th>
-                  {isAdmin && <th className="text-left p-3">Azioni</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {postazioni.data?.length === 0 ? (
-                  <EmptyState
-                    messaggio="Nessuna postazione in questa zona."
-                    colSpan={numeroColonne}
-                  />
-                ) : (
-                  postazioni.data?.map((postazione) => (
-                    <tr key={postazione.id} className="border-b">
-                      <td className="p-3">{postazione.numero}</td>
-                      <td className="p-3">{postazione.capienzaMassima}</td>
-                      <td className="p-3">{postazione.attiva ? 'Sì' : 'No'}</td>
-                      {isAdmin && (
-                        <td className="p-3 flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setPostazioneSelezionata(postazione)
-                              setIsModalOpen(true)
-                            }}
-                          >
-                            Modifica
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => setIdDaEliminare(postazione.id)}
-                          >
-                            Elimina
-                          </Button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <PostazioneModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          postazione={postazioneSelezionata}
-        />
-        <ConfirmDialog
-          open={idDaEliminare !== undefined}
-          descrizione="Sei sicuro di voler eliminare questa postazione? L'operazione non è reversibile."
-          onConfirm={() => {
-            deletePostazione.mutate(idDaEliminare!)
-            setIdDaEliminare(undefined)
-          }}
-          onCancel={() => setIdDaEliminare(undefined)}
-        />
       </div>
+
+      <PostazioneModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        postazione={postazioneSelezionata}
+      />
+      <ConfirmDialog
+        open={postazioneDaEliminare !== undefined}
+        titolo={`Eliminare il tavolo ${postazioneDaEliminare?.numero ?? ''}?`}
+        testoConferma="Elimina tavolo"
+        descrizione="La sala perde questi posti e il tetto della fascia potrebbe non essere piu' coperto. Se il tavolo e' solo temporaneamente fuori uso, disattivalo: resta configurato e non viene assegnato."
+        onConfirm={() => {
+          deletePostazione.mutate(postazioneDaEliminare!.id)
+          setPostazioneDaEliminare(undefined)
+        }}
+        onCancel={() => setPostazioneDaEliminare(undefined)}
+      />
     </div>
   )
 }

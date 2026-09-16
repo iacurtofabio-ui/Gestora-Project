@@ -36,12 +36,20 @@ export default function ConfirmDialog({
     <AlertDialog open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{titolo}</AlertDialogTitle>
-          <AlertDialogDescription>{descrizione}</AlertDialogDescription>
+          <AlertDialogTitle className="text-titolo">{titolo}</AlertDialogTitle>
+          <AlertDialogDescription className="text-corpo text-muted-foreground text-pretty">
+            {descrizione}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Annulla</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className="bg-red-500 hover:bg-red-600">
+          {/* "Torna indietro" e non "Annulla": su Prenotazioni l'azione da confermare si chiama
+              gia' "Annulla prenotazione", e due pulsanti affiancati con lo stesso verbo che fanno
+              cose opposte sono il modo piu' rapido per far premere quello sbagliato. */}
+          <AlertDialogCancel onClick={onCancel}>Torna indietro</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
             {testoConferma}
           </AlertDialogAction>
         </AlertDialogFooter>

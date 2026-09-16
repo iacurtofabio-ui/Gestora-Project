@@ -7,6 +7,9 @@
  * proprio error boundary che intercetta gli errori delle pagine prima che arrivino a quello di
  * React, e senza un errorElement mostrerebbe la sua schermata di sviluppo con lo stack trace.
  */
+import { Button } from '@/components/ui/button'
+import { SchermataMessaggio } from '@/components/SchermataMessaggio'
+
 export default function ErrorScreen({ messaggio }: { messaggio?: string }) {
   function ripartiDaLogin() {
     localStorage.removeItem('token')
@@ -14,31 +17,31 @@ export default function ErrorScreen({ messaggio }: { messaggio?: string }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-      <div className="bg-white border rounded-lg p-6 max-w-md w-full">
-        <h1 className="text-lg font-semibold mb-2">Si e' verificato un errore</h1>
-        <p className="text-sm text-gray-600 mb-4">
-          L'applicazione non e' riuscita a mostrare questa pagina. Puoi riprovare a caricarla oppure
-          ripartire dall'accesso.
-        </p>
-        {messaggio && <p className="text-xs text-gray-400 mb-4 break-words">{messaggio}</p>}
-        <div className="flex gap-2 justify-end">
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 text-sm border rounded"
-          >
-            Ricarica
-          </button>
-          <button
-            type="button"
-            onClick={ripartiDaLogin}
-            className="px-4 py-2 text-sm bg-blue-500 text-white rounded"
-          >
-            Torna al login
-          </button>
-        </div>
-      </div>
-    </div>
+    <SchermataMessaggio
+      tono="errore"
+      titolo="Questa pagina non si e' aperta"
+      dettaglio={messaggio}
+      azioni={
+        <>
+          <Button type="button" onClick={() => window.location.reload()}>
+            Ricarica la pagina
+          </Button>
+          <Button type="button" variant="outline" onClick={ripartiDaLogin}>
+            Riparti dall'accesso
+          </Button>
+        </>
+      }
+    >
+      {/* L'errore dice cosa fare, in ordine di costo: prima la cosa che quasi sempre basta, poi
+          quella che costa un nuovo accesso. Non si scusa: non serve a chi ha il lavoro fermo. */}
+      <p>
+        Qualcosa si e' inceppato mentre la pagina veniva disegnata. Nove volte su dieci basta
+        ricaricare.
+      </p>
+      <p>
+        Se ricaricando succede di nuovo, ripartire dall'accesso ripulisce i dati di sessione
+        rimasti a meta', che sono la causa piu' comune.
+      </p>
+    </SchermataMessaggio>
   )
 }

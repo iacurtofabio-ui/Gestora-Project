@@ -7,7 +7,11 @@ import { useAuth } from '@/hooks/useAuth'
 import apiClient from '@/lib/axios'
 import { Endpoints } from '@/lib/endpoints'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Logo } from '@/components/Logo'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ErroreForm } from '@/components/PageState'
 
 const schema = z.object({
   email: z.string().email('Email non valida'),
@@ -39,57 +43,63 @@ export default function LoginPage() {
       // Un token illeggibile non e' un problema di credenziali: dirlo com'e', altrimenti si
       // manda l'utente a riprovare all'infinito una password che era giusta.
       const messaggio = isAxiosError(errore)
-        ? 'Credenziali non valide'
+        ? 'Email o password non corrispondono a nessun account. Controlla e riprova.'
         : 'Accesso non riuscito: la risposta del server non risulta utilizzabile.'
       setError('root', { message: messaggio })
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="w-full max-w-sm p-8 border rounded-lg shadow-sm">
-        <h1 className="text-2xl font-bold mb-6">Gestora</h1>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <div>
-            <Label htmlFor="login-email" className="sr-only">
-              Email
-            </Label>
-            <input
-              id="login-email"
-              {...register('email')}
-              type="email"
-              placeholder="Email"
-              className="w-full border rounded px-3 py-2"
-            />
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
-          </div>
-          <div>
-            <Label htmlFor="login-password" className="sr-only">
-              Password
-            </Label>
-            <input
-              id="login-password"
-              {...register('password')}
-              type="password"
-              placeholder="Password"
-              className="w-full border rounded px-3 py-2"
-            />
-            {errors.password && (
-              <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
-            )}
-          </div>
-          {errors.root && <p className="text-red-500 text-sm">{errors.root.message}</p>}
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Accesso...' : 'Accedi'}
-          </Button>
-        </form>
-        <p className="text-sm text-gray-500 mt-4 text-center">
-          Non hai un account?{' '}
-          <Link to="/register" className="underline">
-            Registrati
-          </Link>
-        </p>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-4">
+      <Link to="/" aria-label="Torna alla pagina iniziale">
+        <Logo className="text-foreground" />
+      </Link>
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-titolo">Accedi</CardTitle>
+          {/* Era rimasto un segnaposto, "SOTTOAccedi", pubblicato cosi' com'era. */}
+          <CardDescription className="text-corpo text-muted-foreground">
+            Entra per vedere e gestire le prenotazioni.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+            <div>
+              <Label htmlFor="login-email" className="sr-only">
+                Email
+              </Label>
+              <Input id="login-email" {...register('email')} type="email" placeholder="Email" />
+              {errors.email && (
+                <p className="text-nota text-destructive mt-1">{errors.email.message}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="login-password" className="sr-only">
+                Password
+              </Label>
+              <Input
+                id="login-password"
+                {...register('password')}
+                type="password"
+                placeholder="Password"
+              />
+              {errors.password && (
+                <p className="text-nota text-destructive mt-1">{errors.password.message}</p>
+              )}
+            </div>
+            <ErroreForm messaggio={errors.root?.message} />
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Accesso…' : 'Accedi'}
+            </Button>
+          </form>
+          <p className="text-corpo mt-4 text-center text-muted-foreground">
+            Non hai un account?{' '}
+            <Link to="/register" className="underline underline-offset-4 hover:text-foreground">
+              Registrati
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

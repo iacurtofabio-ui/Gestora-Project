@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isAxiosError } from 'axios'
+import { PlusIcon } from 'lucide-react'
 import {
   usePrenotazioni,
   useConfermaPrenotazione,
@@ -10,30 +11,69 @@ import {
 import PrenotazioneModal from '@/components/PrenotazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import Paginazione from '@/components/Paginazione'
-import { PageLoading, PageError } from '@/components/PageState'
+import { PageError, TableSkeleton } from '@/components/PageState'
 import { EmptyState } from '@/components/EmptyState'
+import { StatoBadge } from '@/components/StatoBadge'
+import { AzioniPrenotazione } from '@/components/AzioniPrenotazione'
 import { Button } from '@/components/ui/button'
-import { STATI_PRENOTAZIONE, STATO_LABELS, type PrenotazioneDTO } from '@/types/prenotazione'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { STATI_PRENOTAZIONE, type PrenotazioneDTO } from '@/types/prenotazione'
 import { useAuth } from '@/hooks/useAuth'
+import { dataBreveInItalia } from '@/lib/date'
 
 // REV-043: 20 righe stanno in una schermata senza scorrere. Il backend accetta al massimo 100.
 const RIGHE_PER_PAGINA = 20
 
+// Radix non ammette la stringa vuota come valore di un'opzione: la usa internamente per "niente
+// selezionato". Serve quindi un valore vero per "nessun filtro", tradotto in `undefined` prima di
+// arrivare alla chiamata.
+const STATO_TUTTI = 'tutti'
+
 const OPZIONI_STATO = [
-  { value: '', label: 'Tutti gli stati' },
+  { value: STATO_TUTTI, label: 'Tutti gli stati' },
   { value: STATI_PRENOTAZIONE.ATTIVA, label: 'Attiva' },
   { value: STATI_PRENOTAZIONE.IN_CORSO, label: 'Confermata' },
   { value: STATI_PRENOTAZIONE.COMPLETATA, label: 'Completata' },
   { value: STATI_PRENOTAZIONE.ANNULLATA, label: 'Annullata' },
 ]
 
+/**
+ * Le larghezze reali delle colonne. Servono due volte: alla tabella, perche' le colonne non
+ * ballino da una pagina all'altra, e allo scheletro di caricamento, perche' disegni la forma
+ * che poi arriva davvero (vedi TableSkeleton).
+ */
+const COLONNE = [
+  '7.5rem',
+  'minmax(8rem,1fr)',
+  '7.5rem',
+  '5.5rem',
+  '8rem',
+  'minmax(8rem,1fr)',
+  '8rem',
+]
+
 export default function PrenotazionePage() {
   const { user } = useAuth()
-  const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
+  const isStaff = Boolean(user?.roles.includes('Admin') || user?.roles.includes('Staff'))
   // NEW-004: l'eliminazione e' riservata all'Admin (l'endpoint e' [Authorize(Roles = Admin)]).
-  const isAdmin = user?.roles.includes('Admin')
+  const isAdmin = Boolean(user?.roles.includes('Admin'))
   const [filtroData, setFiltroData] = useState('')
-  const [filtroStato, setFiltroStato] = useState('')
+  const [filtroStato, setFiltroStato] = useState(STATO_TUTTI)
   const [pagina, setPagina] = useState(1)
 
   // Cambiando filtro il numero di pagine cambia: restando sulla pagina corrente si puo' finire
@@ -47,6 +87,15 @@ export default function PrenotazionePage() {
     setFiltroStato(valore)
     setPagina(1)
   }
+
+  function azzeraFiltri() {
+    setFiltroData('')
+    setFiltroStato(STATO_TUTTI)
+    setPagina(1)
+  }
+
+  const filtriAttivi = filtroData !== '' || filtroStato !== STATO_TUTTI
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   // NEW-001: lo stesso modal serve creazione e modifica. Se questa e' valorizzata il modal si
   // apre precompilato e salva con PUT, altrimenti crea.
@@ -73,7 +122,7 @@ export default function PrenotazionePage() {
 
   const prenotazioni = usePrenotazioni({
     data: filtroData || undefined,
-    stato: filtroStato || undefined,
+    stato: filtroStato === STATO_TUTTI ? undefined : filtroStato,
     page: pagina,
     pageSize: RIGHE_PER_PAGINA,
   })
@@ -92,176 +141,212 @@ export default function PrenotazionePage() {
       : undefined
     if (status === 403)
       return (
-        <div className="p-6 text-sm text-gray-500">
-          Non hai i permessi per visualizzare questa sezione. Contatta l'amministratore.
+        <div className="mx-auto max-w-md rounded-xl border bg-card p-6 text-center">
+          <p className="text-sezione">Questa sezione non e' aperta al tuo ruolo</p>
+          <p className="text-corpo mt-1 text-muted-foreground text-pretty">
+            Serve un profilo Staff o Admin per vedere le prenotazioni della sala. Chiedi
+            all'amministratore di aggiungerti il ruolo.
+          </p>
         </div>
       )
   }
 
-  const numeroColonne = 7
+  const numeroColonne = COLONNE.length
 
   return (
-    <div className="bg-white rounded-lg border">
-      {/* HEADER — REV-074: resta visibile durante il caricamento e in caso di errore. */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-4 border-b gap-4">
-        <h2 className="text-sm font-semibold text-gray-700">Prenotazioni</h2>
-        <div className="flex flex-wrap gap-3 items-center">
-          {isStaff && (
-            <>
-              <input
-                type="date"
-                className="border rounded px-3 py-1 text-sm"
-                value={filtroData}
-                onChange={(e) => cambiaFiltroData(e.target.value)}
-              />
-              <select
-                className="border rounded px-3 py-1 text-sm"
-                value={filtroStato}
-                onChange={(e) => cambiaFiltroStato(e.target.value)}
-              >
-                {OPZIONI_STATO.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          <Button size="sm" onClick={apriNuovaPrenotazione}>
-            + Aggiungi
-          </Button>
-        </div>
+    <div className="mx-auto max-w-6xl space-y-4">
+      {/* Il titolo sta FUORI dal contenitore della tabella: e' il titolo della schermata, non
+          l'intestazione di una card fra le tante. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h1 className="text-titolo">Prenotazioni</h1>
+        {!prenotazioni.isLoading && !prenotazioni.isError && (
+          <p className="text-nota text-muted-foreground tabular-nums">
+            {prenotazioni.data?.totalCount ?? 0} in elenco
+          </p>
+        )}
       </div>
 
-      {prenotazioni.isLoading ? (
-        <PageLoading />
-      ) : prenotazioni.isError ? (
-        <PageError error={prenotazioni.error} fallback="Errore nel caricamento delle prenotazioni." />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left p-3">Data</th>
-                <th className="text-left p-3">Utente</th>
-                <th className="text-left p-3">Orario</th>
-                <th className="text-left p-3">Coperti</th>
-                <th className="text-left p-3">Stato</th>
-                <th className="text-left p-3">Postazioni</th>
-                <th className="text-left p-3">Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prenotazioni.data?.items.length === 0 ? (
-                <EmptyState messaggio="Nessuna prenotazione trovata." colSpan={numeroColonne} />
-              ) : (
-                prenotazioni.data?.items.map((p) => (
-                  <tr key={p.id} className="border-b">
-                    <td className="p-3">{p.dataPrenotazione}</td>
-                    <td className="p-3">{p.nomeCliente ?? p.nomeUtente}</td>
-                    <td className="p-3">
-                      {p.oraInizio} - {p.oraFine}
-                    </td>
-                    <td className="p-3">{p.numeroCoperti}</td>
-                    <td className="p-3">{p.stato ? (STATO_LABELS[p.stato] ?? p.stato) : '—'}</td>
-                    <td className="p-3">
-                      {p.postazioni.map((pos) => (
-                        <span
-                          key={pos.numero}
-                          className="text-xs bg-gray-100 px-2 py-1 rounded mr-1"
-                        >
-                          {pos.numero} ({pos.nomeZona})
-                        </span>
-                      ))}
-                    </td>
-                    <td className="p-3 flex flex-wrap gap-2">
-                      {isStaff && p.stato === STATI_PRENOTAZIONE.ATTIVA && (
-                        <Button size="sm" onClick={() => conferma.mutate(p.id)}>
-                          Conferma
-                        </Button>
-                      )}
-                      {isStaff && p.stato === STATI_PRENOTAZIONE.IN_CORSO && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => completa.mutate(p.id)}
-                        >
-                          Completa
-                        </Button>
-                      )}
-                      {/* NEW-001: la modifica esisteva solo lato backend. Si offre sulle
-                          prenotazioni ancora Attive; per il Cliente il preavviso minimo di
-                          2h e' verificato dal backend e l'eventuale rifiuto arriva come toast. */}
-                      {p.stato === STATI_PRENOTAZIONE.ATTIVA && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => apriModificaPrenotazione(p)}
-                        >
-                          Modifica
-                        </Button>
-                      )}
-                      {/* RBAC-002: il Cliente può annullare una propria prenotazione (la lista che
-                          vede è già filtrata solo sulle sue), entro il cutoff verificato dal backend —
-                          l'errore oltre soglia arriva come toast dalla mutation. */}
-                      {(p.stato === STATI_PRENOTAZIONE.ATTIVA ||
-                        p.stato === STATI_PRENOTAZIONE.IN_CORSO) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setIdDaAnnullare(p.id)}
-                        >
-                          Annulla
-                        </Button>
-                      )}
-                      {/* NEW-004: l'hook useDeletePrenotazione esisteva ma nessun
-                          componente lo usava, quindi eliminare passava solo da Postman.
-                          Il backend accetta l'eliminazione solo su Attiva o Annullata:
-                          fuori da quegli stati il pulsante non si mostra, invece di far
-                          scoprire il limite con un 409. Eliminare e' definitivo, per
-                          questo resta separato da Annulla, che e' la via normale. */}
-                      {isAdmin &&
-                        (p.stato === STATI_PRENOTAZIONE.ATTIVA ||
-                          p.stato === STATI_PRENOTAZIONE.ANNULLATA) && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => setIdDaEliminare(p.id)}
-                          >
-                            Elimina
-                          </Button>
-                        )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="overflow-hidden rounded-xl border bg-card">
+        {/* Barra dei filtri — REV-074: resta visibile durante il caricamento e in caso di errore. */}
+        <div className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {isStaff && (
+              <>
+                <Input
+                  type="date"
+                  aria-label="Filtra per data"
+                  className="h-8 w-auto"
+                  value={filtroData}
+                  onChange={(e) => cambiaFiltroData(e.target.value)}
+                />
+                <Select value={filtroStato} onValueChange={cambiaFiltroStato}>
+                  <SelectTrigger className="h-8 w-[168px]" aria-label="Filtra per stato">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OPZIONI_STATO.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {filtriAttivi && (
+                  <Button size="sm" variant="ghost" onClick={azzeraFiltri}>
+                    Azzera i filtri
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
 
-      {!prenotazioni.isLoading && !prenotazioni.isError && (
-        <Paginazione
-          pagina={prenotazioni.data?.page ?? 1}
-          paginePresenti={prenotazioni.data?.totalPages ?? 1}
-          totaleElementi={prenotazioni.data?.totalCount ?? 0}
-          elementiInPagina={prenotazioni.data?.items.length ?? 0}
-          pageSize={RIGHE_PER_PAGINA}
-          inCaricamento={prenotazioni.isFetching}
-          onCambioPagina={setPagina}
-        />
-      )}
+          <Button size="sm" onClick={apriNuovaPrenotazione} className="self-start sm:self-auto">
+            <PlusIcon />
+            Aggiungi prenotazione
+          </Button>
+        </div>
+
+        {prenotazioni.isLoading ? (
+          <div className="p-3">
+            <TableSkeleton righe={8} colonne={COLONNE} />
+          </div>
+        ) : prenotazioni.isError ? (
+          <PageError
+            error={prenotazioni.error}
+            fallback="Errore nel caricamento delle prenotazioni."
+            onRiprova={() => prenotazioni.refetch()}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table style={{ tableLayout: 'fixed', minWidth: '56rem' }}>
+              <colgroup>
+                {COLONNE.map((larghezza, i) => (
+                  <col key={i} style={{ width: larghezza }} />
+                ))}
+              </colgroup>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="text-nota font-medium text-muted-foreground">Data</TableHead>
+                  <TableHead className="text-nota font-medium text-muted-foreground">
+                    Cliente
+                  </TableHead>
+                  <TableHead className="text-nota font-medium text-muted-foreground">
+                    Orario
+                  </TableHead>
+                  <TableHead className="text-nota text-right font-medium text-muted-foreground">
+                    Coperti
+                  </TableHead>
+                  <TableHead className="text-nota font-medium text-muted-foreground">
+                    Stato
+                  </TableHead>
+                  <TableHead className="text-nota font-medium text-muted-foreground">
+                    Tavoli
+                  </TableHead>
+                  <TableHead className="text-nota text-right font-medium text-muted-foreground">
+                    Azioni
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {prenotazioni.data?.items.length === 0 ? (
+                  <EmptyState
+                    colSpan={numeroColonne}
+                    messaggio={
+                      filtriAttivi
+                        ? 'Nessuna prenotazione con questi filtri. Prova con un altro giorno o un altro stato.'
+                        : 'Non c’e’ ancora nessuna prenotazione. La prima la puoi inserire da qui, anche per una richiesta arrivata al telefono.'
+                    }
+                    azione={
+                      filtriAttivi ? (
+                        <Button size="sm" variant="outline" onClick={azzeraFiltri}>
+                          Azzera i filtri
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={apriNuovaPrenotazione}>
+                          <PlusIcon />
+                          Aggiungi prenotazione
+                        </Button>
+                      )
+                    }
+                  />
+                ) : (
+                  prenotazioni.data?.items.map((p) => (
+                    <TableRow key={p.id} className="group/riga">
+                      <TableCell className="text-corpo whitespace-nowrap">
+                        {dataBreveInItalia(p.dataPrenotazione)}
+                      </TableCell>
+                      <TableCell className="text-corpo truncate font-medium">
+                        {p.nomeCliente ?? p.nomeUtente}
+                      </TableCell>
+                      {/* L'orario e' il dato che si cerca per primo: un gradino piu' grande e
+                          piu' pesante del resto della riga. */}
+                      <TableCell className="text-orario tabular-nums">
+                        {p.oraInizio?.slice(0, 5)}–{p.oraFine?.slice(0, 5)}
+                      </TableCell>
+                      <TableCell className="text-orario text-right tabular-nums">
+                        {p.numeroCoperti}
+                      </TableCell>
+                      <TableCell>
+                        <StatoBadge stato={p.stato} />
+                      </TableCell>
+                      <TableCell className="text-corpo truncate text-muted-foreground">
+                        {p.postazioni.length === 0
+                          ? '—'
+                          : p.postazioni.map((pos) => pos.numero).join(', ')}
+                        {p.postazioni[0]?.nomeZona && (
+                          <span className="text-nota"> · {p.postazioni[0].nomeZona}</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <AzioniPrenotazione
+                          prenotazione={p}
+                          isStaff={isStaff}
+                          isAdmin={isAdmin}
+                          inCorso={
+                            (conferma.isPending && conferma.variables === p.id) ||
+                            (completa.isPending && completa.variables === p.id)
+                          }
+                          onConferma={() => conferma.mutate(p.id)}
+                          onCompleta={() => completa.mutate(p.id)}
+                          onModifica={() => apriModificaPrenotazione(p)}
+                          onAnnulla={() => setIdDaAnnullare(p.id)}
+                          onElimina={() => setIdDaEliminare(p.id)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {!prenotazioni.isLoading && !prenotazioni.isError && (
+          <Paginazione
+            pagina={prenotazioni.data?.page ?? 1}
+            paginePresenti={prenotazioni.data?.totalPages ?? 1}
+            totaleElementi={prenotazioni.data?.totalCount ?? 0}
+            elementiInPagina={prenotazioni.data?.items.length ?? 0}
+            pageSize={RIGHE_PER_PAGINA}
+            inCaricamento={prenotazioni.isFetching}
+            onCambioPagina={setPagina}
+          />
+        )}
+      </div>
 
       <PrenotazioneModal
         isOpen={isModalOpen}
         onClose={chiudiModal}
         prenotazione={prenotazioneDaModificare}
       />
+
+      {/* Il dialogo di conferma resta riservato alle sole azioni che non si possono rifare.
+          Il verbo del pulsante e' lo stesso della voce di menu che ha portato qui. */}
       <ConfirmDialog
         open={idDaAnnullare !== undefined}
-        titolo="Conferma annullamento"
+        titolo="Annullare questa prenotazione?"
         testoConferma="Annulla prenotazione"
-        descrizione="Sei sicuro di voler annullare questa prenotazione? I tavoli assegnati tornano disponibili."
+        descrizione="I tavoli assegnati tornano subito disponibili per altre prenotazioni. La prenotazione resta nello storico come annullata."
         onConfirm={() => {
           annulla.mutate(idDaAnnullare!)
           setIdDaAnnullare(undefined)
@@ -270,7 +355,9 @@ export default function PrenotazionePage() {
       />
       <ConfirmDialog
         open={idDaEliminare !== undefined}
-        descrizione="La prenotazione viene eliminata definitivamente e non sara' piu' recuperabile. Per liberare i tavoli mantenendo lo storico usa invece Annulla."
+        titolo="Eliminare definitivamente?"
+        testoConferma="Elimina definitivamente"
+        descrizione="La prenotazione sparisce dallo storico e non si puo' recuperare. Per liberare i tavoli tenendo traccia di cosa e' successo usa invece Annulla."
         onConfirm={() => {
           elimina.mutate(idDaEliminare!)
           setIdDaEliminare(undefined)

@@ -20,14 +20,14 @@ export default function GestisciRuoliModal({ utente, open, onClose }: Props) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Gestisci ruoli — {utente.userName}</DialogTitle>
+          <DialogTitle className="text-titolo">I ruoli di {utente.userName}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 mt-2">
           {RUOLI_DISPONIBILI.map((ruolo) => {
             const haRuolo = utente.roles.includes(ruolo)
             return (
               <div key={ruolo} className="flex items-center justify-between">
-                <span className="text-sm font-medium">{ruolo}</span>
+                <span className="text-corpo font-medium">{ruolo}</span>
                 {haRuolo ? (
                   <Button
                     size="sm"
@@ -51,10 +51,8 @@ export default function GestisciRuoliModal({ utente, open, onClose }: Props) {
             )
           })}
         </div>
-        <div className="flex justify-end mt-4">
-          <Button variant="outline" onClick={onClose}>
-            Chiudi
-          </Button>
+        <div className="mt-4 flex justify-end border-t pt-4">
+          <Button onClick={onClose}>Ho finito</Button>
         </div>
       </DialogContent>
     </Dialog>
