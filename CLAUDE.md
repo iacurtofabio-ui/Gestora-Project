@@ -19,26 +19,11 @@
 | Vulnerabilità note nelle librerie | 0 |
 | Branch | `main` = `dev` = `origin`, allineati |
 
-**Ultima cosa fatta**: il redesign **«Turno»**, in tre fasi. La Fase 13 aveva dato all'app un
-aspetto, ma tre difetti restavano: il tema scuro tendeva al marrone, i componenti sembravano gli
-esempi della documentazione di shadcn, e non c'era gerarchia — card, bottoni e campi avevano
-tutti lo stesso raggio e lo stesso peso.
-
-La direzione scelta è «Turno»: **la sala vista nel tempo**. L'unità di base non è più la card, è
-la fascia oraria come **banda che si riempie di coperti** — il dato che conta durante il
-servizio smette di essere un numero in una cella e diventa la forma della schermata. Attorno,
-tutto è disciplinato: neutri a croma zero nel tema scuro, quattro livelli di superficie a passo
-regolare, sei ruoli tipografici e tre scaglioni di raggio, tutti dichiarati come token.
-
-Nel giro sono usciti anche difetti veri: un segnaposto (`SOTTOAccedi`) pubblicato in produzione
-sulla pagina di accesso, due pulsanti affiancati con il verbo «Annulla» ed effetti opposti,
-l'evidenziazione dei menu invisibile nel tema scuro, e due modali senza via d'uscita.
-
-**Cosa viene dopo**: la prova a mano. Il redesign è stato **scritto e misurato, non guardato** —
-la lista di controllo è in `GestoraDocs/verifica-redesign.md` e la verifica è in carico a Fabio
-(`UI-001` in `BACKLOG.md`). Per avere dati veri su cui provare c'è un seed di sviluppo:
-`dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Poi la fase sul file di appunti d'uso
-(`DOC-001`).
+**Ultima cosa fatta**: il redesign **«Turno»** (banda dei coperti, tema scuro neutro, gerarchia
+visiva). Scritto e misurato, **non ancora verificato a mano** — checklist in
+`GestoraDocs/verifica-redesign.md`, verifica in carico a Fabio (`UI-001` in `BACKLOG.md`). Per
+dati veri su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto completo
+del redesign e dei difetti emersi in `docs/archivio/STORICO_FASI.md`.
 
 ---
 
@@ -140,72 +125,21 @@ Prese il 28/08/2026. Il testo completo è in `docs/archivio/ROADMAP_REVISIONE.md
 ## 5. Come sono andate le fasi di revisione
 
 Dal 28/08 all'08/09/2026, dopo il primo rilascio, il progetto è stato rivisto da capo: 99
-segnalazioni numerate, chiuse in 11 fasi, più due fasi aggiunte dopo (documentazione e aspetto).
-
-| Fase | Cosa ha portato | Tag |
-|---|---|---|
-| 1 | Fondamenta di deploy: Dockerfile, health check sul database | — |
-| 2 | Nuovo algoritmo di assegnazione tavoli, disponibilità unificata | — |
-| 3 | Prenotazioni simultanee: indice unico, transazioni | — |
-| 4 | Sicurezza e schermata di primo avvio | `v1.0.1` |
-| 5 | Test del backend: da 31 a 74 | — |
-| 6 | Bug del frontend: schermata bianca, modifica ed eliminazione prenotazione | `v1.0.2` |
-| 7 | Robustezza del backend: paginazione, prestazioni, indirizzo IP reale | `v1.0.3` |
-| 8 | Robustezza del frontend: errori centralizzati, primi 26 test | `v1.0.4` |
-| 9 | Pulizia del codice, 0 vulnerabilità nelle librerie | — |
-| 10 | Esperienza d'uso: responsive, accessibilità, semaforo disponibilità | `v1.0.5` |
-| 11 | Chiusura: fix sovrapposizione fasce | `v1.0.6` |
-| 12 | Ordine e pulizia della documentazione | — |
-| 13 | Identità visiva, tema scuro e pagina pubblica | — |
-| «Turno» | Redesign completo: banda dei coperti, tema scuro neutro, gerarchia, azioni di riga | — |
-
-Il racconto completo, con i difetti emersi e **le 9 regole di metodo imparate sbagliando**, è in
-`docs/archivio/STORICO_FASI.md`. Vale la pena rileggerlo: è la parte più utile da raccontare a
-un colloquio.
+segnalazioni numerate, chiuse in 11 fasi, più due fasi aggiunte dopo (documentazione e aspetto),
+più il redesign «Turno». Il racconto completo, con i difetti emersi e le regole di metodo
+imparate sbagliando, è in `docs/archivio/STORICO_FASI.md`.
 
 ---
 
 ## 6. Cosa è aperto
 
-Il dettaglio è in **`BACKLOG.md`**.
+Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**.
 
-1. **`UI-001`** — correzioni sull'aspetto, raccolte provando l'app in funzione. **È il prossimo
-   lavoro.**
-2. **`DOC-001`** — formalizzare il file di appunti d'uso di Fabio.
-   ⚠️ Il file `AppuntiFix.txt` **non si apre** finché non parte quella fase.
-3. **`OPS-001`** — reset completo dei due database, quando tutte le implementazioni sono chiuse
-4. **Pulizie minori** e le idee per la **v2.0**
+**Priorità corrente**: `UI-001` — verifica a mano del redesign «Turno».
 
 ---
 
-## 7. Come lavoriamo insieme
-
-### Chi è Fabio
-
-Developer con 4 anni di esperienza su Dynamics 365 / Power Platform, in passaggio verso il full
-stack .NET + React. Conosce le basi di C#, .NET, Entity Framework, JavaScript, SQL Server, Git.
-**Poca esperienza sul frontend.** Obiettivo dichiarato: farsi assumere come full stack developer.
-
-### Come parlargli — regola aggiornata l'08/09/2026
-
-**Linguaggio tecnico di base.** Termini semplici, frasi corte, niente vocabolario da esperto per
-sembrare esperti. Se serve un termine tecnico si usa, ma va spiegato in una riga.
-
-L'obiettivo non è **saper parlare** da senior, è **saper fare** il lavoro. Un concetto spiegato
-bene con parole semplici vale più di uno spiegato con le parole giuste che non lascia niente.
-
-Altre regole:
-- **In italiano**, sempre, salvo nomi tecnici e codice
-- **Risposte concise**: non ripetere quello che ha appena detto
-- Affiancarlo come **senior che lavora insieme a lui**: spiegare le scelte, non consegnare solo
-  il codice
-- **Implementare direttamente** le modifiche, frontend incluso. Niente procedura guidata passo
-  passo con attesa che sia lui a scrivere: rallentava troppo sui fix piccoli
-- Quando c'è un concetto nuovo, spiegarlo comunque — breve, non un tutorial
-- Dire **subito** se qualcosa è sbagliato o migliorabile
-- Dire quando qualcosa **non è pronto per la produzione**, e perché
-
-### Regole non negoziabili
+## 7. Regole non negoziabili del progetto
 
 1. **Commit e push li fa sempre Fabio, mai Claude.** Claude fornisce il messaggio di commit con
    l'elenco delle modifiche. Formato: `feat: descrizione` oppure `feat: WIP - descrizione` se
@@ -219,74 +153,18 @@ Altre regole:
    È già capitato tre volte di lavorare su `main` invece che su `dev`.
 5. **Comandi PowerShell su una riga sola**: i blocchi su più righe si concatenano male nel suo
    terminale.
-
-### Modello e consumo
-
-- Partire da **Sonnet**. Suggerire `/model opus` solo per architettura complessa o refactoring
-  grossi. Il modello lo cambia Fabio.
-- **Stop ai giri a vuoto**: se un tentativo fallisce 3 volte di fila, fermarsi, dire di fare
-  `/compact` o `/clear`, e analizzare il problema alla radice invece di ritentare.
-- **Letture mirate**: percorsi specifici, mai "tutto il progetto", mai `node_modules`, `dist`,
-  `bin`, `obj`.
+6. **Implementare direttamente** le modifiche, frontend incluso, per correzioni e fix piccoli.
+   Niente procedura guidata passo passo con attesa: rallenta troppo su questo tipo di lavoro.
 
 ---
 
 ## 8. Il tracker
 
-**`TrackGestora_v2.xlsx`**, in questa cartella. È il **tracker unico e ufficiale** dal
-09/09/2026. Se compare un altro file che sembra un tracker, è un doppione — segnalarlo a Fabio,
-non aggiornarlo.
+**`TrackGestora_v2.xlsx`**, in questa cartella, è il tracker unico e ufficiale. Aggiornamento
+manuale, nessuna automazione.
 
-> **`TrackAttività_Gestora.xlsx` è congelato.** Resta nel repo come archivio storico dei primi
-> mesi (13 fogli, inventari tecnici, storia delle 13 fasi). **Non si aggiorna più**: si legge
-> solo per ritrovare qualcosa del passato.
->
-> Nota pratica: il nome del file nuovo non ha accenti e i fogli non hanno emoji, quindi si
-> indirizzano **per nome** e non più per numero. Claude legge e scrive da PowerShell con Excel
-> COM, tramite uno script `.ps1` salvato **UTF-8 con BOM** (non comandi inline: gli accenti si
-> rompono). Valori sempre come `[string]`, per copiare formati `Copy(destinazione)`, mai
-> `PasteSpecial`.
-
-### A cosa serve ogni foglio
-
-| Foglio | Cosa contiene |
-|---|---|
-| **Oggi** | **Il foglio che si apre ogni mattina**: solo le righe aperte, in ordine di priorità |
-| **Referto** | L'esito dell'audit: un rilievo per riga, con il file dove si verifica e l'esito del triage. In fondo, la lista di **cosa non è stato controllato** |
-| **Fatte** | Le righe chiuse, con la data e **come sono state verificate** |
-| **Decisioni** | Perché abbiamo fatto così. Include le 10 decisioni di prodotto e tutti i «non si fa» |
-| **Diario** | Una riga per sessione: cosa si è fatto, dove siamo arrivati |
-
-### Protocollo di aggiornamento
-
-Tre regole, non dieci. Il tracker vecchio è morto di burocrazia: quattro fogli da aggiornare
-insieme per un solo lavoro finito.
-
-1. **A inizio sessione**: leggere questo file + il foglio *Oggi*. Basta quello.
-2. **Quando una riga è finita**: `Stato` → `Fatto`, e a fine sessione **spostarla in *Fatte***
-   con la data e una riga su come è stata verificata. Una riga senza prova di verifica non è
-   chiusa.
-3. **Quando si decide qualcosa** — architettura, o un «non si fa» — riga in *Decisioni*, subito,
-   con il motivo. Una decisione senza motivo scritto si riapre ogni tre settimane.
-
-**A fine sessione**: una riga in *Diario*, aggiornare la sezione 1 di questo file, poi Fabio
-committa.
-
-### Colori degli stati — obbligatori, nessuna eccezione
-
-| Stato | Colore |
-|---|---|
-| Fatto | verde `#C6EFCE` |
-| Da fare / In corso | giallo `#FFEB9C` |
-| Pianificato | azzurro `#DDE9F7` |
-| Non si fa | grigio `#D9D9D9` |
-
-> Gli hex sono stati **campionati dalle celle** il 09/09/2026, non ricopiati: i valori annotati
-> prima (`#C6E7CE` e `#DDEBF7`) non comparivano da nessuna parte nel file.
->
-> Regola pratica: quando si aggiunge una riga, **leggere il colore da una cella già esistente
-> con lo stesso stato** invece di riscrivere l'hex. Così una svista non può introdurre una terza
-> tonalità.
+> **`TrackAttività_Gestora.xlsx` è congelato**, non si aggiorna più: resta come archivio storico
+> dei primi mesi, si legge solo per ritrovare qualcosa del passato.
 
 ---
 
@@ -294,7 +172,7 @@ committa.
 
 | Cerchi... | Vai in... |
 |---|---|
-| Stato del progetto, decisioni, come lavoriamo | questo file |
+| Stato del progetto, decisioni, regole del progetto | questo file |
 | Cosa resta da fare | `BACKLOG.md` |
 | Come si resetta il database, si applica una migration, si pubblica | `RUNBOOK.md` |
 | Endpoint, architettura e note del backend | `GestoraWebApi/CLAUDE.md` |
