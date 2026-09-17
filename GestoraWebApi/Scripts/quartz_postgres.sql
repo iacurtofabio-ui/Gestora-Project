@@ -1,5 +1,5 @@
 -- Tabelle Quartz.NET per PostgreSQL
--- Eseguire questo script una sola volta sul database prima di avviare l'applicazione.
+-- Eseguire questo script solo una volta sul database prima di avviare l'applicazione.
 
 DROP TABLE IF EXISTS QRTZ_FIRED_TRIGGERS;
 DROP TABLE IF EXISTS QRTZ_PAUSED_TRIGGER_GRPS;
