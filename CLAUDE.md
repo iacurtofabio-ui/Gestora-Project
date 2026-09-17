@@ -5,17 +5,20 @@
 
 ---
 
-## 1. Stato — aggiornato al 09/09/2026
+## 1. Stato — aggiornato al 17/09/2026
 
-**Il progetto è finito e in produzione.** Ultima versione pubblicata: **`v1.0.6`**.
+**Il progetto è finito.** Ultima versione pubblicata: **`v1.0.6`**.
+
+> ⚠️ **Migrazione hosting in corso** — Railway (backend + database) è offline dal 16/09/2026,
+> trial scaduto. Nuova infrastruttura in `BACKLOG.md`, voce `OPS-006`.
 
 | | |
 |---|---|
-| Backend | `https://gestora-project-production.up.railway.app` — Railway |
-| Frontend | `https://gestora-project-xi.vercel.app` — Vercel |
-| Database | PostgreSQL su Railway, stesso progetto del backend |
+| Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1) |
+| Frontend | `https://gestora-project-xi.vercel.app` — Vercel (punta ancora al vecchio backend Railway, offline: da aggiornare, vedi `OPS-006`) |
+| Database | PostgreSQL su Neon (gratuito permanente), schema riallineato (7 migration EF + tabelle Quartz) |
 | Test | **239** backend (xUnit) + **35** frontend (Vitest), tutti verdi |
-| Modifiche al database | 7 applicate, in locale e in produzione (elenco nel foglio *Migration* del tracker) |
+| Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 0 |
 | Branch | `main` = `dev` = `origin`, allineati |
 

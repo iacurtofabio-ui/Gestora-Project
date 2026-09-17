@@ -1,6 +1,6 @@
 # Gestora — cosa resta da fare
 
-Aggiornato il **09/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **17/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -8,6 +8,36 @@ vista d'insieme che si guarda per decidere cosa fare.
 
 > Le sigle vecchie (`REV-xxx`, `NEW-xxx`, `FIX-xxx`) restano valide come riferimento storico.
 > Sono spiegate in `docs/archivio/REVISIONE_END_TO_END.md` e nel tracker.
+
+---
+
+## 🔴 Urgente — migrazione hosting
+
+### `OPS-006` — Completare la migrazione da Railway ad Azure/Neon
+
+**Cos'è.** Railway ha chiuso il trial il 16/09/2026 e spento backend e database senza
+preavviso di scadenza (era stato indicato come "gratuito", non era un piano gratuito
+permanente). Nuova infrastruttura pensata per restare online senza limiti di tempo, dettagli in
+`CLAUDE.md` §1: **Azure App Service F1 + Neon (Postgres) + Docker Hub + GitHub Actions**. Dati
+vecchi non migrati per scelta (erano solo dati di test).
+
+**Fatto finora (16-17/09/2026):**
+- Database Neon creato, schema riallineato (7 migration EF + tabelle Quartz)
+- App Service `gestora-api` (Azure, piano F1, Canada Central) creata
+- Pipeline CI (`.github/workflows/docker-publish.yml`) che pubblica l'immagine su Docker Hub
+  (`fabioiacurto/gestora-api`) ad ogni push su `main`
+- Variabili d'ambiente configurate correttamente su Azure (attenzione: due bug trovati e
+  corretti — nomi con underscore singolo invece di doppio, e valori rimasti come testo
+  segnaposto invece dei valori veri)
+- `/health` risponde **Healthy**
+
+**Cosa resta:**
+1. Abilitare l'autenticazione di base SCM su Azure e collegare il webhook di distribuzione
+   continua su Docker Hub, per il redeploy automatico ad ogni nuova immagine pubblicata
+2. Aggiornare la variabile del frontend su Vercel (`VITE_API_URL` o equivalente) per puntare al
+   nuovo backend Azure, oggi ancora agganciato al vecchio indirizzo Railway (offline)
+3. Verifica end-to-end: login con i 3 ruoli, prova prenotazione, job Quartz
+4. Dismissione del progetto Railway, una volta confermato tutto stabile
 
 ---
 
