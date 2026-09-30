@@ -49,8 +49,10 @@ const PASSAGGI = [
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4">
+      {/* RESTYLE: stessa barra fissa dell'area autenticata (h-14, sticky), cosi' il passaggio
+          da vetrina a dashboard non cambia grammatica visiva. */}
+      <header className="sticky top-0 z-40 border-b bg-card">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
           <Logo />
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -76,8 +78,11 @@ export default function LandingPage() {
               Verifica la disponibilità e conferma la prenotazione. Al tavolo ci pensa Gestora.
             </p>
             <div className="flex flex-wrap gap-3">
+              {/* RESTYLE: il pulsante primario scorre al modulo gia' in vista (a destra su
+                  desktop, subito sotto su mobile), invece di saltare a un altra pagina: il modulo
+                  E' gia' la prova che serve, non va nascosto dietro la registrazione. */}
               <Button asChild size="lg">
-                <Link to="/register">Prenota un tavolo</Link>
+                <a href="#verifica-disponibilita">Controlla la disponibilità</a>
               </Button>
               <Button asChild size="lg" variant="outline">
                 <Link to="/login">Ho già un account</Link>
@@ -85,7 +90,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="flex md:justify-end">
+          <div id="verifica-disponibilita" className="flex scroll-mt-20 md:justify-end">
             <VerificaDisponibilita />
           </div>
         </section>
@@ -121,11 +126,12 @@ export default function LandingPage() {
             Puoi indicare dove preferisci sedere: se in quella zona c’è posto, il tavolo si assegna
             lì.
           </p>
-          {/* Una griglia sola divisa da filetti, non tre card identiche: sono tre voci di un
-              elenco, non tre cose su cui si agisce. */}
-          <ul className="grid gap-px overflow-hidden rounded-xl border bg-border md:grid-cols-3">
+          {/* RESTYLE: tre card separate, ognuna col proprio bordo - prima erano un unico
+              riquadro diviso da filetti, che le faceva leggere come un elenco unico invece che
+              come tre scelte a se' stanti (coerente con card.tsx: bordo 1px, niente ombra). */}
+          <ul className="grid gap-4 md:grid-cols-3">
             {ZONE_VETRINA.map((zona) => (
-              <li key={zona.nome} className="bg-card p-5">
+              <li key={zona.nome} className="rounded-xl border bg-card p-5 ring-1 ring-foreground/10">
                 <h3 className="text-sezione">{zona.nome}</h3>
                 <p className="text-corpo mt-1 text-muted-foreground text-pretty">
                   {zona.descrizione}

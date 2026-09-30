@@ -20,6 +20,9 @@ const PUNTO: Record<string, string> = {
   // Servizio concluso: informazione di archivio, non deve attirare l'occhio.
   [STATI_PRENOTAZIONE.COMPLETATA]: 'bg-muted-foreground/50',
   [STATI_PRENOTAZIONE.ANNULLATA]: 'bg-destructive',
+  // Come Completata: informazione di archivio. Il corsivo (sotto) la distingue senza un
+  // colore nuovo, dato che entrambe condividono lo stesso pallino spento.
+  [STATI_PRENOTAZIONE.NON_PRESENTATA]: 'bg-muted-foreground/50',
 }
 
 const TESTO: Record<string, string> = {
@@ -27,6 +30,7 @@ const TESTO: Record<string, string> = {
   [STATI_PRENOTAZIONE.IN_CORSO]: 'text-foreground',
   [STATI_PRENOTAZIONE.COMPLETATA]: 'text-muted-foreground',
   [STATI_PRENOTAZIONE.ANNULLATA]: 'text-muted-foreground line-through decoration-1',
+  [STATI_PRENOTAZIONE.NON_PRESENTATA]: 'text-muted-foreground italic',
 }
 
 export function StatoBadge({ stato }: { stato: string | null }) {

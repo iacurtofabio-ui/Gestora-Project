@@ -14,7 +14,11 @@ function Table({ className, ...props }: React.ComponentProps<'table'>) {
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {
-  return <thead data-slot="table-header" className={cn('[&_tr]:border-b', className)} {...props} />
+  // RESTYLE: intestazione discreta - sfondo tenue, testo piccolo in maiuscolo - invece di
+  // testo normale della stessa taglia del corpo tabella, che non si distingueva a colpo d'occhio.
+  return (
+    <thead data-slot="table-header" className={cn('bg-muted/50 [&_tr]:border-b', className)} {...props} />
+  )
 }
 
 function TableBody({ className, ...props }: React.ComponentProps<'tbody'>) {
@@ -38,6 +42,8 @@ function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>) {
 }
 
 function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
+  // RESTYLE: righe piu' alte (h-12 circa, via padding verticale in TableCell) - una tabella
+  // densa e leggibile, non compressa.
   return (
     <tr
       data-slot="table-row"
@@ -55,7 +61,7 @@ function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
     <th
       data-slot="table-head"
       className={cn(
-        'h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0',
+        'text-nota h-10 px-2 text-left align-middle font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase [&:has([role=checkbox])]:pr-0',
         className
       )}
       {...props}
@@ -67,7 +73,7 @@ function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
   return (
     <td
       data-slot="table-cell"
-      className={cn('p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0', className)}
+      className={cn('px-2 py-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0', className)}
       {...props}
     />
   )

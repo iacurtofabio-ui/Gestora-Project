@@ -28,7 +28,10 @@ function NativeSelect({ className, children, ...props }: React.ComponentProps<'s
           // `dark:bg-input/30` non è un dettaglio: senza, in tema scuro il menu resta trasparente
           // mentre i campi di testo accanto hanno una leggera velatura, e nello stesso form si
           // vedono due tipi di campo diversi. Stessa classe di `Input` e del `Select` di Radix.
-          'flex h-8 w-full appearance-none rounded-md border border-input bg-transparent dark:bg-input/30 px-2.5 py-1 pr-8 text-base transition-[color,box-shadow] outline-none',
+          'flex h-8 w-full appearance-none rounded-md border border-input bg-transparent dark:bg-input/30 px-2.5 py-1 pr-8 text-base text-foreground transition-[color,box-shadow] outline-none',
+          // Le <option> le disegna il sistema: senza colori espliciti, in tema scuro il menu
+          // aperto poteva uscire chiaro con testo chiaro. color-scheme (index.css) fa il resto.
+          '[&>option]:bg-popover [&>option]:text-popover-foreground',
           'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
           'disabled:cursor-not-allowed disabled:opacity-50',
           'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
