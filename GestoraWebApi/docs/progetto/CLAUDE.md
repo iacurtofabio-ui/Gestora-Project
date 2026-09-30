@@ -19,7 +19,7 @@
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al nuovo backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente), schema riallineato (7 migration EF + tabelle Quartz) |
-| Test | **256** backend (xUnit) + **45** frontend (Vitest), tutti verdi |
+| Test | **258** backend (xUnit) + **47** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 0 |
 | Branch | `main` = `dev` = `origin`, allineati |

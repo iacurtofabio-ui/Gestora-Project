@@ -55,7 +55,7 @@ cd "...\gestora-frontend"; npm run build
 cd "...\gestora-frontend"; npm run lint
 ```
 
-Valori attesi oggi: **256** test backend, **45** frontend, build senza errori, lint senza errori.
+Valori attesi oggi: **258** test backend, **47** frontend, build senza errori, lint senza errori.
 
 > ⚠️ `npm test` **non controlla i tipi**, `npm run build` sì. Un test verde non sostituisce una
 > build pulita: in Fase 8 la build ha trovato un campo scritto male che i test non vedevano.

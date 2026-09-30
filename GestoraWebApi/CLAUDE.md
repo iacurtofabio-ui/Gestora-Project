@@ -202,7 +202,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **256 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **258 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa
