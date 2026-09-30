@@ -5,9 +5,11 @@
 
 ---
 
-## 1. Stato — aggiornato al 18/09/2026
+## 1. Stato — aggiornato al 30/09/2026
 
-**Il progetto è finito.** Ultima versione pubblicata: **`v1.0.6`**.
+**Il progetto è finito.** Ultima versione pubblicata: **`v1.0.6`**. La **v1.1** è su `main` dal
+30/09/2026 (merge di `dev`); il tag `v1.1.0` e i controlli finali del rilascio vanno ancora fatti
+(sezione *Rilascio* di `GestoraDocs/CONSEGNA_v1.1.md`).
 
 > ✅ **Migrazione hosting completata** — Railway (backend + database) è stato spento dal
 > 16/09/2026 (trial scaduto) ed eliminato il 18/09/2026, dopo verifica end-to-end sulla nuova
@@ -19,16 +21,18 @@
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al nuovo backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente), schema riallineato (7 migration EF + tabelle Quartz) |
-| Test | **256** backend (xUnit) + **45** frontend (Vitest), tutti verdi |
+| Test | **258** backend (xUnit) + **47** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *Migration* del tracker) |
-| Vulnerabilità note nelle librerie | 0 |
-| Branch | `main` = `dev` = `origin`, allineati |
+| Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, decisione aperta (`SEC-001` in `BACKLOG.md`) |
+| Branch | `main` contiene tutta la v1.1; `dev` è indietro solo del commit di merge |
 
-**Ultima cosa fatta**: il redesign **«Turno»** (banda dei coperti, tema scuro neutro, gerarchia
-visiva). Scritto e misurato, **non ancora verificato a mano** — checklist in
-`GestoraDocs/verifica-redesign.md`, verifica in carico a Fabio (`UI-001` in `BACKLOG.md`). Per
-dati veri su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto completo
-del redesign e dei difetti emersi in `docs/archivio/STORICO_FASI.md`.
+**Ultima cosa fatta**: la chiusura **v1.1** (tetto dei coperti protetto, stato «Non presentata»,
+restyle con barra superiore, dashboard per giorno, note e tavoli leggibili in Prenotazioni,
+eliminazione solo delle prenotazioni annullate). Il 30/09/2026 Fabio ha rifatto a mano il giro di
+prova sul portale locale: tutto ok. Della checklist completa in
+`GestoraDocs/verifica-redesign.md` (`UI-001`) restano da fare le voci a 768px/375px e sul touch.
+Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto in
+`GestoraDocs/CONSEGNA_v1.1.md` e `docs/archivio/STORICO_FASI.md`.
 
 ---
 
@@ -142,7 +146,8 @@ imparate sbagliando, è in `docs/archivio/STORICO_FASI.md`.
 
 Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**.
 
-**Priorità corrente**: `UI-001` — verifica a mano del redesign «Turno».
+**Priorità corrente**: chiudere il rilascio v1.1 (tag `v1.1.0`, `/health`, login con i tre ruoli in
+produzione), poi `UI-001` per le voci rimaste.
 
 ---
 

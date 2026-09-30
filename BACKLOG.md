@@ -56,6 +56,10 @@ Popola il database **locale** con un dataset costruito per rompere il layout (no
 26 fasce, una fascia oltre il tetto, una zona senza tavoli, un utente con tre ruoli). Accesso:
 `admin@gestora.local` / `Sviluppo1!`.
 
+**30/09/2026.** Fabio ha rifatto a mano un giro di 30 prove sul portale locale: uscite 5 correzioni
+(note, tavoli, disponibilità, eliminazione, seed), poi rifatto il giro: tutto ok. Restano le voci
+della checklist non ancora provate.
+
 **Poi**: i difetti che escono diventano voci nel tracker e si sistemano prima del rilascio.
 
 > Quando si tocca un colore va sempre rilanciato `node scripts/contrasto.mjs` dentro
