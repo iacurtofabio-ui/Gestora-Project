@@ -97,7 +97,9 @@ namespace GestoraWebApi.Repositories.Prenotazioni
         {
             return await _context.Prenotazioni
                 .AsNoTracking()
-                .Where(p => p.DataPrenotazione == data && p.Stato != StatoPrenotazione.Annullata)
+                .Where(p => p.DataPrenotazione == data
+                         && p.Stato != StatoPrenotazione.Annullata
+                         && p.Stato != StatoPrenotazione.NonPresentata)
                 .Include(p => p.PrenotazioniPostazioni)
                 .ThenInclude(pp => pp.Postazione)
                 .ToListAsync();

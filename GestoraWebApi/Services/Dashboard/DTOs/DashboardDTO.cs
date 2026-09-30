@@ -32,6 +32,13 @@
         public int MaxCoperti { get; set; }
         public int CopertiPrenotati { get; set; }
         public int CopertiDisponibili { get; set; }
+
+        /// <summary>
+        /// CAP-001: coperti prenotati oltre MaxCoperti. Zero nel caso normale. Uno sforamento
+        /// (tetto abbassato dopo le prenotazioni, o dato scritto saltando il servizio) va mostrato,
+        /// non schiacciato su «0 disponibili» come una fascia esattamente piena.
+        /// </summary>
+        public int CopertiOltreIlTetto { get; set; }
         public int NumeroPrenotazioni { get; set; }
 
         /// <summary>
@@ -75,5 +82,14 @@
         public int NumeroPrenotazioni { get; set; }
         public int NumeroCoperti { get; set; }
         public int Annullate { get; set; }
+
+        /// <summary>
+        /// FASE 7: somma di MaxCoperti delle fasce attive di quel giorno della settimana. Serve
+        /// alla banda coperti/capienza nella tabella settimanale, come nella vista giornaliera.
+        /// </summary>
+        public int CapienzaGiorno { get; set; }
+
+        /// <summary>Solo per i giorni gia passati: quante prenotazioni non si sono presentate.</summary>
+        public int NonPresentate { get; set; }
     }
 }

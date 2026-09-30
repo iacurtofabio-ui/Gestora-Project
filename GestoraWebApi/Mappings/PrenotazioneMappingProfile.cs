@@ -15,7 +15,9 @@ namespace GestoraWebApi.Mappings
                 // stesso schema di REV-001 (NumeroPosti rimasto a 0). Serve al frontend per
                 // precompilare la zona nel modal di modifica: con 0 la select non trovava alcuna
                 // opzione corrispondente e restava senza selezione.
-                .ForMember(dest => dest.ZonaId,   opt => opt.MapFrom(src => src.Postazione.ZonaId));
+                .ForMember(dest => dest.ZonaId,   opt => opt.MapFrom(src => src.Postazione.ZonaId))
+                // FASE 4 (REV-001/NEW-001): il dato esiste dal checkpoint 2b, non usciva mai nell API.
+                .ForMember(dest => dest.NumeroPosti, opt => opt.MapFrom(src => src.NumeroPosti));
 
             CreateMap<Prenotazione, PrenotazioneDTO>()
                 .ForMember(dest => dest.NomeUtente, opt => opt.MapFrom(src => src.User != null ? src.User.UserName : null))

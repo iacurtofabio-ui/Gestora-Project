@@ -26,5 +26,8 @@ namespace GestoraWebApi.Services.Prenotazioni.DTOs
 
         public DateOnly? Data { get; set; }
         public StatoPrenotazione? Stato { get; set; }
+
+        /// <summary>FASE 7: filtro per fascia, usato dal clic su una riga della dashboard.</summary>
+        public long? FasciaOrariaId { get; set; }
     }
 }

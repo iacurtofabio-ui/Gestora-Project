@@ -48,6 +48,7 @@ namespace GestoraWebApi.Services.PostazioneAssignment
                     pr.DataPrenotazione == dto.DataPrenotazione &&
                     pr.FasciaOrariaId == dto.FasciaOrariaId &&
                     pr.Stato != StatoPrenotazione.Annullata &&
+                    pr.Stato != StatoPrenotazione.NonPresentata &&
                     (!excludePrenotazioneId.HasValue || pr.Id != excludePrenotazioneId.Value))
                 .SelectMany(pr => pr.PrenotazioniPostazioni.Select(pp => pp.PostazioneId))
                 .ToListAsync();

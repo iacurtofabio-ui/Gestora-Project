@@ -1,4 +1,5 @@
 using GestoraWebApi.Auth;
+using GestoraWebApi.Common;
 using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
@@ -58,7 +59,7 @@ namespace GestoraWebApi.Development
 
         /// <summary>
         /// Rifiuta qualsiasi database che non sia su questa macchina. Un seed che cancella e
-        /// riscrive non deve avere la possibilita' tecnica di toccare Railway.
+        /// riscrive non deve avere la possibilita' tecnica di toccare Neon (produzione).
         /// </summary>
         private static void VerificaCheSiaLocale(string? connectionString)
         {
@@ -380,6 +381,7 @@ namespace GestoraWebApi.Development
             for (var i = 0; i < fasceDiOggi.Count; i++)
             {
                 var fascia = fasceDiOggi[i];
+                var turnoFinito = TimeOnly.FromDateTime(new SystemClock().NowInRome) > fascia.OrarioFine;
 
                 // Casi costruiti apposta, tutti LEGITTIMI: ognuno e' uno stato che si puo'
                 // davvero raggiungere prenotando dall'applicazione.
@@ -421,11 +423,14 @@ namespace GestoraWebApi.Development
                         UserId = utente.Id,
                         // Tutti e quattro gli stati sono rappresentati: la colonna Stato e le
                         // azioni di riga cambiano per ciascuno.
+                        // "Completata" solo se il turno e' davvero finito: il servizio la ammette
+                        // solo dopo l'orario di fine, quindi su un turno ancora aperto sarebbe
+                        // uno stato impossibile (e farebbe cercare un difetto che non c'e').
                         Stato = (indice % 5) switch
                         {
                             0 => StatoPrenotazione.Attiva,
                             1 => StatoPrenotazione.InCorso,
-                            2 => StatoPrenotazione.Completata,
+                            2 => turnoFinito ? StatoPrenotazione.Completata : StatoPrenotazione.InCorso,
                             3 => StatoPrenotazione.Attiva,
                             _ => StatoPrenotazione.InCorso
                         },
@@ -584,32 +589,37 @@ namespace GestoraWebApi.Development
                 if (libero is null) continue;
 
                 occupati.Add(libero.Id);
+
+                // FASE 4: un'unione di piu' tavoli distribuisce i coperti fra le postazioni, come
+                // farebbe il motore vero (AssegnazioneTavoli) - non li mette tutti sulla prima
+                // lasciando la seconda a 0. Il caso limite (unione, piu' numeri in colonna Tavoli)
+                // resta lo stesso, solo con un dato coerente da mostrare.
+                var haUnione = prenotazione.NumeroCoperti >= 6;
+                var secondo = haUnione ? tavoli.FirstOrDefault(t => !occupati.Contains(t.Id)) : null;
+                var postiPrimoTavolo = secondo is null
+                    ? prenotazione.NumeroCoperti
+                    : (int)Math.Ceiling(prenotazione.NumeroCoperti / 2.0);
+
                 associazioni.Add(new PrenotazionePostazione
                 {
                     PrenotazioneId = prenotazione.Id,
                     PostazioneId = libero.Id,
-                    NumeroPosti = prenotazione.NumeroCoperti,
+                    NumeroPosti = postiPrimoTavolo,
                     DataPrenotazione = prenotazione.DataPrenotazione,
                     FasciaOrariaId = prenotazione.FasciaOrariaId
                 });
 
-                // CASO LIMITE: un'unione di piu' tavoli, che nella colonna Tavoli produce una
-                // cella con piu' numeri e mette alla prova il troncamento.
-                if (prenotazione.NumeroCoperti >= 6)
+                if (secondo is not null)
                 {
-                    var secondo = tavoli.FirstOrDefault(t => !occupati.Contains(t.Id));
-                    if (secondo is not null)
+                    occupati.Add(secondo.Id);
+                    associazioni.Add(new PrenotazionePostazione
                     {
-                        occupati.Add(secondo.Id);
-                        associazioni.Add(new PrenotazionePostazione
-                        {
-                            PrenotazioneId = prenotazione.Id,
-                            PostazioneId = secondo.Id,
-                            NumeroPosti = 0,
-                            DataPrenotazione = prenotazione.DataPrenotazione,
-                            FasciaOrariaId = prenotazione.FasciaOrariaId
-                        });
-                    }
+                        PrenotazioneId = prenotazione.Id,
+                        PostazioneId = secondo.Id,
+                        NumeroPosti = prenotazione.NumeroCoperti - postiPrimoTavolo,
+                        DataPrenotazione = prenotazione.DataPrenotazione,
+                        FasciaOrariaId = prenotazione.FasciaOrariaId
+                    });
                 }
             }
 
