@@ -92,9 +92,10 @@ significa ricreare dati di test e rifarlo daccapo.
 **Perché un reset e non una cancellazione mirata.** Perché la cancellazione mirata **si blocca da
 sola**, ed è utile capire il motivo:
 
-- una prenotazione in stato `Completata` non si può **né eliminare** (dal 30/09/2026 il server
-  accetta l'eliminazione solo per `Annullata`) **né annullare** (le completate vengono
-  rifiutate). Stessa cosa per `NonPresentata`: resta nello storico.
+- una prenotazione in stato `Completata` non si può **né eliminare** (il server accetta solo
+  `Attiva`, `Annullata` e, da Fase 3, `NonPresentata`) **né annullare** (le completate vengono
+  rifiutate). Una `NonPresentata` invece **si elimina** (come `Annullata`): non è uno stato
+  chiuso allo stesso modo, solo un turno mai confermato.
 - quindi la sua riga di collegamento con il tavolo resta viva
 - e il tavolo non si elimina finché esiste **una qualsiasi** riga di collegamento, anche vecchia
 - e la zona non si elimina finché ha ancora un tavolo assegnato
