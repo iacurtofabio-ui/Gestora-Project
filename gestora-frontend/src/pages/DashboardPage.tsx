@@ -1,31 +1,41 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 import { useDashboardGiornaliera, useDashboardSettimanale } from '@/hooks/useDashboard'
 import {
+  usePrenotazioni,
+  useConfermaPrenotazione,
+  useCompletaPrenotazione,
+  useAnnullaPrenotazione,
+  useDeletePrenotazione,
+} from '@/hooks/usePrenotazioni'
+import {
   oggiInItalia,
-  lunediSettimanaCorrenteInItalia,
+  lunediSettimanaDi,
   dataEstesaInItalia,
+  aggiungiGiorni,
 } from '@/lib/date'
 import { PageError, DashboardSkeleton } from '@/components/PageState'
 import { BandaCoperti } from '@/components/BandaCoperti'
+import { AzioniPrenotazione } from '@/components/AzioniPrenotazione'
+import ConfirmDialog from '@/components/ConfirmDialog'
 import { coloreQuota } from '@/lib/coperti'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { CopertiFasciaDTO } from '@/types/dashboard'
+import type { PrenotazioneDTO } from '@/types/prenotazione'
 
 /**
  * Direzione «Turno» — la sala vista nel tempo.
  *
- * Prima questa pagina era quattro card identiche con dentro un numero, piu' due card identiche
- * con dentro due tabelle identiche: sei contenitori dello stesso peso, e il dato che conta
- * davvero durante il servizio — quanto manca al tetto di coperti — era un numero in una cella
- * come tutti gli altri.
+ * FASE 7: la dashboard era statica (solo il giorno corrente, dati fermi finche' non si
+ * ricaricava la pagina). Ora si naviga avanti e indietro nei giorni, i dati si aggiornano da
+ * soli ogni minuto, e compare un blocco con le prossime prenotazioni in arrivo — la domanda a
+ * cui la dashboard serve davvero durante il servizio: "chi arriva adesso?".
  *
- * Ora l'audacia si spende in un punto solo: la banda dei coperti. Tutto il resto attorno e'
- * disciplinato e silenzioso — nessuna card, solo una griglia di numeri separati da filetti e una
- * tabella settimanale che non alza la voce.
- *
- * Nessuna chiamata nuova: `copertiPerFascia` conteneva gia' `maxCoperti` e `copertiPrenotati`.
- * La capienza del giorno e' la loro somma, calcolata qui perche' e' presentazione.
+ * La banda del giorno resta l'elemento dominante (decisione del redesign "Turno", non si
+ * riapre): tutto il resto attorno resta disciplinato.
  */
 
 /** Il passo della cascata all'ingresso: le bande partono sfalsate di 40ms l'una dall'altra. */
@@ -38,45 +48,53 @@ function RigaFascia({
   fascia,
   indice,
   inAggiornamento,
+  data,
 }: {
   fascia: CopertiFasciaDTO
   indice: number
   inAggiornamento: boolean
+  data: string
 }) {
-  const esaurita = fascia.copertiDisponibili === 0
+  const oltreIlTetto = fascia.copertiOltreIlTetto > 0
+  const esaurita = fascia.copertiDisponibili === 0 && !oltreIlTetto
 
   return (
-    <li
-      className={cn(
-        'grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 border-b py-3 last:border-b-0',
-        // Sotto i 640px la banda va a capo e prende tutta la larghezza: su 375px, in linea,
-        // le resterebbero ~230px fra orario e numeri, e una banda piu' corta del testo che
-        // accompagna smette di essere l'elemento portante della schermata.
-        'sm:grid-cols-[7rem_1fr_auto]'
-      )}
-    >
-      <span className="text-orario tabular-nums whitespace-nowrap">
-        {fascia.oraInizio.slice(0, 5)}–{fascia.oraFine.slice(0, 5)}
-      </span>
-
-      <span
+    <li className="border-b last:border-b-0">
+      {/* FASE 7: la riga porta all'elenco delle prenotazioni di quella fascia. `group/riga` fa
+          reagire la banda al passaggio del mouse, come le azioni di riga altrove. */}
+      <Link
+        to={`/prenotazioni?data=${data}&fascia=${fascia.fasciaOrariaId}`}
         className={cn(
-          'text-orario justify-self-end tabular-nums whitespace-nowrap sm:order-last',
-          coloreQuota(fascia.copertiPrenotati, fascia.maxCoperti)
+          'group/riga grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 rounded-md py-3 -mx-2 px-2 transition-colors hover:bg-muted/50',
+          'sm:grid-cols-[7rem_1fr_auto]'
         )}
       >
-        {fascia.copertiPrenotati}
-        <span className="text-muted-foreground"> / {fascia.maxCoperti}</span>
-        {esaurita && <span className="text-destructive"> · pieno</span>}
-      </span>
+        <span className="text-orario tabular-nums whitespace-nowrap">
+          {fascia.oraInizio.slice(0, 5)}–{fascia.oraFine.slice(0, 5)}
+        </span>
 
-      <BandaCoperti
-        prenotati={fascia.copertiPrenotati}
-        capienza={fascia.maxCoperti}
-        ritardoMs={RITARDO_FASCE_MS + indice * PASSO_CASCATA_MS}
-        inAggiornamento={inAggiornamento}
-        className="col-span-2 sm:col-span-1 sm:order-2"
-      />
+        <span
+          className={cn(
+            'text-orario justify-self-end tabular-nums whitespace-nowrap sm:order-last',
+            coloreQuota(fascia.copertiPrenotati, fascia.maxCoperti)
+          )}
+        >
+          {fascia.copertiPrenotati}
+          <span className="text-muted-foreground"> / {fascia.maxCoperti}</span>
+          {esaurita && <span className="text-destructive"> · pieno</span>}
+          {oltreIlTetto && (
+            <span className="text-destructive"> · {fascia.copertiOltreIlTetto} oltre il tetto</span>
+          )}
+        </span>
+
+        <BandaCoperti
+          prenotati={fascia.copertiPrenotati}
+          capienza={fascia.maxCoperti}
+          ritardoMs={RITARDO_FASCE_MS + indice * PASSO_CASCATA_MS}
+          inAggiornamento={inAggiornamento}
+          className="col-span-2 sm:col-span-1 sm:order-2"
+        />
+      </Link>
     </li>
   )
 }
@@ -91,11 +109,114 @@ function Numero({ etichetta, valore }: { etichetta: string; valore: number | und
   )
 }
 
+/**
+ * FASE 7 — le prossime 5 prenotazioni non ancora concluse del giorno scelto, a partire dall'ora
+ * corrente (solo se il giorno scelto e' oggi: su un altro giorno l'ordine parte dall'inizio).
+ * Riusa AzioniPrenotazione per coerenza con la tabella Prenotazioni: le stesse regole valgono
+ * ovunque, non solo qui.
+ */
+function ProssimeInArrivo({ data }: { data: string }) {
+  const { user } = useAuth()
+  const isStaff = Boolean(user?.roles.includes('Admin') || user?.roles.includes('Staff'))
+  const isAdmin = Boolean(user?.roles.includes('Admin'))
+  const navigate = useNavigate()
+
+  const prenotazioni = usePrenotazioni({ data, pageSize: 100 })
+  const conferma = useConfermaPrenotazione()
+  const completa = useCompletaPrenotazione()
+  const annulla = useAnnullaPrenotazione()
+  const elimina = useDeletePrenotazione()
+  const [idDaAnnullare, setIdDaAnnullare] = useState<number | undefined>(undefined)
+  const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
+
+  if (!prenotazioni.data) return null
+
+  const oraAttuale = data === oggiInItalia()
+    ? new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Europe/Rome',
+      }).format(new Date())
+    : '00:00'
+
+  const prossime = prenotazioni.data.items
+    .filter(
+      (p) =>
+        (p.stato === 'Attiva' || p.stato === 'InCorso') &&
+        (p.oraInizio ?? '00:00') >= oraAttuale
+    )
+    .sort((a, b) => (a.oraInizio ?? '').localeCompare(b.oraInizio ?? ''))
+    .slice(0, 5)
+
+  if (prossime.length === 0) return null
+
+  return (
+    <section className="space-y-1">
+      <h2 className="text-sezione text-muted-foreground">In arrivo</h2>
+      <ul>
+        {prossime.map((p: PrenotazioneDTO) => (
+          <li
+            key={p.id}
+            className="group/riga flex items-center justify-between gap-3 border-b py-2.5 last:border-b-0"
+          >
+            <div className="min-w-0">
+              <p className="text-corpo truncate font-medium">{p.nomeCliente ?? p.nomeUtente}</p>
+              <p className="text-nota text-muted-foreground tabular-nums">
+                {p.oraInizio?.slice(0, 5)} · {p.numeroCoperti} coperti
+              </p>
+            </div>
+            <AzioniPrenotazione
+              prenotazione={p}
+              isStaff={isStaff}
+              isAdmin={isAdmin}
+              inCorso={
+                (conferma.isPending && conferma.variables === p.id) ||
+                (completa.isPending && completa.variables === p.id)
+              }
+              onConferma={() => conferma.mutate(p.id)}
+              onCompleta={() => completa.mutate(p.id)}
+              onModifica={() => navigate(`/prenotazioni?data=${p.dataPrenotazione}`)}
+              onAnnulla={() => setIdDaAnnullare(p.id)}
+              onElimina={() => setIdDaEliminare(p.id)}
+            />
+          </li>
+        ))}
+      </ul>
+
+      <ConfirmDialog
+        open={idDaAnnullare !== undefined}
+        titolo="Annullare la prenotazione?"
+        testoConferma="Annulla prenotazione"
+        descrizione="Il tavolo torna disponibile per quella fascia. L'operazione non si puo' annullare."
+        onConfirm={() => {
+          annulla.mutate(idDaAnnullare!)
+          setIdDaAnnullare(undefined)
+        }}
+        onCancel={() => setIdDaAnnullare(undefined)}
+      />
+      <ConfirmDialog
+        open={idDaEliminare !== undefined}
+        titolo="Eliminare definitivamente?"
+        testoConferma="Elimina"
+        descrizione="La prenotazione sparisce dallo storico. L'operazione non si puo' annullare."
+        onConfirm={() => {
+          elimina.mutate(idDaEliminare!)
+          setIdDaEliminare(undefined)
+        }}
+        onCancel={() => setIdDaEliminare(undefined)}
+      />
+    </section>
+  )
+}
+
 export default function DashboardPage() {
-  // REV-016: entrambe le date sono calcolate in ora italiana, non in UTC.
-  const oggi = oggiInItalia()
-  const giornaliera = useDashboardGiornaliera(oggi)
-  const settimanale = useDashboardSettimanale(lunediSettimanaCorrenteInItalia())
+  // FASE 7: il giorno mostrato e' navigabile, non piu' fisso su oggi.
+  const [data, setData] = useState(oggiInItalia())
+  const { user } = useAuth()
+  const isAdmin = user?.roles.includes('Admin') ?? false
+  const giornaliera = useDashboardGiornaliera(data)
+  const settimanale = useDashboardSettimanale(lunediSettimanaDi(data))
 
   if (giornaliera.isLoading || settimanale.isLoading) return <DashboardSkeleton />
   if (giornaliera.isError || settimanale.isError)
@@ -117,18 +238,63 @@ export default function DashboardPage() {
   const residuo = capienzaGiorno - copertiGiorno
   const inAggiornamento = giornaliera.isFetching && !giornaliera.isLoading
 
+  const oraAggiornamento = giornaliera.dataUpdatedAt
+    ? new Intl.DateTimeFormat('it-IT', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Rome',
+      }).format(giornaliera.dataUpdatedAt)
+    : null
+
   return (
     <div className="mx-auto max-w-5xl space-y-10">
       {/* ------------------------------------------------------------------
           Il momento orchestrato: la banda del giorno.
-          E' l'unica cosa in pagina che si muove, e si muove una volta sola.
           ------------------------------------------------------------------ */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <h1 className="text-titolo">Oggi in sala</h1>
+
+          {/* FASE 7: navigazione per giorno. ‹ ieri · Oggi · domani › piu' una data a scelta. */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setData((d) => aggiungiGiorni(d, -1))}
+              aria-label="Giorno precedente"
+            >
+              <ChevronLeftIcon />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setData(oggiInItalia())}>
+              Oggi
+            </Button>
+            <input
+              type="date"
+              value={data}
+              onChange={(e) => e.target.value && setData(e.target.value)}
+              className="border-input bg-background text-corpo h-8 rounded-md border px-2"
+              aria-label="Scegli una data"
+            />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setData((d) => aggiungiGiorni(d, 1))}
+              aria-label="Giorno successivo"
+            >
+              <ChevronRightIcon />
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p className="text-corpo text-muted-foreground first-letter:uppercase">
-            {dataEstesaInItalia(oggi)}
+            {dataEstesaInItalia(data)}
           </p>
+          {oraAggiornamento && (
+            <p className="text-nota text-muted-foreground tabular-nums">
+              aggiornato alle {oraAggiornamento}
+            </p>
+          )}
         </div>
 
         {capienzaGiorno > 0 ? (
@@ -151,10 +317,6 @@ export default function DashboardPage() {
               </p>
               <p className="text-corpo text-muted-foreground">
                 coperti prenotati sulla capienza del giorno
-                {/* Il residuo sta qui, come dato secondario accanto alla didascalia, e non come
-                    numero grande: da readout duplicherebbe a parole la porzione vuota della
-                    banda, che si vede gia'. Tre casi distinti perche' "mancano N" da solo si
-                    rompe a zero e non sa dire l'overbooking. */}
                 {residuo > 0 && <span className="tabular-nums"> · ancora {residuo} liberi</span>}
                 {residuo === 0 && <span className="text-warning"> · al completo</span>}
                 {residuo < 0 && (
@@ -176,24 +338,27 @@ export default function DashboardPage() {
           /* Stato vuoto: non e' un errore, e' una sala non ancora configurata. Dice cosa manca
              e porta dove si rimedia. */
           <div className="rounded-xl border border-dashed p-6">
-            <p className="text-sezione">Per oggi non c'e' nessuna fascia oraria</p>
-            <p className="text-corpo mt-1 mb-4 text-muted-foreground text-pretty">
+            <p className="text-sezione">Per questo giorno non c'e' nessuna fascia oraria</p>
+            <p className={cn('text-corpo mt-1 text-muted-foreground text-pretty', isAdmin && 'mb-4')}>
               Senza fasce non c'e' un tetto di coperti da riempire, e la sala non accetta
-              prenotazioni. Puoi configurarle adesso.
+              prenotazioni.{' '}
+              {isAdmin ? 'Puoi configurarle adesso.' : 'Chiedi a un amministratore di configurarle.'}
             </p>
-            <Button asChild size="sm">
-              <Link to="/fasce-orarie">Configura le fasce orarie</Link>
-            </Button>
+            {isAdmin && (
+              <Button asChild size="sm">
+                <Link to="/fasce-orarie">Configura le fasce orarie</Link>
+              </Button>
+            )}
           </div>
         )}
       </section>
 
       {/* ------------------------------------------------------------------
-          Le fasce, una per riga. Nessuna card: la riga E' la banda.
+          Le fasce, una per riga, cliccabili. Nessuna card: la riga E' la banda.
           ------------------------------------------------------------------ */}
       {fasce.length > 0 && (
         <section className="space-y-1">
-          <h2 className="text-sezione text-muted-foreground">Le fasce di oggi</h2>
+          <h2 className="text-sezione text-muted-foreground">Le fasce del giorno</h2>
           <ul>
             {fasce.map((fascia, i) => (
               <RigaFascia
@@ -201,11 +366,17 @@ export default function DashboardPage() {
                 fascia={fascia}
                 indice={i}
                 inAggiornamento={inAggiornamento}
+                data={data}
               />
             ))}
           </ul>
         </section>
       )}
+
+      {/* ------------------------------------------------------------------
+          Le prossime prenotazioni in arrivo. Si nasconde da sola se non ce ne sono.
+          ------------------------------------------------------------------ */}
+      <ProssimeInArrivo data={data} />
 
       {/* ------------------------------------------------------------------
           I numeri di contorno. Una griglia sola divisa da filetti, non quattro
@@ -223,6 +394,8 @@ export default function DashboardPage() {
 
       {/* ------------------------------------------------------------------
           La settimana. Disciplinata e silenziosa: qui non si compete con la banda.
+          Ogni riga porta alle prenotazioni di quel giorno; la banda mostra la
+          capienza cosi' come la vista giornaliera.
           ------------------------------------------------------------------ */}
       <section className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -243,8 +416,8 @@ export default function DashboardPage() {
                 <th className="text-nota py-2 pr-4 text-right font-medium text-muted-foreground">
                   Prenotazioni
                 </th>
-                <th className="text-nota py-2 pr-4 text-right font-medium text-muted-foreground">
-                  Coperti
+                <th className="text-nota py-2 pr-4 text-left font-medium text-muted-foreground">
+                  Coperti / capienza
                 </th>
                 <th className="text-nota py-2 text-right font-medium text-muted-foreground">
                   Annullate
@@ -253,13 +426,38 @@ export default function DashboardPage() {
             </thead>
             <tbody>
               {settimanale.data?.giorni.map((giorno) => (
-                <tr key={giorno.data} className="border-b last:border-b-0">
-                  <td className="text-corpo py-2.5 pr-4 capitalize">{giorno.giornoNome}</td>
+                <tr key={giorno.data} className="group/riga border-b last:border-b-0">
+                  <td className="p-0">
+                    <Link
+                      to={`/prenotazioni?data=${giorno.data}`}
+                      className="text-corpo flex h-full items-center py-2.5 pr-4 capitalize transition-colors group-hover/riga:text-primary"
+                    >
+                      {giorno.giornoNome}
+                    </Link>
+                  </td>
                   <td className="text-corpo py-2.5 pr-4 text-right tabular-nums">
                     {giorno.numeroPrenotazioni}
                   </td>
-                  <td className="text-corpo py-2.5 pr-4 text-right tabular-nums">
-                    {giorno.numeroCoperti}
+                  <td className="py-2.5 pr-4">
+                    {giorno.capienzaGiorno > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-nota tabular-nums whitespace-nowrap text-muted-foreground">
+                          {giorno.numeroCoperti}/{giorno.capienzaGiorno}
+                        </span>
+                        <BandaCoperti
+                          prenotati={giorno.numeroCoperti}
+                          capienza={giorno.capienzaGiorno}
+                          className="w-20"
+                        />
+                        {giorno.nonPresentate > 0 && (
+                          <span className="text-nota whitespace-nowrap text-muted-foreground">
+                            · {giorno.nonPresentate} non presentate
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-nota text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td
                     className={cn(

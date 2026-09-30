@@ -46,9 +46,10 @@ export default function FasciaOrariaPage() {
     setIsModalOpen(true)
   }
 
-  /** "19:00–23:00 di venerdi": e' cosi' che si nomina una fascia parlando, non con il suo id. */
+  /** "venerdi 19:00–23:00": il giorno prima, cosi' le sette righe di una settimana non si
+   * leggono piu' tutte uguali quando si scorre in fretta. */
   function nomeFascia(f: FasciaOrariaDTO) {
-    return `${f.orarioInizio.slice(0, 5)}–${f.orarioFine.slice(0, 5)} di ${GIORNI_SETTIMANA[f.giornoSettimana]}`
+    return `${GIORNI_SETTIMANA[f.giornoSettimana]} ${f.orarioInizio.slice(0, 5)}–${f.orarioFine.slice(0, 5)}`
   }
 
   return (
@@ -88,10 +89,10 @@ export default function FasciaOrariaPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="text-nota font-medium text-muted-foreground">
-                    Orario
+                    Giorno
                   </TableHead>
                   <TableHead className="text-nota font-medium text-muted-foreground">
-                    Giorno
+                    Orario
                   </TableHead>
                   <TableHead className="text-nota text-right font-medium text-muted-foreground">
                     Tetto coperti
@@ -127,12 +128,13 @@ export default function FasciaOrariaPage() {
                 ) : (
                   data?.map((fascia) => (
                     <TableRow key={fascia.id} className="group/riga">
-                      {/* L'orario e' il dato che si cerca per primo: un gradino sopra il resto. */}
-                      <TableCell className="text-orario tabular-nums">
-                        {fascia.orarioInizio.slice(0, 5)}–{fascia.orarioFine.slice(0, 5)}
-                      </TableCell>
+                      {/* FASE 4: il giorno prima dell'orario - sette righe uguali diventano
+                          leggibili solo se il primo dato che si legge le distingue. */}
                       <TableCell className="text-corpo truncate">
                         {GIORNI_SETTIMANA[fascia.giornoSettimana]}
+                      </TableCell>
+                      <TableCell className="text-orario tabular-nums">
+                        {fascia.orarioInizio.slice(0, 5)}–{fascia.orarioFine.slice(0, 5)}
                       </TableCell>
                       <TableCell className="text-orario text-right tabular-nums">
                         {fascia.maxCoperti}

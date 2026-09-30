@@ -110,11 +110,16 @@ export default function PostazionePage() {
           <h2 className="text-sezione text-muted-foreground">
             I tavoli bastano a coprire il tetto?
           </h2>
-          <ul>
+          {/* UI-001/T1: con molte fasce configurate (un locale con orari per ogni ora, o piu'
+              turni su piu' giorni) questo elenco puo' avere piu' di venti righe e spingere la
+              tabella dei tavoli fuori dalla prima schermata. E' solo un riepilogo informativo
+              (decisione 9): un'altezza massima con scorrimento lo tiene leggibile senza
+              nascondere righe, e lascia la tabella vera sempre a portata. */}
+          <ul className="max-h-72 overflow-y-auto rounded-md border">
             {riepilogo.data.fasce.map((f) => (
               <li
                 key={f.fasciaOrariaId}
-                className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1 border-b py-2.5 last:border-b-0 sm:grid-cols-[7rem_9rem_1fr]"
+                className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1 border-b px-3 py-2.5 last:border-b-0 sm:grid-cols-[7rem_9rem_1fr]"
               >
                 <span className="text-corpo capitalize">{f.giornoSettimana}</span>
                 <span className="text-orario tabular-nums whitespace-nowrap">

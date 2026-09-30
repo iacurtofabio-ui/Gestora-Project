@@ -58,10 +58,10 @@ export function AzioniPrenotazione({
   // filtrata sulle sue), entro il cutoff verificato dal backend.
   if (attiva || confermata) voci.push({ etichetta: 'Annulla prenotazione', onSelect: onAnnulla })
 
-  // NEW-004: il backend accetta l'eliminazione solo su Attiva o Annullata. Fuori da quegli stati
-  // la voce non si mostra, invece di far scoprire il limite con un 409.
+  // Il backend accetta l'eliminazione solo su Annullata. Fuori da quello stato la voce non si
+  // mostra, invece di far scoprire il limite con un 409.
   const distruttiva =
-    isAdmin && (attiva || annullata)
+    isAdmin && annullata
       ? { etichetta: 'Elimina definitivamente', onSelect: onElimina }
       : undefined
 

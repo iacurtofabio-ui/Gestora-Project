@@ -6,6 +6,8 @@ export type CopertiFasciaDTO = {
   maxCoperti: number
   copertiPrenotati: number
   copertiDisponibili: number
+  /** CAP-001: coperti oltre MaxCoperti. Zero nel caso normale: uno sforamento va mostrato, non nascosto. */
+  copertiOltreIlTetto: number
   numeroPrenotazioni: number
 }
 
@@ -30,6 +32,10 @@ export type GiornoSettimanaleDTO = {
   numeroPrenotazioni: number
   numeroCoperti: number
   annullate: number
+  /** FASE 7: somma di MaxCoperti delle fasce attive di quel giorno della settimana. */
+  capienzaGiorno: number
+  /** FASE 7: solo sui giorni gia passati; 0 su oggi e sui giorni futuri. */
+  nonPresentate: number
 }
 
 export type DashboardSettimanaleDTO = {

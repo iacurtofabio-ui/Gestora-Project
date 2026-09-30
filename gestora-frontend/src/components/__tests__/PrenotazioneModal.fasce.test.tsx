@@ -95,9 +95,9 @@ describe('PrenotazioneModal - scelta della fascia oraria', () => {
 
     await utente.type(screen.getByLabelText('Data'), LUNEDI)
 
-    expect(screen.getByRole('option', { name: '12:00 - 15:00' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: '19:00 - 23:00' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: '10:00 - 13:00' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '12:00–15:00' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '19:00–23:00' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '10:00–13:00' })).not.toBeInTheDocument()
   })
 
   it('azzera la fascia gia scelta quando si cambia giorno', async () => {
@@ -120,7 +120,7 @@ describe('PrenotazioneModal - scelta della fascia oraria', () => {
 
     expect(fascePerGiorno).toHaveBeenLastCalledWith(0)
     // L option con id 2 esiste ancora: se il valore e' vuoto e' perche' il form l ha azzerato.
-    expect(screen.getByRole('option', { name: '19:00 - 23:00' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '19:00–23:00' })).toBeInTheDocument()
     expect(selectFascia().value).toBe('')
   })
 
