@@ -20,3 +20,4 @@ backup_*.dump
 # file di credenziali salvati per comodità (es. connection string Neon): mai versionati
 envDBNeon.txt
 env*.txt
+/GestoraDocs/verifica-redesign/Report post test.txt
