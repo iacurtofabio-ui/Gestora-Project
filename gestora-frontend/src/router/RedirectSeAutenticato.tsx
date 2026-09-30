@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { paginaDiCasa } from '@/lib/navigazione'
 
 /**
  * Fase 13 — chi ha già la sessione aperta e digita `/` non deve vedere la vetrina, ma la propria
@@ -10,8 +11,7 @@ export default function RedirectSeAutenticato({ children }: { children: React.Re
   const { user, isAuthenticated } = useAuth()
 
   if (isAuthenticated && user) {
-    const soloCliente = user.roles.length > 0 && user.roles.every((r) => r === 'Cliente')
-    return <Navigate to={soloCliente ? '/prenotazioni' : '/dashboard'} replace />
+    return <Navigate to={paginaDiCasa(user.roles)} replace />
   }
 
   return <>{children}</>

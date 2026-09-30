@@ -9,7 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import type { FasciaOrariaDTO } from '@/types/fasciaOraria'
 import { useCreaFasciaOraria, useUpdateFasciaOraria } from '@/hooks/useFasceOrarie'
-import { GIORNI_SETTIMANA } from '@/lib/giorni'
+import { GIORNI_SETTIMANA_DA_LUNEDI } from '@/lib/giorni'
 
 const schema = z.object({
   orarioInizio: z.string().min(1, 'Orario obbligatorio'),
@@ -101,7 +101,7 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
               })}
             >
               <option value="">Scegli un giorno</option>
-              {GIORNI_SETTIMANA.map((nome, indice) => (
+              {GIORNI_SETTIMANA_DA_LUNEDI.map(({ indice, nome }) => (
                 <option key={indice} value={indice}>
                   {nome}
                 </option>
