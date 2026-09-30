@@ -492,3 +492,10 @@ $RECYCLE.BIN/
 
 
 .github/
+
+# In vista dello split del repository (RUNBOOK.md §10): backup e credenziali,
+# mai versionati, ovunque vengano generati dentro questa cartella.
+backup_*.csv
+backup_*.dump
+*.dump
+env*.txt

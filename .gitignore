@@ -17,3 +17,6 @@ backup_*.csv
 backup_*.dump
 *.dump
 
+# file di credenziali salvati per comodità (es. connection string Neon): mai versionati
+envDBNeon.txt
+env*.txt
