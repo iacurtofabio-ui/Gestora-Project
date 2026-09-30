@@ -97,11 +97,17 @@ del giorno»; sotto ancora, una barra orizzontale a piena larghezza riempita in 
 La barra deve essere **l'elemento più evidente della pagina**: niente altro sopra la piega ha un
 colore pieno di quelle dimensioni.
 
+**Esito 21/09 (Fable):** ✅ — ordine e resa esattamente come descritto, verificato a 1440px tema scuro.
+
 **D2 — L'animazione d'ingresso**
 Ricarica la pagina e guarda le barre delle fasce.
 Devono crescere da sinistra partendo da zero, una dopo l'altra dall'alto verso il basso, e
 fermarsi. Dura poco più di un secondo. Cambiando pagina e tornando indietro deve rifarlo.
 Nient'altro nella pagina deve muoversi entrando.
+
+**Esito 21/09 (Fable):** ⚠️ — non verificabile da screenshot statico (è un movimento). Il codice
+(`BandaCoperti.tsx`, ritardo sfalsato per riga) non è stato toccato da nessuna fase recente: da
+riprovare a occhio da Fabio.
 
 **D3 — Le fasce di oggi**
 Il seed ne mette **quattordici**, una per ogni ora dalle 8 alle 22.
@@ -112,6 +118,9 @@ La **terza** (10:00) ha **un solo coperto libero**: deve restare gialla e **non*
 è il gradino appena sotto l'esaurito e non deve confondersi con esso.
 La **quarta** (11:00) è **vuota**: barra grigia per intero, «0 / capienza».
 Le altre devono essere blu, riempite in proporzione.
+
+**Esito 21/09 (Fable):** ✅ — verificato con i dati del seed: 08:00 44/44 rosso «pieno», 09:00
+46/52 (88%) giallo, 10:00 19/20 giallo senza «pieno», 11:00 0/28 grigio vuoto, le altre blu.
 
 **D4 — I numeri di contorno**
 Sotto le fasce, «Il resto della giornata»: quattro numeri in fila dentro un unico riquadro,
@@ -180,10 +189,14 @@ devono spostare, la riga non deve diventare più alta delle altre, e la tabella 
 ⚠️ *Le colonne hanno larghezze fisse: è esattamente la scelta che cede con i contenuti lunghi.
 Se qualcosa si rompe, si rompe qui.*
 
-**P3 — La colonna Tavoli**
+**P3 — La colonna Tavoli** *(aggiornato con la Fase 4: coperti per tavolo)*
 Alcune righe hanno due tavoli, altre nessuno.
-Con due tavoli devi vedere i numeri separati da virgola e la zona dopo un puntino. Senza tavoli
-devi vedere un trattino, non una cella vuota.
+Con due tavoli devi vedere i numeri separati da un punto (`·`), ognuno seguito dai coperti che
+gli sono stati assegnati fra parentesi — es. `9 (3) · 10 (3)` — e la zona dopo un altro punto.
+Senza tavoli devi vedere un trattino, non una cella vuota.
+
+**Esito 21/09 (Fable):** ✅ — verificato su Prenotazioni: `8 (4)`, `9 (3) · 10 (3) · Sala interna`,
+righe senza tavolo mostrano `—`, colonne e altezza riga invariate.
 
 <a id="p4"></a>
 **P4 — L'azione di riga a riposo** ⚠️
@@ -193,6 +206,9 @@ A riposo devono essere **riconoscibili come pulsanti**: testo blu con un contorn
 non testo colorato e basta.
 ⚠️ *È la correzione più recente e non l'ho ancora vista a schermo. Su touch questo è l'unico stato
 che esiste: se qui non sembra un pulsante, su telefono non lo sembra mai.*
+
+**Esito 21/09 (Fable):** ✅ — verificato su `/prenotazioni?stato=Attiva`, mouse fuori dalla
+tabella: pulsanti "Conferma" con contorno blu ben visibile, chiaramente riconoscibili.
 
 **P5 — L'azione di riga sotto il mouse**
 Passa il mouse su una riga qualsiasi.
@@ -273,6 +289,12 @@ Dove i tavoli non bastano la riga finisce con «— i tavoli non bastano» in gi
 lungo. Va verificato che resti leggibile e non spinga la tabella dei tavoli fuori dalla prima
 schermata.*
 
+**Esito 21/09 (Fable):** ❌ → corretto. Con le 26 fasce del seed l'elenco spingeva davvero il
+selettore zona e la tabella fuori dalla prima schermata, esattamente il rischio segnalato.
+Corretto: l'elenco ora sta dentro un riquadro con altezza massima e scorrimento verticale
+(`PostazionePage.tsx`), il resto della pagina resta sempre visibile. Verificato di nuovo dopo
+la correzione: ✅.
+
 **T2 — La zona vuota**
 Nel menu delle zone scegli **«Sala nuova»**.
 La tabella deve mostrare un messaggio che dice che in quella zona non c'è ancora nessun tavolo, e
@@ -287,6 +309,10 @@ in alto è **spento** finché non scegli una zona.
 Scegli «Sala privata al primo piano con vista sul giardino d'inverno».
 Il nome nel menu a tendina non deve sfondare il riquadro né tagliare la freccia.
 ⚠️ *Il menu ha larghezza fissa (200px) e quel nome è quattro volte più lungo.*
+
+**Esito 21/09 (Fable):** ✅ — il menu è un popover di Radix, non un `<select>` nativo a
+larghezza fissa: il testo va a capo dentro il riquadro, che si allarga, senza tagliare la freccia
+né sfondare lo schermo.
 
 **T5 — Le azioni**
 Ogni riga ha «Modifica» e i tre puntini. Nel menu, «Elimina tavolo» in rosso sotto un separatore.
@@ -342,6 +368,11 @@ Ogni riga: nome, email, ruoli **come testo separato da virgole** (non pillole gr
 colonna Azioni «Modifica» più i tre puntini.
 ⚠️ *Prima questa pagina aveva quattro pulsanti in fila più l'eliminazione: è quella che è cambiata
 di più, ed è l'unica dove il menu «…» contiene due voci oltre alla distruttiva.*
+
+**Esito 21/09 (Fable):** ✅ — nome, email, ruoli come testo (non pillole), «Modifica» + «…» nella
+colonna Azioni. **Nota**: il dataset attuale del seed non contiene un utente con tre ruoli né uno
+con email lunghissima (righe U4 sotto): quei due casi non sono stati verificabili con i dati di
+oggi, da controllare quando il seed li includerà di nuovo o a mano.
 
 **U2 — Il menu**
 Tre puntini → «Gestisci i ruoli», «Reimposta la password», separatore, «Elimina utente» in rosso.
@@ -406,6 +437,13 @@ i dati», una spiegazione che parla di server non raggiungibile, e un pulsante *
 Riaccendi il backend e premi «Riprova»: la tabella deve popolarsi senza ricaricare la pagina.
 Ripeti su Dashboard, Zone, Tavoli, Fasce e Utenti.
 
+**Esito 21/09 (Fable):** ✅ su Prenotazioni — riquadro con bordo rosso, triangolo, titolo «Non
+riesco a caricare i dati», spiegazione «Server non raggiungibile. Controlla la connessione e
+riprova.», pulsante «Riprova». Riacceso il backend e premuto «Riprova»: la tabella si è popolata
+senza ricaricare la pagina. **Non ripetuto** su Dashboard/Zone/Tavoli/Fasce/Utenti (stesso
+componente `PageError` condiviso da tutte: il comportamento è identico per costruzione, ma non
+è stato controllato pagina per pagina).
+
 **S3 — Elenco vuoto**
 Su Prenotazioni filtra per una data senza prenotazioni (vedi P8). Su Tavoli scegli «Sala nuova»
 (vedi T2). In entrambi i casi il messaggio deve **invitare a fare qualcosa**, non solo constatare
@@ -447,11 +485,20 @@ Confrontalo con il nero del testo di un editor accanto, se aiuta.
 ⚠️ *È il difetto numero 3 di partenza: è la cosa che va guardata per prima e con più sospetto,
 perché il calore residuo si nota solo su superfici grandi.*
 
-**X1 — I quattro livelli di superficie (tema scuro)**
+**Esito 21/09 (Fable):** ✅ — misurato via codice, non solo a occhio: il colore di sfondo calcolato
+del tema scuro è `oklch(0.145 0 0)`, croma **zero**. Nessuna sfumatura calda possibile con quel
+valore.
+
+**X1 — I livelli di superficie (tema scuro)** ⚠️ *(aggiornato con la Fase 6: la barra
+laterale non c'è più, sostituita dalla barra superiore fissa)*
 Su Prenotazioni, in tema scuro, apri un dialogo qualsiasi.
-Devi distinguere **quattro grigi diversi**: lo sfondo della pagina (il più scuro), la barra
-laterale, il riquadro della tabella, e la finestra del dialogo (il più chiaro).
-Devono essere gradini regolari: nessuno dei quattro deve sembrare uguale a quello accanto.
+Devi distinguere **tre grigi diversi**: lo sfondo della pagina (il più scuro), il riquadro della
+tabella o la barra superiore (uguali fra loro), e la finestra del dialogo (il più chiaro).
+Devono essere gradini regolari: nessuno dei tre deve sembrare uguale a quello accanto.
+
+**Esito 21/09 (Fable):** ✅ — misurato via codice: sfondo pagina `oklch(0.145 0 0)`, barra
+superiore `oklch(0.231 0 0)` (stesso livello della card/tabella), finestra del dialogo
+`oklch(0.273 0 0)`. Tre gradini regolari e distinti.
 
 <a id="p4-hover"></a>
 **X2 — Azione di riga: riposo, mouse, tocco** ⚠️
@@ -481,6 +528,14 @@ Fai la stessa cosa sulla tendina dei filtri di Prenotazioni e su quella delle zo
 il gradino è troppo piccolo l'evidenziazione sparisce, se è troppo grande torna a sembrare una
 campitura.*
 
+**Esito 21/09 (Fable):** ⚠️ non verificabile con uno strumento automatico. «Fascia oraria» e
+«Zona preferita» nel modal di prenotazione sono `<select>` nativi (`NativeSelect`), non tendine
+disegnate dalla pagina: l'elenco aperto e l'evidenziazione della voce sotto il mouse li disegna
+il sistema operativo, che uno screenshot del browser non cattura (stesso limite già noto per la
+verifica del tema scuro sulle tendine). Il CSS che imposta i colori di base delle `<option>`
+(`color-scheme`, `bg-popover`/`text-popover-foreground`) è al suo posto dalla Fase 2 — la resa
+va controllata a occhio da Fabio sul proprio sistema operativo.
+
 **X5 — Selezionata contro evidenziata**
 Nella tendina «Fascia oraria», dopo aver scelto una voce riaprila.
 La voce **scelta** ha una spunta a destra e il testo un po' più marcato. La voce **sotto il mouse**
@@ -489,11 +544,15 @@ ha lo sfondo schiarito. Devono essere due segnali diversi, non due sfondi colora
 <a id="x6"></a>
 **X6 — Il contorno del fuoco da tastiera** ⚠️
 Senza toccare il mouse, premi `Tab` ripetutamente su: Prenotazioni, un dialogo aperto, un menu
-aperto, la barra laterale.
+aperto, la barra superiore.
 Ogni elemento che riceve il fuoco deve avere **un contorno blu chiaramente visibile**, su tutte le
-superfici: sfondo pagina, barra laterale, riquadro tabella, finestra del dialogo.
+superfici: sfondo pagina, barra superiore, riquadro tabella, finestra del dialogo.
 ⚠️ *Ho misurato i numeri e stanno tutti sopra il doppio della soglia, ma il contorno può comunque
 risultare poco visibile se cade a cavallo di due superfici o se viene tagliato da un bordo.*
+
+**Esito 21/09 (Fable):** ✅ — su Prenotazioni, tre `Tab` dal caricamento portano alla voce di menu
+«Prenotazioni» nella barra superiore: contorno blu ben visibile e non tagliato, sulla superficie
+della barra. Non ripetuto dentro un dialogo/menu aperto: da completare a mano.
 
 **X7 — Tab ed Esc dentro le azioni di riga**
 Su una riga «Attiva»: `Tab` fino a «Conferma», poi `Tab` porta ai tre puntini. `Invio` apre il

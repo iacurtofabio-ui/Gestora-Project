@@ -30,6 +30,7 @@ function prenotazione(stato: string): PrenotazioneDTO {
     oraFine: '21:00',
     fasciaOrariaId: 1,
     postazioni: [],
+    numeroTurno: 1,
   }
 }
 
@@ -83,12 +84,46 @@ describe('AzioniPrenotazione - una sola azione primaria', () => {
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 
-  it("l'eliminazione non e' mai un pulsante di riga: sta nel menu", async () => {
+  it("su una prenotazione Annullata l'Admin vede solo l'eliminazione, senza azione primaria", async () => {
+    const utente = userEvent.setup()
+    monta(STATI_PRENOTAZIONE.ANNULLATA, ADMIN)
+
+    expect(screen.queryByRole('button', { name: 'Conferma' })).not.toBeInTheDocument()
+    // Un solo pulsante visibile a menu chiuso: l'apri-menu.
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+
+    await utente.click(trigger())
+    expect(await screen.findByRole('menuitem', { name: 'Elimina definitivamente' })).toBeVisible()
+  })
+
+  it("su una prenotazione Attiva l'Admin non ha la voce di eliminazione", async () => {
     const utente = userEvent.setup()
     monta(STATI_PRENOTAZIONE.ATTIVA, ADMIN)
 
-    // A menu chiuso i pulsanti visibili sono due: l'azione primaria e l'apri-menu.
-    expect(screen.getAllByRole('button')).toHaveLength(2)
+    await utente.click(trigger())
+    expect(await screen.findByRole('menuitem', { name: 'Annulla prenotazione' })).toBeVisible()
+    expect(screen.queryByRole('menuitem', { name: 'Elimina definitivamente' })).toBeNull()
+  })
+
+  it("su una prenotazione Non presentata anche l'Admin non ha nessuna azione", () => {
+    monta(STATI_PRENOTAZIONE.NON_PRESENTATA, ADMIN)
+
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+  })
+
+  it('su una prenotazione Non presentata lo Staff non Admin non vede nessuna azione', () => {
+    monta(STATI_PRENOTAZIONE.NON_PRESENTATA, STAFF)
+
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  it("l'eliminazione non e' mai un pulsante di riga: sta nel menu", async () => {
+    const utente = userEvent.setup()
+    monta(STATI_PRENOTAZIONE.ANNULLATA, ADMIN)
+
+    // A menu chiuso il solo pulsante visibile e' l'apri-menu.
+    expect(screen.getAllByRole('button')).toHaveLength(1)
     expect(screen.queryByText(/Elimina/)).not.toBeInTheDocument()
 
     await utente.click(trigger())

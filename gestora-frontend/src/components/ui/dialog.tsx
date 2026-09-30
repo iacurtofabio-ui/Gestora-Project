@@ -71,8 +71,14 @@ function DialogContent({
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
+  // RESTYLE: separatore sotto l'intestazione, come il piede lo ha gia' sopra - il dialogo si
+  // legge in tre fasce (titolo / corpo / azioni), non in un blocco unico.
   return (
-    <div data-slot="dialog-header" className={cn('flex flex-col gap-2', className)} {...props} />
+    <div
+      data-slot="dialog-header"
+      className={cn('-mx-5 -mt-5 flex flex-col gap-2 border-b px-5 pt-5 pb-4', className)}
+      {...props}
+    />
   )
 }
 
@@ -88,7 +94,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        '-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
+        '-mx-5 -mb-5 flex flex-col-reverse gap-2 rounded-b-2xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
         className
       )}
       {...props}

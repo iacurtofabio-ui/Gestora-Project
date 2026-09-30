@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { LogOutIcon, MenuIcon, XIcon } from 'lucide-react'
@@ -8,17 +8,49 @@ import { onSessionExpired } from '@/lib/session'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/Logo'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { Separator } from '@/components/ui/separator'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
+/**
+ * RESTYLE (Fase 6): barra superiore fissa al posto della sidebar laterale — direzione Docker
+ * Hub, dove la navigazione principale è orizzontale, sempre in vista, e la voce attiva si segna
+ * con una sottolineatura invece di uno sfondo pieno (lo stesso linguaggio dei loro tab).
+ *
+ * Sotto i 1024px le voci vanno in un pannello a scomparsa: la logica di apertura/chiusura
+ * (`menuAperto`) è la stessa di prima, cambia solo cosa si apre.
+ */
 function linkClass({ isActive }: { isActive: boolean }) {
-  // REV-081: prima la sidebar non segnalava in che pagina ci si trovasse.
+  return cn(
+    'text-corpo relative px-1 py-2 font-medium transition-colors whitespace-nowrap',
+    'after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:transition-colors',
+    isActive
+      ? 'text-foreground after:bg-primary'
+      : 'text-muted-foreground after:bg-transparent hover:text-foreground'
+  )
+}
+
+function linkClassMobile({ isActive }: { isActive: boolean }) {
   return cn(
     'text-corpo rounded-md px-3 py-2 font-medium transition-colors',
-    isActive
-      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-      : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
+    isActive ? 'bg-evidenza text-foreground' : 'text-muted-foreground hover:bg-evidenza/60'
   )
+}
+
+/** Le iniziali dell'email per l'avatar del menu utente: "mario.rossi@..." → "MR" se c'è un
+ * punto/separatore prima della @, altrimenti le prime due lettere della parte locale. */
+function iniziali(email: string | undefined): string {
+  if (!email) return '?'
+  const locale = email.split('@')[0]
+  const parti = locale.split(/[._-]/).filter(Boolean)
+  const testo = parti.length >= 2 ? parti[0][0] + parti[1][0] : locale.slice(0, 2)
+  return testo.toUpperCase()
 }
 
 export default function AppLayout() {
@@ -26,9 +58,6 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  // REV-071: la sidebar era fissa (w-64, sempre a schermo): su smartphone occupava la metà dello
-  // schermo utile. Su mobile parte chiusa e si apre come pannello sopra il contenuto; da md in su
-  // resta sempre visibile, come prima.
   const [menuAperto, setMenuAperto] = useState(false)
 
   // Un cambio di pagina chiude il pannello mobile: altrimenti restava aperto sopra la pagina
@@ -44,8 +73,6 @@ export default function AppLayout() {
   // Il token e' gia' stato rimosso dall'interceptor: qui si allinea lo stato di React (logout),
   // si svuota la cache delle query per non lasciare i dati del vecchio utente in memoria, si
   // spiega all'utente cosa e' successo e si naviga al login senza ricaricare la pagina.
-  // Il gestore vive in AppLayout perche' avvolge tutte le pagine autenticate: sono le uniche da
-  // cui puo' arrivare un 401 di sessione scaduta.
   useEffect(
     () =>
       onSessionExpired(() => {
@@ -54,8 +81,6 @@ export default function AppLayout() {
         toast.error("Sessione scaduta. Effettua di nuovo l'accesso.")
         navigate('/login', { replace: true })
       }),
-    // logout e' ricreata a ogni render del provider: la si esclude di proposito, il gestore non
-    // deve essere riagganciato di continuo e la funzione e' comunque sempre la stessa nei fatti.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [navigate, queryClient]
   )
@@ -66,98 +91,118 @@ export default function AppLayout() {
     navigate('/login', { replace: true })
   }
 
-  const links = [
-    ...(user?.roles.includes('Admin') || user?.roles.includes('Staff')
-      ? [
-          { to: '/dashboard', label: 'Dashboard' },
-          { to: '/zone', label: 'Zone' },
-          { to: '/postazioni', label: 'Postazioni' },
-          { to: '/fasce-orarie', label: 'Fasce Orarie' },
-        ]
-      : []),
-    { to: '/prenotazioni', label: 'Prenotazioni' },
-  ]
+  // Un unico elenco, con ruoli e gruppo per voce: il filtro per ruolo sta in un posto solo, non
+  // sparso fra tre condizioni diverse come prima. Ordine per flusso di lavoro: uso quotidiano
+  // (Dashboard, Prenotazioni), poi la sala (Zone, Tavoli, Fasce orarie), poi l'amministrazione.
+  const vociMenu = [
+    { to: '/dashboard', label: 'Dashboard', ruoli: ['Admin', 'Staff'], gruppo: null },
+    { to: '/prenotazioni', label: 'Prenotazioni', ruoli: ['Admin', 'Staff', 'Cliente'], gruppo: null },
+    { to: '/zone', label: 'Zone', ruoli: ['Admin', 'Staff'], gruppo: 'Sala' },
+    // La rotta resta /postazioni (REV-056, non si riapre): la voce di menu si chiama "Tavoli"
+    // perché è cosi' che la pagina si intitola gia'.
+    { to: '/postazioni', label: 'Tavoli', ruoli: ['Admin', 'Staff'], gruppo: 'Sala' },
+    { to: '/fasce-orarie', label: 'Fasce orarie', ruoli: ['Admin', 'Staff'], gruppo: 'Sala' },
+    { to: '/admin-utenti', label: 'Utenti', ruoli: ['Admin'], gruppo: 'Amministrazione' },
+  ] as const
 
-  const sidebarContent = (
-    <nav className="flex flex-col p-4 gap-2">
-      {links.map((link) => (
-        <NavLink key={link.to} to={link.to} className={linkClass}>
-          {link.label}
-        </NavLink>
-      ))}
-      {user?.roles.includes('Admin') && (
-        <NavLink to="/admin-utenti" className={linkClass}>
-          Admin Utenti
-        </NavLink>
-      )}
-    </nav>
-  )
+  const ruoliUtente = user?.roles ?? []
+  const linksVisibili = vociMenu.filter((voce) => voce.ruoli.some((r) => ruoliUtente.includes(r)))
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar da desktop: sempre visibile, come prima. */}
-      <aside className="hidden md:flex md:flex-col w-64 bg-sidebar border-r border-sidebar-border shrink-0">
-        <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
-          <Logo className="text-sidebar-foreground" />
-        </div>
-        {sidebarContent}
-      </aside>
+    <div className="flex min-h-screen flex-col bg-background">
+      <header className="sticky top-0 z-40 h-14 shrink-0 border-b bg-card">
+        <div className="mx-auto flex h-full max-w-6xl items-center gap-4 px-4 md:px-6">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="lg:hidden"
+            onClick={() => setMenuAperto((a) => !a)}
+            aria-label={menuAperto ? 'Chiudi menu' : 'Apri menu'}
+          >
+            {menuAperto ? <XIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+          </Button>
 
-      {/* Pannello mobile: overlay scuro + sidebar sopra il contenuto, apribile dall'header. */}
-      {menuAperto && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
-          <div className="fixed inset-0 bg-black/40" onClick={() => setMenuAperto(false)} />
-          <aside className="relative z-50 w-64 bg-sidebar border-r border-sidebar-border h-full flex flex-col">
-            <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
-              <Logo className="text-sidebar-foreground" />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setMenuAperto(false)}
-                aria-label="Chiudi menu"
+          <Link to="/dashboard" className="flex shrink-0 items-center gap-2" aria-label="Gestora">
+            <Logo className="text-foreground" />
+          </Link>
+
+          {/* Voci di menu, orizzontali, da 1024px in su. I due gruppi (uso quotidiano / sala) si
+              distinguono con un piccolo distacco, non con un'etichetta: in barra orizzontale
+              un'etichetta di gruppo affollerebbe. */}
+          <nav className="hidden flex-1 items-center gap-5 lg:flex">
+            {linksVisibili.map((link, indice) => (
+              <span
+                key={link.to}
+                className={cn(
+                  indice > 0 &&
+                    link.gruppo !== null &&
+                    link.gruppo !== linksVisibili[indice - 1]?.gruppo &&
+                    'ml-2 border-l pl-6'
+                )}
               >
-                <XIcon className="h-5 w-5" />
-              </Button>
-            </div>
-            {sidebarContent}
-          </aside>
-        </div>
-      )}
+                <NavLink to={link.to} className={linkClass}>
+                  {link.label}
+                </NavLink>
+              </span>
+            ))}
+          </nav>
 
-      <div className="flex flex-col flex-1 min-w-0">
-        <header className="h-16 bg-card border-b px-4 md:px-6 flex items-center justify-between gap-4 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="md:hidden"
-              onClick={() => setMenuAperto(true)}
-              aria-label="Apri menu"
-            >
-              <MenuIcon className="h-5 w-5" />
-            </Button>
-            {/* REV-081: prima l'header mostrava solo l'email, senza il ruolo — a colpo d'occhio
-                non si distingueva un Cliente da uno Staff. */}
-            <div className="min-w-0">
-              <p className="text-corpo truncate text-foreground">{user?.email}</p>
-              <p className="text-nota truncate text-muted-foreground">{user?.roles.join(', ')}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             <ThemeToggle />
-            <Separator orientation="vertical" className="mx-1 h-6" />
-            {/* Fase 10 aveva lasciato il logout come testo semplice, unica azione dell'app a non
-                essere un pulsante. Con l'header rifatto non ha più senso tenerlo diverso. */}
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOutIcon className="size-4" />
-              <span className="hidden sm:inline">Esci</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="ml-1 rounded-full bg-secondary text-secondary-foreground"
+                  aria-label="Menu utente"
+                >
+                  <span className="text-nota font-semibold">{iniziali(user?.email)}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <p className="text-corpo truncate text-foreground">{user?.email}</p>
+                  <p className="text-nota truncate text-muted-foreground">{user?.roles.join(', ')}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleLogout} variant="destructive">
+                  <LogOutIcon />
+                  Esci
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <Outlet />
-        </main>
-      </div>
+        </div>
+
+        {/* Pannello mobile: le stesse voci, verticali, sotto la barra. */}
+        {menuAperto && (
+          <nav className="border-t bg-card p-3 lg:hidden">
+            <div className="mx-auto flex max-w-6xl flex-col gap-1">
+              {linksVisibili.map((link, indice) => {
+                const gruppoPrecedente = linksVisibili[indice - 1]?.gruppo
+                const mostraSeparatore = link.gruppo !== null && link.gruppo !== gruppoPrecedente
+                return (
+                  <div key={link.to}>
+                    {mostraSeparatore && (
+                      <p className="text-nota text-muted-foreground mt-2 mb-1 px-3 uppercase">
+                        {link.gruppo}
+                      </p>
+                    )}
+                    <NavLink to={link.to} className={linkClassMobile}>
+                      {link.label}
+                    </NavLink>
+                  </div>
+                )
+              })}
+            </div>
+          </nav>
+        )}
+      </header>
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-4 md:px-6 md:py-6">
+        <Outlet />
+      </main>
     </div>
   )
 }

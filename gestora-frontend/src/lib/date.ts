@@ -33,10 +33,25 @@ export function oggiInItalia(): string {
  * cambia l'ora legale.
  */
 export function lunediSettimanaCorrenteInItalia(): string {
-  const oggi = new Date(`${oggiInItalia()}T00:00:00Z`)
-  const giorno = oggi.getUTCDay() // 0 = domenica
-  oggi.setUTCDate(oggi.getUTCDate() - (giorno === 0 ? 6 : giorno - 1))
-  return oggi.toISOString().split('T')[0]
+  return lunediSettimanaDi(oggiInItalia())
+}
+
+/**
+ * FASE 7 — come sopra, ma per una data qualsiasi, non solo "oggi". Serve alla dashboard
+ * navigabile: la settimana mostrata segue il giorno scelto, non resta fissa sulla corrente.
+ */
+export function lunediSettimanaDi(iso: string): string {
+  const data = new Date(`${iso}T00:00:00Z`)
+  const giorno = data.getUTCDay() // 0 = domenica
+  data.setUTCDate(data.getUTCDate() - (giorno === 0 ? 6 : giorno - 1))
+  return data.toISOString().split('T')[0]
+}
+
+/** Una data YYYY-MM-DD spostata di N giorni (N negativo per andare indietro). */
+export function aggiungiGiorni(iso: string, n: number): string {
+  const data = new Date(`${iso}T00:00:00Z`)
+  data.setUTCDate(data.getUTCDate() + n)
+  return data.toISOString().split('T')[0]
 }
 
 /**

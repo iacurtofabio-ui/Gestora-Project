@@ -53,7 +53,9 @@ export default function RegisterPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-titolo">Crea il tuo account</CardTitle>
-          <CardDescription>SOTTOCrea il tuo account</CardDescription>
+          <CardDescription className="text-corpo text-muted-foreground">
+            Bastano email e password: le prenotazioni le gestisci da qui.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -107,6 +109,10 @@ export default function RegisterPage() {
           </p>
         </CardContent>
       </Card>
+      {/* Il logo in alto riporta alla vetrina, ma nessuno lo sa: serve un rimando esplicito. */}
+      <Link to="/" className="text-nota text-muted-foreground hover:text-foreground">
+        ← Torna alla pagina del locale
+      </Link>
     </div>
   )
 }

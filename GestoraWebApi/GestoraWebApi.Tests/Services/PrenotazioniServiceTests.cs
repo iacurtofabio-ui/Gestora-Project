@@ -66,6 +66,11 @@ public class PrenotazioniServiceTests
     h.HttpContext).Returns(httpContext);
         // ↑ FINE BLOCCO ↑
 
+        // FASE 4: default innocuo per ApplicaNumeroTurnoAsync nei test che non verificano il
+        // turno - senza questo setup, Moq restituisce null e il calcolo va in eccezione.
+        _fasciaRepoMock.Setup(r => r.GetFasceByGiornoAsync(It.IsAny<DayOfWeek>()))
+                       .ReturnsAsync(new List<FasciaOraria>());
+
         // Il provider InMemory non supporta le transazioni e di default trasforma il warning
         // in eccezione. Il service ora apre una transazione esplicita (REV-003/REV-032): qui la
         // si ignora, la transazione vera e' verificata solo contro Postgres.
@@ -96,7 +101,7 @@ public class PrenotazioniServiceTests
     public async Task DeleteAsync_ThrowsKeyNotFoundException_WhenPrenotazioneNonEsiste()
     {
         // Arrange
-        _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(99))
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(99))
                              .ReturnsAsync((Prenotazione?)null);
 
         // Act & Assert
@@ -108,7 +113,7 @@ public class PrenotazioniServiceTests
     {
         // Arrange
         var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.InCorso };
-        _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(prenotazione);
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
         await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(1));
@@ -119,7 +124,7 @@ public class PrenotazioniServiceTests
     {
         // Arrange
         var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.Completata };
-        _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(prenotazione);
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act & Assert
         await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(1));
@@ -259,8 +264,16 @@ public class PrenotazioniServiceTests
     [Fact]
     public async Task ConfermaPrenotazioneAsync_SetsStatoInCorso_WhenAttiva()
     {
-        // Arrange
-        var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.Attiva };
+        // Arrange - fascia che finisce ampiamente dopo l orologio di test (TestClock), altrimenti
+        // la guardia FASE 3 sulla prenotazione gia passata la rifiuterebbe.
+        var prenotazione = new Prenotazione
+        {
+            Id = 1,
+            NumeroCoperti = 2,
+            Stato = StatoPrenotazione.Attiva,
+            DataPrenotazione = DataLunediFuturo,
+            FasciaOraria = new FasciaOraria { Id = 1, OrarioInizio = new TimeOnly(19, 0), OrarioFine = new TimeOnly(21, 0) }
+        };
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act
@@ -306,7 +319,7 @@ public class PrenotazioniServiceTests
         var dto = new PrenotazioneCreateDTO { DataPrenotazione = data, NumeroCoperti = 2, FasciaOrariaId = 1 };
 
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
-        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fascia);
+        _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(fascia);
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
                              .Returns(prenotazioniEsistenti.ToList().AsQueryable().BuildMock());
         _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
@@ -383,7 +396,7 @@ public class PrenotazioniServiceTests
         var data = DataLunediFuturo;
         var fascia = new FasciaOraria { Id = 1, Attiva = true, GiornoSettimana = DayOfWeek.Monday, MaxCoperti = maxCoperti, OrarioInizio = new TimeOnly(19, 0), OrarioFine = new TimeOnly(21, 0) };
 
-        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fascia);
+        _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(fascia);
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
                              .Returns(prenotazioniEsistenti.ToList().AsQueryable().BuildMock());
         _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
@@ -645,6 +658,36 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Verify(r => r.AddAsync(It.IsAny<Prenotazione>()), Times.Once);
     }
 
+    // ─── CAP-001 — il tetto e' protetto dal lock sulla riga della fascia ─────
+
+    /// <summary>
+    /// Il lock vero (FOR UPDATE) non si prova con l'InMemory: qui si verifica che la validazione
+    /// passi dal metodo che lo prende, e mai da quello senza. Se qualcuno «semplifica» tornando a
+    /// GetByIdAsync, il tetto torna a essere una SUM senza protezione.
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_LeggeLaFasciaConIlLock_NonSenza()
+    {
+        var dto = ArrangeAddValido();
+        _prenotazioniRepoMock.Setup(r => r.AddAsync(It.IsAny<Prenotazione>())).Returns(Task.CompletedTask);
+
+        await _service.AddAsync(dto);
+
+        _fasciaRepoMock.Verify(r => r.GetByIdConLockAsync(1), Times.Once);
+        _fasciaRepoMock.Verify(r => r.GetByIdAsync(It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_LeggeLaFasciaConIlLock_NonSenza()
+    {
+        var (_, dto) = ArrangeUpdateValido(ownerUserId: "cliente-diverso");
+
+        await _service.UpdateAsync(1, dto);
+
+        _fasciaRepoMock.Verify(r => r.GetByIdConLockAsync(1), Times.Once);
+        _fasciaRepoMock.Verify(r => r.GetByIdAsync(It.IsAny<long>()), Times.Never);
+    }
+
     /// <summary>Una prenotazione annullata ha restituito i suoi coperti al tetto della fascia.</summary>
     [Fact]
     public async Task AddAsync_NonConteggiaLeAnnullate_NelTettoDellaFascia()
@@ -683,7 +726,7 @@ public class PrenotazioniServiceTests
     public async Task AddAsync_ThrowsConflictException_QuandoLaFasciaNonEDelGiornoScelto()
     {
         var dto = ArrangeAddValido();
-        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(Fascia(giorno: DayOfWeek.Tuesday));
+        _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(Fascia(giorno: DayOfWeek.Tuesday));
 
         var ex = await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(dto));
 
@@ -694,7 +737,7 @@ public class PrenotazioniServiceTests
     public async Task AddAsync_ThrowsConflictException_QuandoLaFasciaNonEAttiva()
     {
         var dto = ArrangeAddValido();
-        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(Fascia(attiva: false));
+        _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(Fascia(attiva: false));
 
         await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(dto));
     }
@@ -703,7 +746,7 @@ public class PrenotazioniServiceTests
     public async Task AddAsync_ThrowsArgumentException_QuandoLaFasciaNonEsiste()
     {
         var dto = ArrangeAddValido();
-        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync((FasciaOraria)null!);
+        _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync((FasciaOraria)null!);
 
         await Assert.ThrowsAsync<ArgumentException>(() => _service.AddAsync(dto));
     }
@@ -735,7 +778,7 @@ public class PrenotazioniServiceTests
     public async Task AddAsync_ThrowsArgumentException_QuandoNonEsisteNessunaPostazioneAttiva()
     {
         // Arrange senza postazioni: non si passa dal solito arranger, che ne aggiunge una.
-        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(Fascia());
+        _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(Fascia());
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
                              .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
         var dto = new PrenotazioneCreateDTO { DataPrenotazione = DataLunediFuturo, NumeroCoperti = 2, FasciaOrariaId = 1 };
@@ -831,7 +874,7 @@ public class PrenotazioniServiceTests
         var dto = new PrenotazioneCreateDTO { DataPrenotazione = oggi, NumeroCoperti = 2, FasciaOrariaId = 1 };
 
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
-        _fasciaRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fascia);
+        _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(fascia);
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
                              .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
         _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
@@ -1163,11 +1206,10 @@ public class PrenotazioniServiceTests
     }
 
     /// <summary>
-    /// Solo le "In corso" si completano da sole. Una "Attiva" su data passata è un no-show
-    /// (lo staff non ha mai confermato) e resta tale: è il dato su cui la dashboard calcola il KPI.
+    /// Solo le "In corso" si completano da sole. Annullata e Completata su data passata non
+    /// vengono toccate dal job: sono gia stati definitivi.
     /// </summary>
     [Theory]
-    [InlineData(StatoPrenotazione.Attiva)]
     [InlineData(StatoPrenotazione.Annullata)]
     [InlineData(StatoPrenotazione.Completata)]
     public async Task AutomaticCompletPrenotazioni_NonToccaGliAltriStati(StatoPrenotazione stato)
@@ -1180,6 +1222,99 @@ public class PrenotazioniServiceTests
         Assert.Equal(stato, prenotazione.Stato);
         _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
             It.IsAny<IReadOnlyCollection<long>>(), It.IsAny<StatoPrenotazione>()), Times.Never);
+    }
+
+    // ─── FASE 3 — stato NonPresentata (no-show) ───────────────────────────────
+
+    /// <summary>
+    /// Una "Attiva" mai confermata, con data passata, non completa il ciclo (quel percorso
+    /// parte solo da "InCorso"): prima restava "Attiva" per sempre. Ora il job la segna
+    /// esplicitamente come non presentata, nella stessa passata dello Stesso job.
+    /// </summary>
+    [Fact]
+    public async Task AutomaticCompletPrenotazioni_SegnaNonPresentata_LaAttivaScadutaDiIeri()
+    {
+        var scaduta = PrenotazioneConFascia(1, StatoPrenotazione.Attiva, OggiFermo.AddDays(-1), new TimeOnly(23, 0));
+        ArrangeQueryable(scaduta);
+
+        await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
+
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.Is<IReadOnlyCollection<long>>(ids => ids.Count == 1 && ids.Contains(scaduta.Id)),
+            StatoPrenotazione.NonPresentata), Times.Once);
+    }
+
+    /// <summary>Una "Attiva" di oggi la cui fascia non e ancora finita resta "Attiva": il turno e in corso.</summary>
+    [Fact]
+    public async Task AutomaticCompletPrenotazioni_NonTocca_LaAttivaDiOggiConFasciaNonFinita()
+    {
+        // Fascia che finisce alle 23:00, sono le 14:00 a Roma.
+        var attivaOggi = PrenotazioneConFascia(1, StatoPrenotazione.Attiva, OggiFermo, new TimeOnly(23, 0));
+        ArrangeQueryable(attivaOggi);
+
+        await ServiceConOrologioFermo(IstanteFermo).AutomaticCompletPrenotazioniAsync();
+
+        _prenotazioniRepoMock.Verify(r => r.AggiornaStatoAsync(
+            It.IsAny<IReadOnlyCollection<long>>(), StatoPrenotazione.NonPresentata), Times.Never);
+    }
+
+    [Fact]
+    public async Task ConfermaPrenotazioneAsync_ThrowsConflict_QuandoLaPrenotazioneEGiaPassata()
+    {
+        // Orologio fermo su OggiFermo/IstanteFermo (come i test del job), fascia di ieri: e
+        // certamente passata, a differenza di un calcolo legato a DateTime.UtcNow reale.
+        var passata = PrenotazioneConFascia(1, StatoPrenotazione.Attiva, OggiFermo.AddDays(-1), new TimeOnly(23, 0));
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(passata);
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(
+            () => ServiceConOrologioFermo(IstanteFermo).ConfermaPrenotazioneAsync(1));
+
+        Assert.Contains("passata", ex.Message.ToLowerInvariant());
+    }
+
+    [Fact]
+    public async Task AnnullaPrenotazioneAsync_ThrowsConflict_QuandoNonPresentata()
+    {
+        var nonPresentata = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.NonPresentata, UserId = "u" };
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(nonPresentata);
+
+        await Assert.ThrowsAsync<ConflictException>(() => _service.AnnullaPrenotazioneAsync(1));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AmmetteSoloAnnullata()
+    {
+        var annullata = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.Annullata };
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(annullata);
+
+        await _service.DeleteAsync(1);
+
+        _prenotazioniRepoMock.Verify(r => r.DeleteAsync(annullata), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(StatoPrenotazione.Attiva)]
+    [InlineData(StatoPrenotazione.NonPresentata)]
+    public async Task DeleteAsync_RifiutaLeNonAnnullate(StatoPrenotazione stato)
+    {
+        var prenotazione = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = stato };
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
+
+        await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(1));
+
+        _prenotazioniRepoMock.Verify(r => r.DeleteAsync(It.IsAny<Prenotazione>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AutomaticDeletePrenotazioni_EliminaAncheLeNonPresentatePiuVecchieDiSeiMesi()
+    {
+        var vecchia = PrenotazioneConFascia(1, StatoPrenotazione.NonPresentata, OggiFermo.AddMonths(-6).AddDays(-1), new TimeOnly(23, 0));
+        ArrangeQueryable(vecchia);
+
+        await ServiceConOrologioFermo(IstanteFermo).AutomaticDeletePrenotazioniAsync();
+
+        _prenotazioniRepoMock.Verify(r => r.EliminaPerIdAsync(
+            It.Is<IReadOnlyCollection<long>>(ids => ids.Count == 1 && ids.Contains(vecchia.Id))), Times.Once);
     }
 
     [Fact]
@@ -1243,6 +1378,51 @@ public class PrenotazioniServiceTests
         Assert.Empty(result);
     }
 
+    // ─── FASE 4 — NumeroTurno ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Due fasce nello stesso lunedi, ordinate per orario: la prenotazione delle 20:00 e la
+    /// seconda della giornata, non la prima, anche se la sua FasciaOrariaId (2) e minore di quella
+    /// dell altra fascia nel database - il turno segue l orario, non l id.
+    /// </summary>
+    [Fact]
+    public async Task GetPrenotazioniByDataAsync_ValorizzaNumeroTurno_SecondaFasciaDelGiorno()
+    {
+        var lunedi = DataLunediFuturo;
+        var pranzo = new FasciaOraria { Id = 2, Attiva = true, GiornoSettimana = DayOfWeek.Monday, OrarioInizio = new TimeOnly(12, 0), OrarioFine = new TimeOnly(15, 0) };
+        var cena = new FasciaOraria { Id = 1, Attiva = true, GiornoSettimana = DayOfWeek.Monday, OrarioInizio = new TimeOnly(20, 0), OrarioFine = new TimeOnly(23, 0) };
+        _fasciaRepoMock.Setup(r => r.GetFasceByGiornoAsync(DayOfWeek.Monday))
+                       .ReturnsAsync(new List<FasciaOraria> { pranzo, cena }); // gia ordinate per orario, come il repository vero
+
+        var prenotazione = new Prenotazione { Id = 42, DataPrenotazione = lunedi, FasciaOrariaId = 1, NumeroCoperti = 2 };
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(new List<Prenotazione> { prenotazione }.AsQueryable().BuildMock());
+        _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
+                   .Returns(new List<PrenotazioneDTO> { new() { Id = 42 } });
+
+        var result = await _service.GetPrenotazioniByDataAsync(lunedi);
+
+        Assert.Equal(2, Assert.Single(result).NumeroTurno);
+    }
+
+    [Fact]
+    public async Task GetPrenotazioniByDataAsync_NumeroTurnoAZero_SeLaFasciaNonEPiuAttiva()
+    {
+        var lunedi = DataLunediFuturo;
+        _fasciaRepoMock.Setup(r => r.GetFasceByGiornoAsync(DayOfWeek.Monday))
+                       .ReturnsAsync(new List<FasciaOraria>()); // la fascia usata e stata disattivata dopo
+
+        var prenotazione = new Prenotazione { Id = 42, DataPrenotazione = lunedi, FasciaOrariaId = 1, NumeroCoperti = 2 };
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(new List<Prenotazione> { prenotazione }.AsQueryable().BuildMock());
+        _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
+                   .Returns(new List<PrenotazioneDTO> { new() { Id = 42 } });
+
+        var result = await _service.GetPrenotazioniByDataAsync(lunedi);
+
+        Assert.Equal(0, Assert.Single(result).NumeroTurno);
+    }
+
     // ─── REV-020 — ordinamento della paginazione deterministico ──────────────
 
     [Fact]
@@ -1283,6 +1463,28 @@ public class PrenotazioniServiceTests
         var visti = pagina1.Items.Concat(pagina2.Items).Select(i => i.Id).ToList();
         Assert.Equal(4, visti.Distinct().Count());
         Assert.Equal(4, pagina1.TotalCount);
+    }
+
+    /// <summary>FASE 7: filtro per fascia, usato dal clic su una riga della dashboard.</summary>
+    [Fact]
+    public async Task GetAllPrenotazioniAsync_FiltraPerFasciaOraria()
+    {
+        var data = new DateOnly(2026, 9, 20);
+        var prenotazioni = new List<Prenotazione>
+        {
+            new() { Id = 1, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 },
+            new() { Id = 2, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 2, NumeroCoperti = 2 },
+        };
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(prenotazioni.AsQueryable().BuildMock());
+        _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
+                   .Returns((object src) => ((IEnumerable<Prenotazione>)src)
+                                            .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());
+
+        var risultato = await _service.GetAllPrenotazioniAsync(
+            new PrenotazioniQueryParams { FasciaOrariaId = 2 });
+
+        Assert.Equal(2, Assert.Single(risultato.Items).Id);
     }
 
     [Fact]

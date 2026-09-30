@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { useAuth } from '@/hooks/useAuth'
+import { paginaDiCasa } from '@/lib/navigazione'
 import apiClient from '@/lib/axios'
 import { Endpoints } from '@/lib/endpoints'
 import { Button } from '@/components/ui/button'
@@ -37,8 +38,7 @@ export default function LoginPage() {
       // REV-014: il token non si ridecodifica qui. Ci pensa il context, che e' anche l'unico
       // punto in cui la decodifica e' protetta; qui si usa il risultato gia' pronto.
       const utente = login(response.data.token)
-      const soloCliente = utente.roles.length > 0 && utente.roles.every((r) => r === 'Cliente')
-      navigate(soloCliente ? '/prenotazioni' : '/dashboard')
+      navigate(paginaDiCasa(utente.roles))
     } catch (errore) {
       // Un token illeggibile non e' un problema di credenziali: dirlo com'e', altrimenti si
       // manda l'utente a riprovare all'infinito una password che era giusta.
@@ -100,6 +100,9 @@ export default function LoginPage() {
           </p>
         </CardContent>
       </Card>
+      <Link to="/" className="text-nota text-muted-foreground hover:text-foreground">
+        ← Torna alla pagina del locale
+      </Link>
     </div>
   )
 }

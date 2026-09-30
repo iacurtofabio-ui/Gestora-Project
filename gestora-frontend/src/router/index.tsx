@@ -13,6 +13,7 @@ import PostazionePage from '@/pages/PostazionePage'
 import FasciaOrariaPage from '@/pages/FasciaOrariaPage'
 import AdminUtentiPage from '@/pages/AdminUtentiPage'
 import UnauthorizedPage from '@/pages/UnauthorizedPage'
+import NotFoundPage from '@/pages/NotFoundPage'
 import SetupPage from '@/pages/SetupPage'
 import RouteErrorPage from './RouteErrorPage'
 
@@ -92,4 +93,7 @@ export const router = createBrowserRouter([
     errorElement,
     children: [{ path: '/admin-utenti', element: <AdminUtentiPage /> }],
   },
+  // Nessuna rotta corrisponde: niente auth richiesta, il messaggio va bene per chiunque arrivi
+  // con un indirizzo sbagliato o un vecchio link, autenticato o no.
+  { path: '*', element: <NotFoundPage />, errorElement },
 ])

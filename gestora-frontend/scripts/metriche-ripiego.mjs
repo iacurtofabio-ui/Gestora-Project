@@ -32,9 +32,9 @@ const percorsoFont = join(
   '..',
   'node_modules',
   '@fontsource-variable',
-  'archivo',
+  'inter',
   'files',
-  'archivo-latin-wght-normal.woff2'
+  'inter-latin-wght-normal.woff2'
 )
 
 /**

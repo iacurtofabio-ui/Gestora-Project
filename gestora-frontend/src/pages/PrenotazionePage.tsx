@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { PlusIcon } from 'lucide-react'
 import {
@@ -10,6 +11,7 @@ import {
 } from '@/hooks/usePrenotazioni'
 import PrenotazioneModal from '@/components/PrenotazioneModal'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import NotaPrenotazioneDialog from '@/components/NotaPrenotazioneDialog'
 import Paginazione from '@/components/Paginazione'
 import { PageError, TableSkeleton } from '@/components/PageState'
 import { EmptyState } from '@/components/EmptyState'
@@ -34,7 +36,7 @@ import {
 } from '@/components/ui/table'
 import { STATI_PRENOTAZIONE, type PrenotazioneDTO } from '@/types/prenotazione'
 import { useAuth } from '@/hooks/useAuth'
-import { dataBreveInItalia } from '@/lib/date'
+import { dataBreveInItalia, dataEstesaInItalia } from '@/lib/date'
 
 // REV-043: 20 righe stanno in una schermata senza scorrere. Il backend accetta al massimo 100.
 const RIGHE_PER_PAGINA = 20
@@ -50,6 +52,7 @@ const OPZIONI_STATO = [
   { value: STATI_PRENOTAZIONE.IN_CORSO, label: 'Confermata' },
   { value: STATI_PRENOTAZIONE.COMPLETATA, label: 'Completata' },
   { value: STATI_PRENOTAZIONE.ANNULLATA, label: 'Annullata' },
+  { value: STATI_PRENOTAZIONE.NON_PRESENTATA, label: 'Non presentata' },
 ]
 
 /**
@@ -67,34 +70,60 @@ const COLONNE = [
   '8rem',
 ]
 
+const postiTotali = (postazioni: { numeroPosti: number }[]) =>
+  postazioni.reduce((somma, pos) => somma + pos.numeroPosti, 0)
+
 export default function PrenotazionePage() {
   const { user } = useAuth()
   const isStaff = Boolean(user?.roles.includes('Admin') || user?.roles.includes('Staff'))
   // NEW-004: l'eliminazione e' riservata all'Admin (l'endpoint e' [Authorize(Roles = Admin)]).
   const isAdmin = Boolean(user?.roles.includes('Admin'))
-  const [filtroData, setFiltroData] = useState('')
-  const [filtroStato, setFiltroStato] = useState(STATO_TUTTI)
-  const [pagina, setPagina] = useState(1)
+
+  // FASE 7: i filtri vivono nell'URL, non solo nello stato del componente — cosi' sono
+  // condivisibili (un link con ?data=... apre la pagina gia' filtrata) e sopravvivono a un
+  // ricaricamento della pagina, cosa che lo stato locale non faceva.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filtroData = searchParams.get('data') ?? ''
+  const filtroStato = searchParams.get('stato') ?? STATO_TUTTI
+  const filtroFascia = searchParams.get('fascia')
+  const pagina = Number(searchParams.get('pagina') ?? '1') || 1
 
   // Cambiando filtro il numero di pagine cambia: restando sulla pagina corrente si puo' finire
   // oltre l'ultima e vedere una tabella vuota che sembra "nessun risultato".
   function cambiaFiltroData(valore: string) {
-    setFiltroData(valore)
-    setPagina(1)
+    setSearchParams((sp) => {
+      const nuovi = new URLSearchParams(sp)
+      if (valore) nuovi.set('data', valore)
+      else nuovi.delete('data')
+      nuovi.delete('pagina')
+      return nuovi
+    })
   }
 
   function cambiaFiltroStato(valore: string) {
-    setFiltroStato(valore)
-    setPagina(1)
+    setSearchParams((sp) => {
+      const nuovi = new URLSearchParams(sp)
+      if (valore === STATO_TUTTI) nuovi.delete('stato')
+      else nuovi.set('stato', valore)
+      nuovi.delete('pagina')
+      return nuovi
+    })
+  }
+
+  function cambiaPagina(numero: number) {
+    setSearchParams((sp) => {
+      const nuovi = new URLSearchParams(sp)
+      if (numero <= 1) nuovi.delete('pagina')
+      else nuovi.set('pagina', String(numero))
+      return nuovi
+    })
   }
 
   function azzeraFiltri() {
-    setFiltroData('')
-    setFiltroStato(STATO_TUTTI)
-    setPagina(1)
+    setSearchParams({})
   }
 
-  const filtriAttivi = filtroData !== '' || filtroStato !== STATO_TUTTI
+  const filtriAttivi = filtroData !== '' || filtroStato !== STATO_TUTTI || filtroFascia !== null
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   // NEW-001: lo stesso modal serve creazione e modifica. Se questa e' valorizzata il modal si
@@ -104,6 +133,9 @@ export default function PrenotazionePage() {
   >(undefined)
   const [idDaAnnullare, setIdDaAnnullare] = useState<number | undefined>(undefined)
   const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
+  const [notaAperta, setNotaAperta] = useState<{ cliente: string; testo: string } | undefined>(
+    undefined,
+  )
 
   function apriNuovaPrenotazione() {
     setPrenotazioneDaModificare(undefined)
@@ -123,6 +155,7 @@ export default function PrenotazionePage() {
   const prenotazioni = usePrenotazioni({
     data: filtroData || undefined,
     stato: filtroStato === STATO_TUTTI ? undefined : filtroStato,
+    fasciaOrariaId: filtroFascia ? Number(filtroFascia) : undefined,
     page: pagina,
     pageSize: RIGHE_PER_PAGINA,
   })
@@ -270,51 +303,111 @@ export default function PrenotazionePage() {
                     }
                   />
                 ) : (
-                  prenotazioni.data?.items.map((p) => (
-                    <TableRow key={p.id} className="group/riga">
-                      <TableCell className="text-corpo whitespace-nowrap">
-                        {dataBreveInItalia(p.dataPrenotazione)}
-                      </TableCell>
-                      <TableCell className="text-corpo truncate font-medium">
-                        {p.nomeCliente ?? p.nomeUtente}
-                      </TableCell>
-                      {/* L'orario e' il dato che si cerca per primo: un gradino piu' grande e
-                          piu' pesante del resto della riga. */}
-                      <TableCell className="text-orario tabular-nums">
-                        {p.oraInizio?.slice(0, 5)}–{p.oraFine?.slice(0, 5)}
-                      </TableCell>
-                      <TableCell className="text-orario text-right tabular-nums">
-                        {p.numeroCoperti}
-                      </TableCell>
-                      <TableCell>
-                        <StatoBadge stato={p.stato} />
-                      </TableCell>
-                      <TableCell className="text-corpo truncate text-muted-foreground">
-                        {p.postazioni.length === 0
-                          ? '—'
-                          : p.postazioni.map((pos) => pos.numero).join(', ')}
-                        {p.postazioni[0]?.nomeZona && (
-                          <span className="text-nota"> · {p.postazioni[0].nomeZona}</span>
+                  prenotazioni.data?.items.map((p, indice) => {
+                    // FASE 4: separatore a tutta larghezza quando cambia la data - solo per
+                    // Staff/Admin, dove la tabella scorre su più giornate e più turni.
+                    const precedente = prenotazioni.data?.items[indice - 1]
+                    const cambiaGiorno = isStaff && p.dataPrenotazione !== precedente?.dataPrenotazione
+
+                    return (
+                      <Fragment key={p.id}>
+                        {cambiaGiorno && (
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell
+                              colSpan={COLONNE.length}
+                              className="text-nota bg-muted py-1.5 uppercase text-muted-foreground"
+                            >
+                              {dataEstesaInItalia(p.dataPrenotazione)}
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <AzioniPrenotazione
-                          prenotazione={p}
-                          isStaff={isStaff}
-                          isAdmin={isAdmin}
-                          inCorso={
-                            (conferma.isPending && conferma.variables === p.id) ||
-                            (completa.isPending && completa.variables === p.id)
-                          }
-                          onConferma={() => conferma.mutate(p.id)}
-                          onCompleta={() => completa.mutate(p.id)}
-                          onModifica={() => apriModificaPrenotazione(p)}
-                          onAnnulla={() => setIdDaAnnullare(p.id)}
-                          onElimina={() => setIdDaEliminare(p.id)}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        <TableRow className="group/riga">
+                          <TableCell className="text-corpo whitespace-nowrap">
+                            {dataBreveInItalia(p.dataPrenotazione)}
+                          </TableCell>
+                          <TableCell className="text-corpo font-medium">
+                            <div className="truncate">{p.nomeCliente ?? p.nomeUtente}</div>
+                            {/* Anteprima di due righe; un clic apre la nota per intero. */}
+                            {p.note && (
+                              <button
+                                type="button"
+                                className="text-nota line-clamp-2 w-full cursor-pointer whitespace-normal text-left font-normal text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                                title="Clicca per leggere la nota per intero"
+                                onClick={() =>
+                                  setNotaAperta({
+                                    cliente: p.nomeCliente ?? p.nomeUtente ?? 'Cliente',
+                                    testo: p.note!,
+                                  })
+                                }
+                              >
+                                {p.note}
+                              </button>
+                            )}
+                          </TableCell>
+                          {/* L'orario e' il dato che si cerca per primo: un gradino piu' grande e
+                              piu' pesante del resto della riga. Il turno sotto, in piccolo: la
+                              colonna Data non basta piu' a distinguere due turni della stessa sera. */}
+                          <TableCell className="text-orario tabular-nums">
+                            <div>
+                              {p.oraInizio?.slice(0, 5)}–{p.oraFine?.slice(0, 5)}
+                            </div>
+                            {p.numeroTurno > 0 && (
+                              <div className="text-nota text-muted-foreground">
+                                {p.numeroTurno}º turno
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-orario text-right tabular-nums">
+                            {p.numeroCoperti}
+                          </TableCell>
+                          <TableCell>
+                            <StatoBadge stato={p.stato} />
+                          </TableCell>
+                          <TableCell className="text-corpo">
+                            {p.postazioni.length === 0 ? (
+                              <span className="text-muted-foreground">—</span>
+                            ) : (
+                              <>
+                                {/* Zona in piccolo sopra, poi i tavoli con i posti in totale. */}
+                                {p.postazioni[0]?.nomeZona && (
+                                  <div className="text-nota text-muted-foreground">
+                                    {p.postazioni[0].nomeZona}
+                                  </div>
+                                )}
+                                {/* Più tavoli uniti: un'unica riga "Tavolo 1-2 · 6 posti" col totale. */}
+                                <div className="whitespace-nowrap">
+                                  Tavolo {p.postazioni.map((pos) => pos.numero).join('-')}
+                                  {postiTotali(p.postazioni) > 0 && (
+                                    <span className="text-nota text-muted-foreground">
+                                      {' '}
+                                      · {postiTotali(p.postazioni)}{' '}
+                                      {postiTotali(p.postazioni) === 1 ? 'posto' : 'posti'}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <AzioniPrenotazione
+                              prenotazione={p}
+                              isStaff={isStaff}
+                              isAdmin={isAdmin}
+                              inCorso={
+                                (conferma.isPending && conferma.variables === p.id) ||
+                                (completa.isPending && completa.variables === p.id)
+                              }
+                              onConferma={() => conferma.mutate(p.id)}
+                              onCompleta={() => completa.mutate(p.id)}
+                              onModifica={() => apriModificaPrenotazione(p)}
+                              onAnnulla={() => setIdDaAnnullare(p.id)}
+                              onElimina={() => setIdDaEliminare(p.id)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      </Fragment>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -329,7 +422,7 @@ export default function PrenotazionePage() {
             elementiInPagina={prenotazioni.data?.items.length ?? 0}
             pageSize={RIGHE_PER_PAGINA}
             inCaricamento={prenotazioni.isFetching}
-            onCambioPagina={setPagina}
+            onCambioPagina={cambiaPagina}
           />
         )}
       </div>
@@ -353,11 +446,12 @@ export default function PrenotazionePage() {
         }}
         onCancel={() => setIdDaAnnullare(undefined)}
       />
+      <NotaPrenotazioneDialog nota={notaAperta} onClose={() => setNotaAperta(undefined)} />
       <ConfirmDialog
         open={idDaEliminare !== undefined}
         titolo="Eliminare definitivamente?"
         testoConferma="Elimina definitivamente"
-        descrizione="La prenotazione sparisce dallo storico e non si puo' recuperare. Per liberare i tavoli tenendo traccia di cosa e' successo usa invece Annulla."
+        descrizione="La prenotazione annullata sparisce dallo storico e non si puo' recuperare."
         onConfirm={() => {
           elimina.mutate(idDaEliminare!)
           setIdDaEliminare(undefined)

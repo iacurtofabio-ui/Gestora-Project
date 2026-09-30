@@ -1,4 +1,10 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+  type QueryClient,
+} from '@tanstack/react-query'
 import apiClient from '@/lib/axios'
 import { toast } from 'sonner'
 import type { PrenotazioneDTO, PrenotazioneCreateDTO } from '@/types/prenotazione'
@@ -9,6 +15,8 @@ import { Endpoints } from '@/lib/endpoints'
 type PrenotazioniParams = {
   data?: string
   stato?: string
+  /** FASE 7: filtro per fascia, usato dal clic su una riga della dashboard. */
+  fasciaOrariaId?: number
   page?: number
   pageSize?: number
 }
@@ -59,12 +67,23 @@ export function usePrenotazioni(params: PrenotazioniParams = {}) {
   })
 }
 
+/**
+ * FASE 7: ogni scrittura su una prenotazione cambia anche i numeri della dashboard (coperti,
+ * conteggi, no-show). Prima solo 'prenotazioni' veniva invalidata: la dashboard restava con i
+ * dati vecchi finche' non scattava da sola il refetchInterval, fino a un minuto di ritardo.
+ */
+function invalidaPrenotazioniEDashboard(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+  queryClient.invalidateQueries({ queryKey: ['dashboard-giornaliera'] })
+  queryClient.invalidateQueries({ queryKey: ['dashboard-settimanale'] })
+}
+
 export function useCreaPrenotazione() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: PrenotazioneCreateDTO) => apiClient.post(Endpoints.prenotazione.crea, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      invalidaPrenotazioniEDashboard(queryClient)
       toast.success('Prenotazione creata con successo')
     },
     onError: segnalaErrore('Errore durante la creazione'),
@@ -83,7 +102,7 @@ export function useModificaPrenotazione() {
     mutationFn: ({ id, data }: { id: number; data: PrenotazioneCreateDTO }) =>
       apiClient.put(Endpoints.prenotazione.update(id), data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      invalidaPrenotazioniEDashboard(queryClient)
       toast.success('Prenotazione modificata con successo')
     },
     onError: segnalaErrore('Errore durante la modifica'),
@@ -95,7 +114,7 @@ export function useConfermaPrenotazione() {
   return useMutation({
     mutationFn: (id: number) => apiClient.patch(Endpoints.prenotazione.conferma(id)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      invalidaPrenotazioniEDashboard(queryClient)
       toast.success('Prenotazione confermata')
     },
     onError: segnalaErrore('Errore durante la conferma'),
@@ -107,7 +126,7 @@ export function useCompletaPrenotazione() {
   return useMutation({
     mutationFn: (id: number) => apiClient.patch(Endpoints.prenotazione.completa(id)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      invalidaPrenotazioniEDashboard(queryClient)
       toast.success('Prenotazione completata')
     },
     onError: segnalaErrore('Errore durante il completamento'),
@@ -119,7 +138,7 @@ export function useAnnullaPrenotazione() {
   return useMutation({
     mutationFn: (id: number) => apiClient.patch(Endpoints.prenotazione.annulla(id)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      invalidaPrenotazioniEDashboard(queryClient)
       toast.success('Prenotazione annullata')
     },
     onError: segnalaErrore("Errore durante l'annullamento"),
@@ -131,7 +150,7 @@ export function useDeletePrenotazione() {
   return useMutation({
     mutationFn: (id: number) => apiClient.delete(Endpoints.prenotazione.delete(id)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
+      invalidaPrenotazioniEDashboard(queryClient)
       toast.success('Prenotazione eliminata')
     },
     onError: segnalaErrore("Errore durante l'eliminazione"),

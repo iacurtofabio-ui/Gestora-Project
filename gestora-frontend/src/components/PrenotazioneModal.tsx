@@ -203,7 +203,7 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
                 const suffisso = disp ? (disp.disponibilePerRichiesta ? '' : ' · esaurita') : ''
                 return (
                   <option key={f.id} value={f.id}>
-                    {f.orarioInizio} - {f.orarioFine}
+                    {f.orarioInizio.slice(0, 5)}–{f.orarioFine.slice(0, 5)}
                     {suffisso}
                   </option>
                 )

@@ -1,6 +1,6 @@
 # Gestora — cosa resta da fare
 
-Aggiornato il **17/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **21/09/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -9,75 +9,20 @@ vista d'insieme che si guarda per decidere cosa fare.
 > Le sigle vecchie (`REV-xxx`, `NEW-xxx`, `FIX-xxx`) restano valide come riferimento storico.
 > Sono spiegate in `docs/archivio/REVISIONE_END_TO_END.md` e nel tracker.
 
----
-
-## 🔴 Urgente — migrazione hosting
-
-### `OPS-006` — Completare la migrazione da Railway ad Azure/Neon
-
-**Cos'è.** Railway ha chiuso il trial il 16/09/2026 e spento backend e database senza
-preavviso di scadenza (era stato indicato come "gratuito", non era un piano gratuito
-permanente). Nuova infrastruttura pensata per restare online senza limiti di tempo, dettagli in
-`CLAUDE.md` §1: **Azure App Service F1 + Neon (Postgres) + Docker Hub + GitHub Actions**. Dati
-vecchi non migrati per scelta (erano solo dati di test).
-
-**Fatto finora (16-17/09/2026):**
-- Database Neon creato, schema riallineato (7 migration EF + tabelle Quartz)
-- App Service `gestora-api` (Azure, piano F1, Canada Central) creata
-- Pipeline CI (`.github/workflows/docker-publish.yml`) che pubblica l'immagine su Docker Hub
-  (`fabioiacurto/gestora-api`) ad ogni push su `main`
-- Variabili d'ambiente configurate correttamente su Azure (attenzione: due bug trovati e
-  corretti — nomi con underscore singolo invece di doppio, e valori rimasti come testo
-  segnaposto invece dei valori veri)
-- `/health` risponde **Healthy**
-
-**Cosa resta:**
-1. Abilitare l'autenticazione di base SCM su Azure e collegare il webhook di distribuzione
-   continua su Docker Hub, per il redeploy automatico ad ogni nuova immagine pubblicata
-2. Aggiornare la variabile del frontend su Vercel (`VITE_API_URL` o equivalente) per puntare al
-   nuovo backend Azure, oggi ancora agganciato al vecchio indirizzo Railway (offline)
-3. Verifica end-to-end: login con i 3 ruoli, prova prenotazione, job Quartz
-4. Dismissione del progetto Railway, una volta confermato tutto stabile
+> `OPS-006` (migrazione da Railway ad Azure/Neon) è **chiusa il 18/09/2026**: verifica
+> end-to-end fatta (setup Admin, 3 ruoli, prenotazione con assegnazione tavolo, job Quartz),
+> progetto Railway eliminato. Dettaglio in `CLAUDE.md` §1 e `docs/archivio/STORICO_FASI.md`.
 
 ---
 
 ## 🔵 Da fare prima
 
-### `CAP-001` — Il tetto dei coperti non è garantito
-
-**Cos'è.** Il limite di coperti di una fascia è controllato **solo dal codice applicativo**
-(`PrenotazioniService.ValidatePrenotazioneAsync`). Nel database non c'è niente che lo imponga: a
-differenza del tavolo, protetto dall'indice unico `UX_PrenotazionePostazione_Slot`, i coperti non
-hanno un vincolo equivalente.
-
-**Perché è un problema.** Il controllo è una `SUM` sulle prenotazioni esistenti seguita da un
-`INSERT`. PostgreSQL gira in `READ COMMITTED` e `BeginTransactionAsync()` non chiede un livello
-diverso: due prenotazioni simultanee sulla stessa fascia possono entrambe leggere «48 su 52»,
-entrambe passare il controllo per 4 coperti, ed entrambe scrivere. Risultato: 56 su 52.
-
-È la stessa corsa che per i tavoli era stata chiusa con l'indice unico. Per i coperti manca.
-
-**Emerso il 09/09/2026** verificando perché il seed di sviluppo aveva prodotto una fascia con 61
-coperti su 52. Il seed è stato corretto (scriveva saltando il servizio), ma la verifica ha fatto
-trovare il buco vero.
-
-**Cosa fare — tre punti.**
-1. **Rendere il tetto un vincolo vero.** La strada più semplice è bloccare la riga della fascia
-   (`SELECT ... FOR UPDATE`) prima della `SUM`, dentro la transazione: serializza le prenotazioni
-   sulla stessa fascia, che è esattamente ciò che serve.
-2. **Spostare `ValidatePrenotazioneAsync` dentro la transazione anche in `UpdateAsync`.** In
-   `AddAsync` sta già dentro; in modifica sta fuori (riga ~161), quindi lì la finestra è più larga.
-   Allineamento a costo zero.
-3. **Smettere di nascondere lo sforamento.** `DashboardService` riga 101 calcola
-   `Math.Max(0, MaxCoperti - copertiPrenotati)`: uno sforamento si legge «0 disponibili», identico
-   a una fascia esattamente piena. Un dato incoerente va mostrato, non schiacciato — altrimenti se
-   il punto 1 fallisce nessuno se ne accorge.
-
-**Come provarlo.** `dotnet run -- --seed-sviluppo --stato-incoerente` scrive lo stato incoerente
-di proposito (saltando il servizio), per vedere come reagisce l'interfaccia.
+> `CAP-001` (tetto dei coperti non garantito) è **chiusa il 18/09/2026**: lock `FOR UPDATE`
+> sulla riga della fascia dentro la transazione, validazione di `UpdateAsync` spostata dentro la
+> transazione, sforamento esposto in dashboard (`copertiOltreIlTetto`). Prova manuale in
+> `RUNBOOK.md` §2. Dettaglio in `GestoraDocs/CONSEGNA_v1.1.md`.
 
 ---
-
 
 ### `UI-001` — Prova a mano del redesign «Turno»
 
@@ -88,10 +33,18 @@ sistemare spaziature, proporzioni, testi.
 redesign **«Turno»**, tre fasi che hanno rifatto identità visiva, gerarchia e stati su tutte le
 pagine. Il dettaglio è nel tracker, foglio *Appunti e Step*, blocco «REDESIGN «TURNO»».
 
-**Cosa resta.** La verifica a schermo, che nessuno ha ancora fatto — il redesign è stato
-scritto e misurato, non guardato. È in carico a Fabio, con la lista di controllo in
-**`GestoraDocs/verifica-redesign.md`**: dice dove andare, cosa fare e cosa si deve vedere, ed è
-in ordine di resa (le prime dieci voci sono quelle che pagano di più).
+**Cosa resta.** La lista di controllo è in **`GestoraDocs/verifica-redesign.md`** (~90 voci):
+dice dove andare, cosa fare e cosa si deve vedere, in ordine di resa (le prime dieci voci sono
+quelle che pagano di più).
+
+**Fatto il 21/09/2026 (Fase 8, parziale).** Verificate con Playwright 7 delle 10 «prime voci»
+più X0/X1/X6: **11 ✅, 2 ⚠️** (non verificabili da screenshot — l'animazione d'ingresso D2 e
+l'evidenziazione delle tendine native X4, disegnate dal sistema operativo), **1 ❌ trovato e
+corretto** (T1: con molte fasce configurate il riepilogo di Postazioni spingeva la tabella fuori
+dalla prima schermata — ora scorre dentro un\'altezza massima). Esiti scritti voce per voce nel
+file. **Restano da fare circa 80 voci**, non è una verifica completa: il resto — in particolare
+tutti i controlli a 768px e 375px, il touch vero, i dialoghi di Zone/Fasce/Utenti, gli stati S1 e
+S3-S7 — è ancora in carico a Fabio.
 
 Per avere dati su cui provare davvero, dalla cartella `GestoraWebApi`:
 
@@ -114,32 +67,12 @@ Popola il database **locale** con un dataset costruito per rompere il layout (no
 
 ---
 
-### `DOC-001` — Formalizzare il file di appunti d'uso
-
-**Cos'è.** Usando l'app tutti i giorni, Fabio ha annotato dei miglioramenti in un file personale
-(`AppuntiFix.txt`, nella cartella principale). Sono cose emerse dall'uso vero, quindi
-probabilmente le più utili di tutto quello che resta.
-
-**Perché non è già stato fatto.** Per decisione dell'08/09/2026 il file **non si apre** finché
-non parte la fase dedicata: la Fase 11 doveva restare una chiusura pulita, non diventare un
-contenitore.
-
-**Come si fa.**
-1. Fabio passa il file, si leggono i punti uno per uno
-2. Ognuno diventa una voce nel tracker con una sigla e una priorità
-3. Si separano in due gruppi, perché costano molto diversamente:
-   - **solo frontend** — si sistemano in fretta
-   - **backend + frontend** — vanno pianificate
-4. Si decide cosa entra nella prima fase di implementazione
-
-**Nessun codice si scrive in quella sessione**: si decide soltanto.
-
-**Due punti già noti**, citati a voce e da non perdere:
-- leggibilità delle fasce orarie — *solo frontend*
-- coperti per tavolo: il dato esiste già nel database ma il server non lo manda al frontend —
-  *backend + frontend*
-
-Il merito non si discute adesso: si decide quando si apre il file.
+> `DOC-001` (formalizzare `AppuntiFix.txt`) è **chiusa il 21/09/2026**: le 13 righe del file sono
+> state lette e ognuna è diventata lavoro in una fase di questa chiusura (o una voce qui sotto,
+> per quelle non ancora fatte). La tabella riga-per-riga è in `GestoraDocs/CONSEGNA_v1.1.md`,
+> sezione Fase 10. `AppuntiFix.txt` **non è stato toccato** (resta il file personale di Fabio).
+> L'unica riga non ancora chiusa è la prima, **«SEPARARE FE E BE»**: preparazione in corso, vedi
+> `RUNBOOK.md` §9 quando sarà scritto (Fase 11).
 
 ---
 
@@ -159,8 +92,9 @@ significa ricreare dati di test e rifarlo daccapo.
 **Perché un reset e non una cancellazione mirata.** Perché la cancellazione mirata **si blocca da
 sola**, ed è utile capire il motivo:
 
-- una prenotazione in stato `Completata` non si può **né eliminare** (il server accetta solo
-  `Attiva` e `Annullata`) **né annullare** (le completate vengono rifiutate)
+- una prenotazione in stato `Completata` non si può **né eliminare** (dal 30/09/2026 il server
+  accetta l'eliminazione solo per `Annullata`) **né annullare** (le completate vengono
+  rifiutate). Stessa cosa per `NonPresentata`: resta nello storico.
 - quindi la sua riga di collegamento con il tavolo resta viva
 - e il tavolo non si elimina finché esiste **una qualsiasi** riga di collegamento, anche vecchia
 - e la zona non si elimina finché ha ancora un tavolo assegnato
@@ -169,6 +103,25 @@ Vicolo cieco completo, uscibile solo scrivendo direttamente nel database.
 
 **Procedura**: in `RUNBOOK.md`, sezione *Reset dei database*. Ha tre punti che si dimenticano
 sempre — leggila, non andare a memoria.
+
+---
+
+### `SEC-001` — Avviso di sicurezza su AutoMapper 12.0.1
+
+**Cos'è.** `dotnet list package --vulnerable --include-transitive` segnala un avviso di gravità
+**High** (`GHSA-rvv3-g6hj-g44x`) sulla versione di AutoMapper usata (dipendenza transitiva di
+`AutoMapper.Extensions.Microsoft.DependencyInjection`, riferimento diretto in
+`GestoraWebApi.csproj`). Trovato il 21/09/2026, non c'era in precedenza.
+
+**Perché non è stato aggiornato subito.** La versione che risolve l'avviso è **16.2.0** — un
+salto di 4 versioni maggiori, non una patch. AutoMapper ha cambiato modello di licenza dalla 13
+in poi (uso commerciale a pagamento oltre una soglia di fatturato dell'azienda che lo usa): è una
+decisione che riguarda anche Fabio, non solo tecnica, e comunque un salto così grande va provato
+con calma, non incluso di corsa in una chiusura.
+
+**Decisione da prendere**: aggiornare (verificando prima le condizioni di licenza per l'uso di
+Gestora) oppure restare sulla 12.x accettando l'avviso aperto (non è sfruttabile da remoto,
+riguarda un dettaglio interno della libreria).
 
 ---
 
@@ -181,7 +134,8 @@ Nessuna di queste tocca l'applicazione che gira. Si possono fare in qualsiasi mo
 | `OPS-002` | Cancellare la cartella `Personali\Gestora_BACKUP_20260903` | Copia di sicurezza fatta prima di riscrivere la storia di Git. Non serve più |
 | `OPS-003` | Lanciare `git gc --prune=now` a computer appena riavviato | Restano oggetti orfani **solo in locale** da una riscrittura interrotta. È solo spazio su disco |
 | `OPS-004` | Riallineare il tag `v1.0.0` fra il PC e GitHub | In locale punta a un commit, su GitHub a un altro: effetto della riscrittura della storia. Il contenuto è identico, cambia solo il codice del commit. Si sistema con `git push --force origin refs/tags/v1.0.0` |
-| `OPS-005` | Spostare `@tanstack/react-query-devtools` fra le dipendenze di sviluppo | Oggi sta fra quelle di produzione, dove non dovrebbe. Guadagno nullo (dal pacchetto pubblicato è già assente) e c'è un rischio: se un giorno Vercel installasse saltando le dipendenze di sviluppo, la build si romperebbe. Da fare solo se si tocca comunque quella parte |
+
+> `OPS-005` (devtools fra le dipendenze di sviluppo) è **chiusa il 21/09/2026**, Fase 9.
 
 ---
 
@@ -208,6 +162,9 @@ esplicita. Non sono impegni: sono la lista da cui pescare se il progetto riparte
 - Email di conferma e promemoria
 - Recupero password autonomo
 - Sessione con rinnovo automatico del token
+- Autenticazione con cookie `HttpOnly` + protezione CSRF, al posto del token in `localStorage`.
+  È una riprogettazione, non un fix: il token in `localStorage` non è un bug (vedi `RUNBOOK.md`
+  §9), ma un cookie `HttpOnly` toglie anche la possibilità teorica di leggerlo da JavaScript
 
 **Altro**
 - Export CSV/PDF dei report — ⚠️ oggi **non esiste**, esistono solo i due endpoint della

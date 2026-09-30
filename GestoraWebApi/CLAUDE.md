@@ -45,9 +45,10 @@ liste scritte a mano: invecchiano. Quello che il codice non dice da solo:
 - La rotta base è sempre `api/[nome della classe controller]` — es. `AuthenticationUserController`
   → `/api/AuthenticationUser/...` (non `/api/Auth/...`), `FasceOrarieController` →
   `/api/FasceOrarie/...` (non `/api/FasciaOraria/...`, vecchia documentazione).
-- **`GET /health`** sta fuori dai controller (registrato in `Program.cs`), pubblico. È il
-  Healthcheck Path di Railway: se non risponde, il deploy fallisce e resta online la versione
-  precedente.
+- **`GET /health`** sta fuori dai controller (registrato in `Program.cs`), pubblico.
+  Azure App Service lo chiama di continuo per il proprio controllo di salute; il log di richiesta
+  (Fase 5) lo tiene a livello `Verbose` apposta, per non intasare i log con una riga ogni pochi
+  secondi.
 - **`check-disponibilita`** (Prenotazione) e **`Setup`** (`GET stato`, `POST admin`) sono pubblici,
   senza auth — necessario per la pagina pubblica e il primo avvio.
 - **`JobsController`** (`POST trigger/{jobName}`, solo Admin) è **attivo anche in produzione**,
@@ -92,6 +93,42 @@ cresce col numero di tavoli in sala.
 dall'assegnazione reale — non un algoritmo parallelo. Basa i posti residui sul tetto della fascia
 (`MaxCoperti`, decisione 8), esclude tavoli in zone disattivate.
 
+## Stati di una prenotazione (`Enums/StatoPrenotazione.cs`)
+
+```
+Attiva ──(ConfermaPrenotazioneAsync)──> InCorso ──(job: fascia finita)──> Completata
+  │                                        │
+  │ (job: data/fascia passate,             │ non torna mai indietro
+  │  mai confermata)                       │
+  ▼                                        │
+NonPresentata                              │
+  │                                        │
+  └── entrambe: eliminabile da Admin ──────┘
+Annullata: raggiungibile da Attiva/InCorso (AnnullaPrenotazioneAsync), eliminabile da Admin
+```
+
+`Prenotazione.Stato` è salvato come **stringa** (`HasConversion<string>()` in `GestoraContext`):
+aggiungere un valore all'enum, come `NonPresentata` (Fase 3), non tocca lo schema, nessuna
+migration. Regole di transizione, tutte in `PrenotazioniService`:
+- `AutomaticCompletPrenotazioniAsync` (job notturno) porta `InCorso` → `Completata` quando la
+  fascia è finita, **e nella stessa esecuzione** porta `Attiva` → `NonPresentata` quando
+  data/fascia sono passate e nessuno l'ha mai confermata (girano sempre insieme: il secondo passo
+  non dipende da quante righe ha completato il primo).
+- `ConfermaPrenotazioneAsync` rifiuta anche una `Attiva` con data/fascia già passate (409 «La
+  prenotazione è già passata»), non solo uno stato diverso da `Attiva`: altrimenti si potrebbe
+  confermare un turno di ieri sera nella finestra prima che il job notturno sia girato.
+- `AnnullaPrenotazioneAsync`/`UpdateAsync` rifiutano `NonPresentata` come rifiutano `Completata`.
+- `DeleteAsync` **ammette** `NonPresentata` (a differenza di `Completata`): non è uno stato
+  chiuso, solo un turno mai confermato.
+- `AutomaticDeletePrenotazioniAsync` (cleanup 6 mesi) elimina anche le `NonPresentata`, non solo
+  le `Completata`.
+- Coperti e occupazione tavoli (`ValidatePrenotazioneAsync`, `PostazioneAssignmentService`,
+  `DashboardService`, `CountNumeroCopertiFasciaOrariaAsync`): `NonPresentata` esclusa ovunque
+  `Annullata` lo è già — non ha mai occupato la sala.
+- Dashboard settimanale: il no-show conta sia le `NonPresentata` esplicite sia le `Attiva` su
+  data passata (la finestra prima che il job sia girato), senza doppio conteggio (sono stati
+  diversi per definizione).
+
 ## Orologio unico
 
 `Common/IClock` (`SystemClock`, singleton): `UtcNow`, `NowInRome`, `TodayInRome`. Database e
@@ -101,12 +138,12 @@ fisso).
 
 ## Note tecniche da tenere a mente
 
-- HTTPS: Railway termina HTTPS a livello proxy → `UseHttpsRedirection` resta commentato in
-  `Program.cs`, **non riattivarlo** in produzione.
+- HTTPS: Azure App Service termina HTTPS a livello proxy → `UseHttpsRedirection` resta
+  commentato in `Program.cs`, **non riattivarlo** in produzione.
 - CORS: origin letti da `AllowedOrigins` in appsettings/env var, mai hardcoded.
 - **Enum su DB: non tutti mappati allo stesso modo** (`Context/GestoraContext.cs`).
   `Prenotazione.Stato` è **stringa** (`'Completata'` in colonna); `FasciaOraria.GiornoSettimana`
-  è **intero**. Attenzione scrivendo SQL a mano (query dirette, seed, fix su Railway): usare il
+  è **intero**. Attenzione scrivendo SQL a mano (query dirette, seed, fix su Neon): usare il
   valore giusto per la colonna giusta.
 - **Transazioni**: `Common/IEsecutoreTransazione` avvolge scrittura + audit log in un'unica
   operazione atomica (usato da `ZonaService`, `PostazioneService`, `FasciaOrariaService`).
@@ -143,6 +180,14 @@ fisso).
   `(PostazioneId, DataPrenotazione, FasciaOrariaId)`. Chi scrive una riga join deve valorizzare
   entrambi i campi (passare da `CreaRigaPostazione`); annullare una prenotazione cancella le sue
   righe join.
+- **Concorrenza sul tetto dei coperti** (`CAP-001`): `ValidatePrenotazioneAsync` legge la fascia
+  con `GetByIdConLockAsync` (`SELECT ... FOR UPDATE`): chi prenota sulla stessa fascia passa uno
+  alla volta, quindi la `SUM` dei coperti non può essere letta «vecchia» da due richieste insieme.
+  Il metodo va chiamato **solo dentro** `EseguiInTransazioneAsync` (il lock vive fino al commit),
+  ed è per questo che in `UpdateAsync` la validazione sta dentro la transazione. Non tornare a
+  `GetByIdAsync` lì dentro: un test lo verifica (`AddAsync_LeggeLaFasciaConIlLock_NonSenza`). Il
+  lock vero non si prova con InMemory: procedura manuale in `RUNBOOK.md` §2. La dashboard espone
+  `CopertiOltreIlTetto` per non nascondere un eventuale sforamento.
 - **Errori del database**: `DbExceptionTranslator` riconosce il codice Postgres `23505`
   (violazione unicità). Il provider InMemory **non** applica gli unique index: nei test la
   violazione va simulata a mano.
@@ -151,12 +196,13 @@ fisso).
   sovrascrive gli array **per posizione**, quindi il sink Console va riconfermato all'indice 0.
 - **Segreti**: connection string e JWT Secret di sviluppo in **User Secrets**
   (`dotnet user-secrets`), non in `appsettings.Development.json` (solo placeholder vuoti).
-  Percorso e comandi in `RUNBOOK.md`. In produzione: solo env var Railway.
+  Percorso e comandi in `RUNBOOK.md`. In produzione: solo variabili d'ambiente di Azure App
+  Service (doppio underscore, vedi `RUNBOOK.md` §6).
 
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **239 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **256 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

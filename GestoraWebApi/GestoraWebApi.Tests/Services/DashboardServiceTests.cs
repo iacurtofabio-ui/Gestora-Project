@@ -1,4 +1,4 @@
-using GestoraWebApi.Context;
+﻿using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
 using GestoraWebApi.Services.Dashboard;
@@ -200,6 +200,38 @@ public class DashboardServiceTests
         Assert.Equal(0, res.CopertiPerFascia.Single().CopertiDisponibili);
     }
 
+    /// <summary>
+    /// CAP-001: uno sforamento non deve leggersi come «0 disponibili», identico a una fascia
+    /// esattamente piena. Il dato incoerente esce in un campo suo.
+    /// </summary>
+    [Fact]
+    public async Task Giornaliera_FasciaOltreIlTetto_EspostaComeSforamento()
+    {
+        using var ctx = NewContext();
+        ctx.FasciaOrarie.Add(Fascia(1, maxCoperti: 10));
+        ctx.Prenotazioni.Add(Prenotazione(1, StatoPrenotazione.Attiva, 15, Lunedi));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardGiornalieroAsync(Lunedi);
+
+        var fascia = res.CopertiPerFascia.Single();
+        Assert.Equal(5, fascia.CopertiOltreIlTetto);
+        Assert.Equal(0, fascia.CopertiDisponibili);
+    }
+
+    [Fact]
+    public async Task Giornaliera_FasciaEsattamentePiena_NonSegnalaSforamento()
+    {
+        using var ctx = NewContext();
+        ctx.FasciaOrarie.Add(Fascia(1, maxCoperti: 10));
+        ctx.Prenotazioni.Add(Prenotazione(1, StatoPrenotazione.Attiva, 10, Lunedi));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardGiornalieroAsync(Lunedi);
+
+        Assert.Equal(0, res.CopertiPerFascia.Single().CopertiOltreIlTetto);
+    }
+
     [Fact]
     public async Task Giornaliera_GiornoVuoto_RestituisceContatoriAZeroSenzaErrori()
     {
@@ -282,6 +314,39 @@ public class DashboardServiceTests
         Assert.Equal(50, res.TassoNoShow);
     }
 
+    /// <summary>
+    /// FASE 3: la NonPresentata e lo stato esplicito ormai scritto dal job; conta come no-show
+    /// esattamente come la vecchia Attiva-su-data-passata, senza doppio conteggio.
+    /// </summary>
+    [Fact]
+    public async Task Settimanale_TassoNoShow_ContaLeNonPresentate()
+    {
+        using var ctx = NewContext();
+        ctx.Prenotazioni.AddRange(
+            Prenotazione(1, StatoPrenotazione.NonPresentata, 2, Lunedi),
+            Prenotazione(2, StatoPrenotazione.Completata, 2, Lunedi));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardSettimanaleAsync(Lunedi);
+
+        Assert.Equal(50, res.TassoNoShow);
+    }
+
+    /// <summary>I coperti di una non presentata non hanno occupato la sala: non vanno contati.</summary>
+    [Fact]
+    public async Task Settimanale_ICopertiEscludonoLeNonPresentate()
+    {
+        using var ctx = NewContext();
+        ctx.Prenotazioni.AddRange(
+            Prenotazione(1, StatoPrenotazione.NonPresentata, 8, Lunedi),
+            Prenotazione(2, StatoPrenotazione.Completata, 4, Lunedi));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardSettimanaleAsync(Lunedi);
+
+        Assert.Equal(4, res.TotaleCoperti);
+    }
+
     /// <summary>Una settimana ancora da venire non ha prenotazioni concluse: nessuna divisione per zero.</summary>
     [Fact]
     public async Task Settimanale_TassoNoShowAZero_QuandoLaSettimanaNonEAncoraConclusa()
@@ -318,6 +383,53 @@ public class DashboardServiceTests
         var mercoledi = res.Giorni.Single(g => g.Data == Lunedi.AddDays(2));
         Assert.Equal("Mercoledì", mercoledi.GiornoNome);
         Assert.Equal(2, mercoledi.NumeroCoperti);
+    }
+
+    /// <summary>FASE 7: capienza del giorno per la banda della settimana, sommata sulle fasce attive.</summary>
+    [Fact]
+    public async Task Settimanale_CapienzaGiorno_SommaLeFasceAttiveDiQuelGiornoDellaSettimana()
+    {
+        using var ctx = NewContext();
+        ctx.FasciaOrarie.AddRange(
+            Fascia(1, maxCoperti: 40, giorno: DayOfWeek.Monday, oraInizio: 12),
+            Fascia(2, maxCoperti: 56, giorno: DayOfWeek.Monday, oraInizio: 19),
+            Fascia(3, maxCoperti: 99, giorno: DayOfWeek.Monday, attiva: false, oraInizio: 21), // disattivata
+            Fascia(4, maxCoperti: 30, giorno: DayOfWeek.Tuesday, oraInizio: 12));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardSettimanaleAsync(Lunedi);
+
+        Assert.Equal(96, res.Giorni.First().CapienzaGiorno); // lunedi: 40 + 56, non la disattivata
+        Assert.Equal(30, res.Giorni.Single(g => g.Data == Lunedi.AddDays(1)).CapienzaGiorno);
+    }
+
+    /// <summary>FASE 7: le non presentate si contano solo sui giorni gia conclusi.</summary>
+    [Fact]
+    public async Task Settimanale_NonPresentate_SoloSuiGiorniGiaConclusi()
+    {
+        using var ctx = NewContext();
+        ctx.Prenotazioni.AddRange(
+            Prenotazione(1, StatoPrenotazione.NonPresentata, 2, Lunedi),          // passato
+            Prenotazione(2, StatoPrenotazione.NonPresentata, 2, Lunedi.AddDays(1))); // passato
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx).GetDashboardSettimanaleAsync(Lunedi);
+
+        Assert.Equal(1, res.Giorni.First().NonPresentate);
+    }
+
+    [Fact]
+    public async Task Settimanale_NonPresentateAZero_SuGiornoFuturo()
+    {
+        using var ctx = NewContext();
+        // Orologio fermo il giorno di Lunedi stesso (non dopo): la settimana e il futuro/oggi.
+        var clock = new TestClock(new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc));
+        ctx.Prenotazioni.Add(Prenotazione(1, StatoPrenotazione.NonPresentata, 2, Lunedi.AddDays(3)));
+        await ctx.SaveChangesAsync();
+
+        var res = await NewService(ctx, clock).GetDashboardSettimanaleAsync(Lunedi);
+
+        Assert.Equal(0, res.Giorni.Single(g => g.Data == Lunedi.AddDays(3)).NonPresentate);
     }
     // ─── REV-039 — i tavoli occupati si contano per fascia, non per giornata ─
 

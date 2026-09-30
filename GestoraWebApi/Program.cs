@@ -332,6 +332,26 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerDocumentation();
 }
 
+// FASE 5: una riga per richiesta, invece di dover ricostruire "cosa e' successo" da piu' log
+// sparsi nel controller/service. /health lo chiama Azure di continuo (keepalive): alzato a
+// Verbose per non intasare il log con una riga ogni pochi secondi che non dice nulla di nuovo.
+//
+// Va PRIMA di UseGlobalExceptionHandler, non dopo (nonostante la bozza iniziale dicesse il
+// contrario): il middleware registrato per primo e' il piu' esterno, quindi vede la risposta
+// FINALE. Con l'ordine inverso, un 409 di dominio (ConflictException) veniva loggato come "500"
+// qui: l'eccezione risale a UseSerilogRequestLogging prima che UseGlobalExceptionHandler la
+// traduca nel codice giusto. Verificato con una richiesta vera che genera un 409: con l'ordine
+// sbagliato il log diceva 500, con questo dice 409.
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "{RequestMethod} {RequestPath} → {StatusCode} in {Elapsed:0}ms";
+    options.GetLevel = (httpContext, _, ex) => ex != null || httpContext.Response.StatusCode >= 500
+        ? Serilog.Events.LogEventLevel.Warning
+        : httpContext.Request.Path.StartsWithSegments("/health")
+            ? Serilog.Events.LogEventLevel.Verbose
+            : Serilog.Events.LogEventLevel.Information;
+});
+
 app.UseGlobalExceptionHandler();
 
 app.UseCors("FrontendPolicy");

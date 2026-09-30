@@ -105,13 +105,17 @@ namespace GestoraWebApi.Services.Prenotazioni
 
         public async Task DeleteAsync(long id)
         {
-            var prenotazione = await _prenotazioniRepository.GetByIdAsync(id);
+            // Entita' tracciata di proposito: GetByIdAsync e' AsNoTracking e porta con se User,
+            // tavoli e zone. Con due tavoli della stessa zona la stessa Zona compare come due
+            // istanze distinte e Remove() va in errore ("cannot be tracked") -> 500.
+            var prenotazione = await _prenotazioniRepository.GetTrackedByIdAsync(id);
 
             if (prenotazione == null)
                 throw new KeyNotFoundException($"Prenotazione con Id {id} non trovata.");
 
-            if (prenotazione.Stato != StatoPrenotazione.Attiva && prenotazione.Stato != StatoPrenotazione.Annullata)
-                throw new ConflictException($"Non è possibile eliminare una prenotazione nello stato {prenotazione.Stato}.");
+            // Si elimina solo cio' che e' stato annullato: le altre restano nello storico.
+            if (prenotazione.Stato != StatoPrenotazione.Annullata)
+                throw new ConflictException("Si possono eliminare solo le prenotazioni annullate. Annulla prima la prenotazione.");
 
             await _prenotazioniRepository.DeleteAsync(prenotazione);
             await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Eliminata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
@@ -130,7 +134,9 @@ namespace GestoraWebApi.Services.Prenotazioni
                 && !string.Equals(prenotazione.UserId, _httpContextAccessor.HttpContext.GetAuthenticatedUserId(), StringComparison.OrdinalIgnoreCase))
                 throw new ForbiddenException("Non hai i permessi per visualizzare questa prenotazione.");
 
-            return _mapper.Map<PrenotazioneDTO>(prenotazione);
+            var dtoSingola = _mapper.Map<PrenotazioneDTO>(prenotazione);
+            await ApplicaNumeroTurnoAsync(new[] { prenotazione }, new[] { dtoSingola });
+            return dtoSingola;
         }
 
         public async Task UpdateAsync(long id, PrenotazioneCreateDTO dto)
@@ -142,7 +148,8 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             if (prenotazione.Stato == StatoPrenotazione.InCorso
                 || prenotazione.Stato == StatoPrenotazione.Annullata
-                || prenotazione.Stato == StatoPrenotazione.Completata)
+                || prenotazione.Stato == StatoPrenotazione.Completata
+                || prenotazione.Stato == StatoPrenotazione.NonPresentata)
                 throw new ConflictException($"Non è possibile modificare una prenotazione nello stato {prenotazione.Stato}.");
 
             var userId = _httpContextAccessor.HttpContext.GetAuthenticatedUserId();
@@ -158,13 +165,15 @@ namespace GestoraWebApi.Services.Prenotazioni
                 GuardCutoffAsync(prenotazione);
             }
 
-            await ValidatePrenotazioneAsync(dto, prenotazione.Id);
-
-            if (IsSelfServiceCliente() && dto.DataPrenotazione != prenotazione.DataPrenotazione)
-                await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione, excludePrenotazioneId: prenotazione.Id);
-
             await EseguiInTransazioneAsync(async () =>
             {
+                // CAP-001: la verifica del tetto stava fuori dalla transazione, quindi il lock
+                // sulla fascia non la copriva. Dentro, come in AddAsync.
+                await ValidatePrenotazioneAsync(dto, prenotazione.Id);
+
+                if (IsSelfServiceCliente() && dto.DataPrenotazione != prenotazione.DataPrenotazione)
+                    await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione, excludePrenotazioneId: prenotazione.Id);
+
                 var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto, prenotazione.Id);
 
                 prenotazione.DataPrenotazione = (DateOnly)dto.DataPrenotazione;
@@ -212,6 +221,18 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (prenotazione.Stato != StatoPrenotazione.Attiva)
                 throw new ConflictException("Solo prenotazioni con stato 'Attiva' possono essere confermate.");
 
+            // FASE 3: una "Attiva" con data/fascia gia' passate non e' piu' confermabile: il job
+            // notturno non e' ancora passato a portarla a NonPresentata, ma il momento e' gia'
+            // andato. Stessa condizione usata da AutomaticCompletPrenotazioniAsync per il no-show.
+            if (prenotazione.FasciaOraria == null)
+                throw new ConflictException("La fascia oraria associata alla prenotazione non è disponibile.");
+
+            var oraAttualeConferma = _clock.NowInRome;
+            var fineFasciaConferma = prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
+                                          .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan());
+            if (oraAttualeConferma >= fineFasciaConferma)
+                throw new ConflictException("La prenotazione è già passata.");
+
             prenotazione.Stato = StatoPrenotazione.InCorso;
             await _prenotazioniRepository.UpdateAsync(prenotazione);
             await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Confermata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
@@ -251,6 +272,9 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             if (prenotazione.Stato == StatoPrenotazione.Completata)
                 throw new ConflictException("Non è possibile annullare una prenotazione già completata.");
+
+            if (prenotazione.Stato == StatoPrenotazione.NonPresentata)
+                throw new ConflictException("Non è possibile annullare una prenotazione mai confermata: è già segnata come non presentata.");
 
             if (IsSelfServiceCliente())
             {
@@ -292,7 +316,9 @@ namespace GestoraWebApi.Services.Prenotazioni
             // REV-031: nessuna prenotazione in quella data non e' un errore, e' un risultato.
             // Il 404 su collezione vuota costringeva il chiamante a trattare uno stato normale
             // come eccezione: si restituisce una lista vuota.
-            return _mapper.Map<List<PrenotazioneDTO>>(prenotazioni);
+            var dtos = _mapper.Map<List<PrenotazioneDTO>>(prenotazioni);
+            await ApplicaNumeroTurnoAsync(prenotazioni, dtos);
+            return dtos;
         }
 
         public async Task<List<PrenotazioneDTO>> GetMiePrenotazioniAsync(string userId)
@@ -307,7 +333,9 @@ namespace GestoraWebApi.Services.Prenotazioni
                 .AsNoTracking()
                 .ToListAsync();
 
-            return _mapper.Map<List<PrenotazioneDTO>>(prenotazioni);
+            var dtos = _mapper.Map<List<PrenotazioneDTO>>(prenotazioni);
+            await ApplicaNumeroTurnoAsync(prenotazioni, dtos);
+            return dtos;
         }
 
 
@@ -320,6 +348,9 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             if (query.Stato.HasValue)
                 queryable = queryable.Where(p => p.Stato == query.Stato.Value);
+
+            if (query.FasciaOrariaId.HasValue)
+                queryable = queryable.Where(p => p.FasciaOrariaId == query.FasciaOrariaId.Value);
 
             var totalCount = await queryable.CountAsync();
 
@@ -342,13 +373,46 @@ namespace GestoraWebApi.Services.Prenotazioni
                 .Take(query.PageSize)
                 .ToListAsync();
 
+            var itemsDto = _mapper.Map<List<PrenotazioneDTO>>(items);
+            await ApplicaNumeroTurnoAsync(items, itemsDto);
+
             return new PagedResult<PrenotazioneDTO>
             {
-                Items = _mapper.Map<List<PrenotazioneDTO>>(items),
+                Items = itemsDto,
                 TotalCount = totalCount,
                 Page = query.Page,
                 PageSize = query.PageSize
             };
+        }
+
+        /// <summary>
+        /// FASE 4: NumeroTurno = posizione (1-based) della fascia fra le fasce attive dello
+        /// stesso giorno della settimana, ordinate per OrarioInizio. Una sola query per ogni
+        /// giorno della settimana effettivamente coinvolto (di solito uno o due), non una per
+        /// prenotazione. Usa il repository (GetFasceByGiornoAsync), non il DbContext diretto:
+        /// e lo stesso metodo usato da FasciaOrariaController per la stessa domanda.
+        /// Se la fascia non compare piu tra quelle attive del giorno (disattivata dopo la
+        /// prenotazione), NumeroTurno resta 0: il frontend non stampa nulla in quel caso.
+        /// </summary>
+        private async Task ApplicaNumeroTurnoAsync(IReadOnlyCollection<Prenotazione> prenotazioni, IReadOnlyCollection<PrenotazioneDTO> dtos)
+        {
+            if (prenotazioni.Count == 0) return;
+
+            var fasceIdOrdinatePerGiorno = new Dictionary<DayOfWeek, List<long>>();
+            foreach (var giorno in prenotazioni.Select(p => p.DataPrenotazione.DayOfWeek).Distinct())
+            {
+                var fasce = await _fasciaOrariaRepository.GetFasceByGiornoAsync(giorno);
+                fasceIdOrdinatePerGiorno[giorno] = fasce.Select(f => f.Id).ToList();
+            }
+
+            var dtoPerId = dtos.ToDictionary(d => d.Id);
+            foreach (var p in prenotazioni)
+            {
+                if (!dtoPerId.TryGetValue(p.Id, out var dto)) continue;
+
+                var indice = fasceIdOrdinatePerGiorno[p.DataPrenotazione.DayOfWeek].IndexOf(p.FasciaOrariaId);
+                dto.NumeroTurno = indice >= 0 ? indice + 1 : 0;
+            }
         }
 
         public async Task AutomaticCompletPrenotazioniAsync()
@@ -372,17 +436,53 @@ namespace GestoraWebApi.Services.Prenotazioni
 
             if (idsDaCompletare.Count == 0)
             {
-                _logger.LogInformation("[PrenotazioniService] Nessuna prenotazione da completare.");
+                _logger.LogInformation("Nessuna prenotazione da completare.");
+            }
+            else
+            {
+                var completate = await _prenotazioniRepository
+                    .AggiornaStatoAsync(idsDaCompletare, StatoPrenotazione.Completata);
+
+                // Un solo log riepilogativo invece di uno per riga: gli Id restano tracciati, ma
+                // non riempiono il log della piattaforma con una linea per prenotazione.
+                _logger.LogInformation("{Count} prenotazioni completate automaticamente: {Ids}",
+                    completate, string.Join(", ", idsDaCompletare));
+            }
+
+            // FASE 3: gira sempre, indipendentemente da quante InCorso ci fossero da completare -
+            // altrimenti con zero completamenti (il caso comune: la maggior parte delle notti non
+            // ha turni da chiudere) il no-show non verrebbe mai marcato.
+            await AutomaticMarcaNonPresentateAsync(now, today, oraAttuale);
+        }
+
+        /// <summary>
+        /// FASE 3: una prenotazione "Attiva" mai confermata, con data/fascia ormai passate, non
+        /// diventa mai "Completata" (quel percorso parte solo da "InCorso"): senza questo passo
+        /// restava "Attiva" per sempre, proponendo in tabella "Conferma"/"Annulla" su un turno
+        /// gia' finito. Stessa condizione temporale del completamento automatico.
+        /// </summary>
+        private async Task AutomaticMarcaNonPresentateAsync(DateTime now, DateOnly today, TimeOnly oraAttuale)
+        {
+            var idsNonPresentate = await _prenotazioniRepository
+                .GetAllQueryableAsync()
+                .Include(p => p.FasciaOraria)
+                .Where(p => p.Stato == StatoPrenotazione.Attiva &&
+                      (p.DataPrenotazione < today ||
+                      (p.DataPrenotazione == today && oraAttuale > p.FasciaOraria.OrarioFine)))
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            if (idsNonPresentate.Count == 0)
+            {
+                _logger.LogInformation("Nessuna prenotazione da segnare come non presentata.");
                 return;
             }
 
-            var completate = await _prenotazioniRepository
-                .AggiornaStatoAsync(idsDaCompletare, StatoPrenotazione.Completata);
+            var marcate = await _prenotazioniRepository
+                .AggiornaStatoAsync(idsNonPresentate, StatoPrenotazione.NonPresentata);
 
-            // Un solo log riepilogativo invece di uno per riga: gli Id restano tracciati, ma non
-            // riempiono il log della piattaforma con una linea per prenotazione.
-            _logger.LogInformation("[PrenotazioniService] {Count} prenotazioni completate automaticamente: {Ids}",
-                completate, string.Join(", ", idsDaCompletare));
+            _logger.LogInformation("{Count} prenotazioni segnate come non presentate: {Ids}",
+                marcate, string.Join(", ", idsNonPresentate));
         }
 
         public async Task AutomaticDeletePrenotazioniAsync()
@@ -395,19 +495,20 @@ namespace GestoraWebApi.Services.Prenotazioni
             // proprio il caso in cui le righe sono tante.
             var idsDaEliminare = await _prenotazioniRepository
                 .GetAllQueryableAsync()
-                .Where(p => p.Stato == StatoPrenotazione.Completata && p.DataPrenotazione <= cutoffDate)
+                .Where(p => (p.Stato == StatoPrenotazione.Completata || p.Stato == StatoPrenotazione.NonPresentata)
+                         && p.DataPrenotazione <= cutoffDate)
                 .Select(p => p.Id)
                 .ToListAsync();
 
             if (idsDaEliminare.Count == 0)
             {
-                _logger.LogInformation("[PrenotazioniService] Nessuna prenotazione da eliminare.");
+                _logger.LogInformation("Nessuna prenotazione da eliminare.");
                 return;
             }
 
             var eliminate = await _prenotazioniRepository.EliminaPerIdAsync(idsDaEliminare);
 
-            _logger.LogInformation("[PrenotazioniService] {Count} prenotazioni eliminate automaticamente: {Ids}",
+            _logger.LogInformation("{Count} prenotazioni eliminate automaticamente: {Ids}",
                 eliminate, string.Join(", ", idsDaEliminare));
         }
 
@@ -501,9 +602,14 @@ namespace GestoraWebApi.Services.Prenotazioni
             });
         }
 
+        /// <summary>
+        /// Contratto: va chiamato <b>solo dentro</b> EseguiInTransazioneAsync. Il lock sulla fascia
+        /// (CAP-001) e' quello che rende il tetto un vincolo vero: due richieste simultanee sulla
+        /// stessa fascia leggono la SUM una alla volta, non insieme.
+        /// </summary>
         private async Task ValidatePrenotazioneAsync(PrenotazioneCreateDTO dto, long? excludePrenotazioneId = null)
         {
-            var fasciaOraria = await _fasciaOrariaRepository.GetByIdAsync(dto.FasciaOrariaId);
+            var fasciaOraria = await _fasciaOrariaRepository.GetByIdConLockAsync(dto.FasciaOrariaId);
 
             if (fasciaOraria == null)
                 throw new ArgumentException("La fascia oraria specificata non esiste.");
@@ -522,6 +628,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                     p.DataPrenotazione == dto.DataPrenotazione &&
                     p.FasciaOrariaId == dto.FasciaOrariaId &&
                     p.Stato != StatoPrenotazione.Annullata &&
+                    p.Stato != StatoPrenotazione.NonPresentata &&
                     (!excludePrenotazioneId.HasValue || p.Id != excludePrenotazioneId.Value))
                 .SumAsync(p => p.NumeroCoperti);
 

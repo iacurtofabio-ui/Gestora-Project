@@ -8,6 +8,12 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
         IQueryable<FasciaOraria> GetAllQueryable();
         Task AddAsync(FasciaOraria entity);
         Task<FasciaOraria> GetByIdAsync(long id);
+
+        /// <summary>
+        /// Legge la fascia bloccandone la riga (SELECT ... FOR UPDATE). Da chiamare solo dentro
+        /// una transazione: il lock vive fino al commit, fuori da una transazione non serve a niente.
+        /// </summary>
+        Task<FasciaOraria?> GetByIdConLockAsync(long id);
         Task UpdateAsync(FasciaOraria entity);
         Task DeleteAsync(FasciaOraria entity);
         Task<bool> IsAssignedToPrenotazioneAsync(long fasciaId);

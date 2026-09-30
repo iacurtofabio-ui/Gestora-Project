@@ -4,6 +4,11 @@ Questo file vale solo quando si lavora dentro `gestora-frontend/`. Per stato del
 decisioni e regole vedi il `CLAUDE.md` alla radice — resta valido sempre. Per gli endpoint
 backend vedi `lib/endpoints.ts` (fonte di verità) o `GestoraWebApi/CLAUDE.md` per le trappole.
 
+> Se questo repository è già stato separato dal monorepo (`RUNBOOK.md` §10): la documentazione
+> trasversale (stato del progetto, decisioni, `BACKLOG.md`, `RUNBOOK.md`, storico) vive nel
+> repository del backend, cartella `docs/progetto/` — `<link GitHub gestora-api da inserire dopo
+> lo split>`.
+
 ## Stack
 
 React 19 + TypeScript + Vite, shadcn/ui + Tailwind CSS, TanStack Query v5 (React Query),
@@ -15,7 +20,7 @@ logout + redirect su 401).
 
 ```
 npm run lint      # zero errori
-npm test          # 35 test, Vitest + Testing Library
+npm test          # 45 test, Vitest + Testing Library
 npm run build     # controlla i tipi — npm test NON lo fa (vedi sezione Test)
 ```
 Se hai toccato un componente/pagina visibile e non hai verificato a mano nel browser, dillo
@@ -28,8 +33,10 @@ stabile su `http://localhost:5099/api`. Richiede il backend locale attivo (`dotn
 `GestoraWebApi/`).
 
 La produzione (Vercel) **non legge mai `.env.local`**: usa la propria `VITE_API_URL` impostata
-nella dashboard Vercel, puntata a Railway. Modificare `.env.local` non ha alcun effetto sulla
-build di produzione. Aprire `localhost:5173` mostra sempre i dati del DB locale — voluto.
+nella dashboard Vercel, puntata al backend Azure. **Deve essere di tipo *Config* (o *Plaintext*),
+non *Secret***: un valore salvato come Secret non arriva alla build nel modo che Vite si aspetta
+(vedi `RUNBOOK.md` §8). Modificare `.env.local` non ha alcun effetto sulla build di produzione.
+Aprire `localhost:5173` mostra sempre i dati del DB locale — voluto.
 
 ## Tavolozza e tema — leggere prima di scrivere un colore
 
@@ -55,17 +62,33 @@ sempre i token del tema, altrimenti quella zona resta bianca in tema scuro.
 
 ### Tipografia
 
-**Archivo Variable**, self-hosted via Fontsource. Sei ruoli dichiarati come token, da usare al
-posto delle classi improvvisate:
+**Inter Variable**, self-hosted via Fontsource (dalla Fase 6: prima era Archivo — cambio di
+carattere, non di sistema: i nomi dei token restano gli stessi). Sei ruoli dichiarati come token,
+da usare al posto delle classi improvvisate:
 
 `text-readout` (numeri grandi) · `text-readout-sm` · `text-titolo` (uno per schermata) ·
-`text-sezione` (intestazione di blocco) · `text-corpo` · `text-orario` (orari/quantità in
-tabella, `tabular-nums`) · `text-nota`.
+`text-sezione` (intestazione di blocco) · `text-corpo` (0.9375rem dalla Fase 6, prima 0.875rem) ·
+`text-orario` (orari/quantità in tabella, `tabular-nums`) · `text-nota`.
 
-### Raggi: tre scaglioni, non uno
+Il ripiego metrico (`@font-face 'Inter Ripiego'` in `index.css`, script
+`scripts/metriche-ripiego.mjs`) va rigenerato solo se si cambia ancora carattere o si aggiorna il
+pacchetto Fontsource.
 
-`2px` bande e righe · `6–8px` controlli · `14px` ciò che galleggia (dialog, menu). Una sola
-ombra, riservata a ciò che galleggia davvero. Il raggio dice *che cosa è* una cosa.
+### Raggi: due scaglioni, non tre
+
+Dalla Fase 6 (prima erano tre): `2px` bande e righe · `6px` tutto ciò che è controllo o card ·
+`12px` ciò che galleggia (dialog, menu). I nomi dei token (`--radius-md`, `--radius-2xl`, ecc.)
+non sono cambiati, solo i valori: nessun componente ha dovuto cambiare classe. Una sola ombra,
+riservata a ciò che galleggia davvero. Il raggio dice *che cosa è* una cosa.
+
+### Barra superiore, non più sidebar
+
+Dalla Fase 6, `layouts/AppLayout.tsx` ha una barra superiore fissa (`h-14`, sticky) al posto
+della sidebar laterale: logo a sinistra, voci di menu orizzontali al centro (voce attiva
+sottolineata in `primary`, non più sfondo pieno), tema e menu utente (avatar con iniziali) a
+destra. Sotto i 1024px le voci vanno in un pannello a scomparsa sotto la barra, aperto dal
+pulsante hamburger. Il filtro per ruolo delle voci di menu è in un solo array (`vociMenu` dentro
+`AppLayout.tsx`), con `ruoli` e `gruppo` per voce — non toccare la logica di filtro altrove.
 
 ### Le azioni di riga
 
@@ -128,8 +151,14 @@ form, senza id). Il backend decide l'id, mai il frontend.
 - query: `queryKey` include tutti i parametri che cambiano il risultato; `queryFn` chiama
   `apiClient` e restituisce `r.data`
 - mutation: `onSuccess` invalida la cache con `invalidateQueries` + `toast.success`;
-  `onError: segnalaErrore('testo di ripiego')` — **mai** scrivere la gestione errore a mano
+  `onError: segnalaErrore('testo di ripiego')` — **mai** scrivere la gestione errore a mano. Se
+  la scrittura cambia anche numeri mostrati altrove (es. una prenotazione tocca la Dashboard),
+  invalidare anche quelle query — vedi `invalidaPrenotazioniEDashboard` in `usePrenotazioni.ts`
+  (Fase 7)
 - i path degli endpoint si prendono da `lib/endpoints.ts`, **mai scritti inline**
+- **i filtri di una pagina a elenco vivono nell'URL** (`useSearchParams`), non in `useState`
+  locale — così sono condivisibili e sopravvivono a un ricaricamento. Esempio di riferimento:
+  `PrenotazionePage.tsx` (Fase 7)
 
 **Modal** — un solo modal gestisce create ed edit: prop oggetto `undefined` = create (form
 vuoto), valorizzata = edit (form ripopolato via `useEffect` + `reset`).
@@ -179,9 +208,11 @@ l'etichetta è `sr-only` (design con segnaposto).
 
 ## Test
 
-**35 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5),
+**45 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5),
 `ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), azioni
-di riga e tastiera in `AzioniPrenotazione` (9).
+di riga e tastiera in `AzioniPrenotazione` (11, incluso il caso "Non presentata"), scelta della
+pagina di casa per ruolo (5), navigazione per giorno della Dashboard (1), filtri nell'URL di
+`PrenotazionePage` (2).
 
 > ⚠️ `npm test` **non controlla i tipi**. Serve anche `npm run build`.
 >

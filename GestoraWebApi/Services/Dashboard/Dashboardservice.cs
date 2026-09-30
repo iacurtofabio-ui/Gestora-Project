@@ -27,7 +27,7 @@ namespace GestoraWebApi.Services.Dashboard
 
         public async Task<DashboardGiornalieroDTO> GetDashboardGiornalieroAsync(DateOnly data)
         {
-            _logger.LogInformation("[DashboardService] GetDashboardGiornaliero per data {Data}", data);
+            _logger.LogInformation("GetDashboardGiornaliero per data {Data}", data);
 
             // 1. Prenotazioni del giorno con le relazioni necessarie
             var prenotazioniDelGiorno = await _context.Prenotazioni
@@ -43,9 +43,9 @@ namespace GestoraWebApi.Services.Dashboard
             var completate = prenotazioniDelGiorno.Count(p => p.Stato == StatoPrenotazione.Completata);
             var annullate = prenotazioniDelGiorno.Count(p => p.Stato == StatoPrenotazione.Annullata);
 
-            // 3. Coperti prenotati (esclude annullate)
+            // 3. Coperti prenotati (esclude annullate e non presentate: non hanno occupato la sala)
             var copertiTotali = prenotazioniDelGiorno
-                .Where(p => p.Stato != StatoPrenotazione.Annullata)
+                .Where(p => p.Stato != StatoPrenotazione.Annullata && p.Stato != StatoPrenotazione.NonPresentata)
                 .Sum(p => p.NumeroCoperti);
 
             // 4. Postazioni attive nel sistema
@@ -70,7 +70,7 @@ namespace GestoraWebApi.Services.Dashboard
 
             // Raggruppa le prenotazioni valide per fasciaOrariaId
             var prenotazioniValide = prenotazioniDelGiorno
-                .Where(p => p.Stato != StatoPrenotazione.Annullata)
+                .Where(p => p.Stato != StatoPrenotazione.Annullata && p.Stato != StatoPrenotazione.NonPresentata)
                 .ToList();
 
             var copertiPerFascia = fasce.Select(f =>
@@ -99,6 +99,7 @@ namespace GestoraWebApi.Services.Dashboard
                     MaxCoperti = f.MaxCoperti,
                     CopertiPrenotati = copertiPrenotati,
                     CopertiDisponibili = Math.Max(0, f.MaxCoperti - copertiPrenotati),
+                    CopertiOltreIlTetto = Math.Max(0, copertiPrenotati - f.MaxCoperti),
                     NumeroPrenotazioni = prenotazioniFascia.Count,
                     PostazioniOccupate = occupateInFascia,
                     PostazioniLibere = Math.Max(0, totalePostazioni - occupateInFascia)
@@ -145,9 +146,19 @@ namespace GestoraWebApi.Services.Dashboard
         public async Task<DashboardSettimanaleDTO> GetDashboardSettimanaleAsync(DateOnly dataInizio)
         {
             var dataFine = dataInizio.AddDays(6);
+            var oggiPerCapienza = _clock.TodayInRome;
+
+            // FASE 7: capienza per giorno della settimana - una sola query per tutte le fasce
+            // attive, raggruppate qui invece che nel loop sui 7 giorni (evita 7 query separate).
+            var capienzaPerGiorno = await _context.FasciaOrarie
+                .AsNoTracking()
+                .Where(f => f.Attiva)
+                .GroupBy(f => f.GiornoSettimana)
+                .Select(g => new { Giorno = g.Key, Capienza = g.Sum(f => f.MaxCoperti) })
+                .ToDictionaryAsync(x => x.Giorno, x => x.Capienza);
 
             _logger.LogInformation(
-                "[DashboardService] GetDashboardSettimanale da {Inizio} a {Fine}",
+                "GetDashboardSettimanale da {Inizio} a {Fine}",
                 dataInizio, dataFine);
 
             // Tutte le prenotazioni del periodo
@@ -159,9 +170,9 @@ namespace GestoraWebApi.Services.Dashboard
             var totale = prenotazioni.Count;
             var annullate = prenotazioni.Count(p => p.Stato == StatoPrenotazione.Annullata);
 
-            // Coperti totali (escluse annullate)
+            // Coperti totali (escluse annullate e non presentate)
             var copertiTotali = prenotazioni
-                .Where(p => p.Stato != StatoPrenotazione.Annullata)
+                .Where(p => p.Stato != StatoPrenotazione.Annullata && p.Stato != StatoPrenotazione.NonPresentata)
                 .Sum(p => p.NumeroCoperti);
 
             // Tasso annullamento (% su totale)
@@ -169,11 +180,14 @@ namespace GestoraWebApi.Services.Dashboard
                 ? Math.Round((double)annullate / totale * 100, 1)
                 : 0;
 
-            // Tasso no-show: prenotazioni rimaste Attiva su date già passate
-            // (il cliente non si è presentato, lo staff non ha mai confermato)
+            // Tasso no-show: FASE 3, lo stato NonPresentata copre il job gia' passato; la
+            // condizione su Attiva copre la finestra prima che il job notturno sia girato (una
+            // prenotazione di ieri sera, letta stamattina, e' ancora Attiva finche' non arriva
+            // il job).
             var oggi = _clock.TodayInRome;
             var noShow = prenotazioni.Count(p =>
-                p.Stato == StatoPrenotazione.Attiva && p.DataPrenotazione < oggi);
+                p.Stato == StatoPrenotazione.NonPresentata
+                || (p.Stato == StatoPrenotazione.Attiva && p.DataPrenotazione < oggi));
             var prenotazioniConcluse = prenotazioni.Count(p =>
                 p.DataPrenotazione < oggi && p.Stato != StatoPrenotazione.Annullata);
             var tassoNoShow = prenotazioniConcluse > 0
@@ -204,9 +218,15 @@ namespace GestoraWebApi.Services.Dashboard
                         },
                         NumeroPrenotazioni = delGiorno.Count,
                         NumeroCoperti = delGiorno
-                            .Where(p => p.Stato != StatoPrenotazione.Annullata)
+                            .Where(p => p.Stato != StatoPrenotazione.Annullata && p.Stato != StatoPrenotazione.NonPresentata)
                             .Sum(p => p.NumeroCoperti),
-                        Annullate = delGiorno.Count(p => p.Stato == StatoPrenotazione.Annullata)
+                        Annullate = delGiorno.Count(p => p.Stato == StatoPrenotazione.Annullata),
+                        CapienzaGiorno = capienzaPerGiorno.GetValueOrDefault(giorno.DayOfWeek, 0),
+                        // Il conteggio ha senso solo su un giorno gia concluso: su un giorno futuro
+                        // o quello di oggi (in corso) sarebbe sempre 0 e darebbe un falso «tutto ok».
+                        NonPresentate = giorno < oggiPerCapienza
+                            ? delGiorno.Count(p => p.Stato == StatoPrenotazione.NonPresentata)
+                            : 0
                     };
                 })
                 .ToList();

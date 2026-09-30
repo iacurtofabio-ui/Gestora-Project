@@ -48,7 +48,14 @@ namespace GestoraWebApi.Extensions
 
                     ValidIssuer = jwtSettings["Issuer"],
                     ValidAudience = jwtSettings["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(key)
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+
+                    // FASE 10: senza questo, .NET applica una tolleranza di 5 minuti oltre la
+                    // scadenza dichiarata (il default della libreria, pensato per orologi di
+                    // server leggermente disallineati). Un token con ExpiryMinutes=60 restava
+                    // quindi valido fino a 65 minuti. Qui l'orologio e' lo stesso server che lo
+                    // ha emesso, non serve tolleranza: la scadenza deve essere quella vera.
+                    ClockSkew = TimeSpan.Zero
                 };
 
                 // Personalizzazione risposta 401

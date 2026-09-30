@@ -3,7 +3,6 @@ using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
 using GestoraWebApi.Services.FasciaOrarie.DTOs;
 using Microsoft.EntityFrameworkCore;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace GestoraWebApi.Repositories.FasciaOrarie
 {
@@ -33,6 +32,17 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
         {
             //recupera la fascia oraria per ID
             return _dbSet.AsNoTracking().FirstOrDefaultAsync(f => f.Id == id);
+        }
+
+        public Task<FasciaOraria?> GetByIdConLockAsync(long id)
+        {
+            // CAP-001: FOR UPDATE serializza chi prenota sulla stessa fascia. Il lock resta
+            // finche' la transazione chiamante non fa commit: fuori da una transazione la riga
+            // viene rilasciata subito e il metodo equivale a GetByIdAsync.
+            return _dbSet
+                .FromSqlInterpolated($"SELECT * FROM \"FasceOrarie\" WHERE \"Id\" = {id} FOR UPDATE")
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
         }
 
         public async Task UpdateAsync(FasciaOraria entity)
@@ -71,7 +81,8 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
             return await _context.Prenotazioni
                     .Where(p => p.FasciaOrariaId == fasciaId &&
                     p.DataPrenotazione == data &&
-                    p.Stato != StatoPrenotazione.Annullata)
+                    p.Stato != StatoPrenotazione.Annullata &&
+                    p.Stato != StatoPrenotazione.NonPresentata)
                     .SumAsync(p => p.NumeroCoperti);
         }
 
@@ -90,8 +101,14 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
 
         public async Task<List<FasciaOraria>> GetAllFasceAsync()
         {
+            // FASE 4: nessun ordinamento prima d ora - la pagina mostrava le fasce nell ordine di
+            // inserimento. DayOfWeek parte da Domenica (0): (int + 6) % 7 sposta Lunedi in testa
+            // mantenendo il valore numerico salvato. ThenBy(Id) rende l ordinamento totale.
             return await _context.Set<FasciaOraria>()
                 .AsNoTracking()
+                .OrderBy(f => ((int)f.GiornoSettimana + 6) % 7)
+                .ThenBy(f => f.OrarioInizio)
+                .ThenBy(f => f.Id)
                 .ToListAsync();
         }
     }

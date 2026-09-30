@@ -74,6 +74,9 @@ namespace GestoraWebApi.Tests.Mappings
             // Il caso che era rotto: ZonaId restava 0, e il frontend non riusciva a
             // precompilare la zona nel modal di modifica.
             Assert.Equal(7, postazione.ZonaId);
+            // FASE 4 (era il caso REV-001/NEW-001): il dato esiste sul modello (r.50, NumeroPosti
+            // = 4) da sempre, ma non usciva mai nel DTO. Stesso schema del bug ZonaId sopra.
+            Assert.Equal(4, postazione.NumeroPosti);
         }
 
         [Fact]

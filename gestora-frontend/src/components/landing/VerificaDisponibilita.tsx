@@ -106,23 +106,23 @@ export function VerificaDisponibilita() {
                   {fasce.map((f) => (
                     <li
                       key={f.fasciaOrariaId}
-                      className="flex items-center justify-between gap-4 p-3"
+                      className="flex items-start justify-between gap-4 p-3"
                     >
-                      <span className="text-orario tabular-nums">
+                      <span className="text-orario shrink-0 whitespace-nowrap tabular-nums">
                         {f.orarioInizio.slice(0, 5)}–{f.orarioFine.slice(0, 5)}
                       </span>
                       {f.disponibilePerRichiesta ? (
-                        <span className="text-corpo inline-flex items-center gap-2">
+                        <span className="text-corpo inline-flex shrink-0 items-center gap-2">
                           <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
                           Libero
                         </span>
                       ) : (
-                        <span className="flex items-baseline justify-end gap-2 text-right">
+                        <span className="flex min-w-0 items-baseline justify-end gap-2 text-right">
                           {/* Il motivo arriva già scritto dal backend e distingue "tetto coperti
                               esaurito" da "nessun tavolo abbastanza grande": è più utile di un
                               generico "non disponibile". */}
-                          <span className="text-nota hidden text-muted-foreground sm:inline">
-                            {f.messaggio}
+                          <span className="text-nota hidden min-w-0 text-muted-foreground sm:inline">
+                            Disponibilità residua: {f.postiResiduiFascia} {f.postiResiduiFascia === 1 ? 'coperto' : 'coperti'}
                           </span>
                           <span className="text-corpo inline-flex shrink-0 items-center gap-2 text-muted-foreground">
                             <span
