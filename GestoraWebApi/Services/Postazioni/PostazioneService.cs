@@ -66,9 +66,12 @@ namespace GestoraWebApi.Services.Postazioni
             if (postazione == null)
                 throw new KeyNotFoundException($"Postazione con ID {postazioneId} non trovata.");
 
-            // Controllo se ha prenotazioni associate
-            if (postazione.PrenotazioniPostazioni != null && postazione.PrenotazioniPostazioni.Any())
-                throw new ConflictException($"Impossibile eliminare la postazione {postazioneId}: ci sono prenotazioni associate.");
+            // Solo le prenotazioni ancora vive (Attiva, InCorso) bloccano l'eliminazione: quelle
+            // Completate, NonPresentate o Annullate sono storico. Le loro righe di legame col
+            // tavolo spariscono a cascata (il database le elimina insieme al tavolo), la
+            // prenotazione resta.
+            if (await _postazioneRepository.HasPrenotazioniViveAsync(postazioneId))
+                throw new ConflictException($"Impossibile eliminare il tavolo {postazione.Numero}: ha prenotazioni attive o in corso.");
 
             await _transazione.EseguiAsync(async () =>
             {
@@ -93,10 +96,15 @@ namespace GestoraWebApi.Services.Postazioni
                 .Include(p => p.PrenotazioniPostazioni)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
+            // Id inesistente: il controller risponde 404. Mappare null darebbe un dto nullo e
+            // la riga sotto un NullReferenceException, cioe' un 500.
+            if (postazione == null)
+                return null;
+
             var dto = _mapper.Map<PostazioneDTO>(postazione);
 
             // Prende le PrenotazioneId associate
-            dto.PrenotazioneId = postazione?.PrenotazioniPostazioni?
+            dto.PrenotazioneId = postazione.PrenotazioniPostazioni?
                                 .Select(pp => pp.PrenotazioneId)
                                 .ToList() ?? new List<long>();
 
@@ -274,14 +282,14 @@ namespace GestoraWebApi.Services.Postazioni
                 throw new KeyNotFoundException($"Postazione con ID {postazioneId} non trovata.");
 
             if (!postazione.Attiva)
-                throw new ConflictException($"Impossibile associare: la postazione con ID {postazioneId} non è attiva.");
+                throw new ConflictException($"Impossibile associare: il tavolo {postazione.Numero} non è attivo.");
 
             // REV-099: come sopra, spostare di zona un tavolo va impedito solo se ha impegni
             // ancora da onorare - chi ha prenotato si aspetta il tavolo dove gli e' stato detto.
             // Una prenotazione gia' conclusa non e' un motivo per congelare il tavolo per sempre.
             if (await _postazioneRepository.HasPrenotazioniFutureAsync(postazioneId, _clock.TodayInRome))
                 throw new ConflictException(
-                    $"Impossibile associare! Esistono prenotazioni future associate alla postazione {postazioneId}."
+                    $"Impossibile associare! Esistono prenotazioni future associate al tavolo {postazione.Numero}."
                 );
             #endregion
 

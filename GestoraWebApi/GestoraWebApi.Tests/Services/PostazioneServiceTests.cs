@@ -91,6 +91,52 @@ public class PostazioneServiceTests
         _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Never);
     }
 
+    // ─── DeleteAsync: solo le prenotazioni vive bloccano l'eliminazione ───────
+
+    [Fact]
+    public async Task DeleteAsync_Rifiuta_ENominaIlNumeroDelTavolo_QuandoHaPrenotazioniVive()
+    {
+        var postazione = new Postazione { Id = 491, Numero = 7, Attiva = true };
+        _postazioneRepoMock.Setup(r => r.GetByIdAsync(491)).ReturnsAsync(postazione);
+        _postazioneRepoMock.Setup(r => r.HasPrenotazioniViveAsync(491)).ReturnsAsync(true);
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(491));
+
+        Assert.Contains("tavolo 7", ex.Message);
+        Assert.DoesNotContain("491", ex.Message);
+        _postazioneRepoMock.Verify(r => r.DeleteAsync(It.IsAny<Postazione>()), Times.Never);
+    }
+
+    // Bug 30/09/2026: una riga di legame con una prenotazione Completata/NonPresentata
+    // (le Annullate non ne hanno) bloccava per sempre l'eliminazione del tavolo.
+    [Fact]
+    public async Task DeleteAsync_Elimina_QuandoRestanoSoloPrenotazioniChiuse()
+    {
+        var postazione = new Postazione
+        {
+            Id = 491, Numero = 7, Attiva = true,
+            PrenotazioniPostazioni = new List<PrenotazionePostazione> { new() { PostazioneId = 491, PrenotazioneId = 1 } }
+        };
+        _postazioneRepoMock.Setup(r => r.GetByIdAsync(491)).ReturnsAsync(postazione);
+        _postazioneRepoMock.Setup(r => r.HasPrenotazioniViveAsync(491)).ReturnsAsync(false);
+
+        await _service.DeleteAsync(491);
+
+        _postazioneRepoMock.Verify(r => r.DeleteAsync(postazione), Times.Once);
+    }
+
+    // Bug 30/09/2026: un id inesistente finiva in NullReferenceException (500) invece che 404.
+    [Fact]
+    public async Task GetPostazioneDTOByIdAsync_RestituisceNull_QuandoLIdNonEsiste()
+    {
+        _postazioneRepoMock.Setup(r => r.GetAllQueryable())
+                           .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+
+        var risultato = await _service.GetPostazioneDTOByIdAsync(999);
+
+        Assert.Null(risultato);
+    }
+
     // ─── GetRiepilogoSalaAsync — decisione 9 (riepilogo sala) ─────────────────
 
     [Fact]

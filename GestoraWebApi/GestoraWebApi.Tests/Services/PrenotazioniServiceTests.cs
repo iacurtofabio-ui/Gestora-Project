@@ -431,6 +431,37 @@ public class PrenotazioniServiceTests
         Assert.Equal(dto.FasciaOrariaId, riga.FasciaOrariaId);
     }
 
+    /// <summary>
+    /// Bug 30/09/2026: con data di oggi e fascia gia' finita la prenotazione veniva creata,
+    /// mentre confermarla era rifiutato. Stessa regola di ConfermaPrenotazioneAsync.
+    /// </summary>
+    [Fact]
+    public async Task AddAsync_ThrowsConflictException_QuandoLaFasciaEGiaFinita()
+    {
+        var dto = ArrangeAddValido();
+        // Fascia 19-21: alle 21:00 UTC e' gia' passata a Roma (22:00 o 23:00).
+        var oraDopoLaFascia = dto.DataPrenotazione.ToDateTime(new TimeOnly(21, 0), DateTimeKind.Utc);
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(
+            () => ServiceConOrologioFermo(oraDopoLaFascia).AddAsync(dto));
+
+        Assert.Contains("già passata", ex.Message);
+        _prenotazioniRepoMock.Verify(r => r.AddAsync(It.IsAny<Prenotazione>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddAsync_Ammette_QuandoLaFasciaEInCorso()
+    {
+        var dto = ArrangeAddValido();
+        // 17:30 UTC = 19:30 a Roma con l'ora legale, 18:30 con quella solare: pieno dentro 19-21
+        // solo con l'ora legale, ma comunque prima della fine (21:00) in entrambi i casi.
+        var oraDentroLaFascia = dto.DataPrenotazione.ToDateTime(new TimeOnly(17, 30), DateTimeKind.Utc);
+
+        await ServiceConOrologioFermo(oraDentroLaFascia).AddAsync(dto);
+
+        _prenotazioniRepoMock.Verify(r => r.AddAsync(It.IsAny<Prenotazione>()), Times.Once);
+    }
+
     [Fact]
     public async Task UpdateAsync_ValorizzaLoSlotSulleRigheJoin()
     {

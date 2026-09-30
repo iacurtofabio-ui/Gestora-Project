@@ -22,6 +22,9 @@ namespace GestoraWebApi.Repositories.Postazioni
         /// Sostituisce il vecchio HasPrenotazioniAsync, che guardava l'intero storico.
         /// </summary>
         Task<bool> HasPrenotazioniFutureAsync(long postazioneId, DateOnly daData);
+
+        /// <summary>True se il tavolo e' legato a una prenotazione ancora viva (Attiva o InCorso).</summary>
+        Task<bool> HasPrenotazioniViveAsync(long postazioneId);
         Task UpdateAsync(Postazione postazione);
         Task DeleteAsync(Postazione postazione);
 

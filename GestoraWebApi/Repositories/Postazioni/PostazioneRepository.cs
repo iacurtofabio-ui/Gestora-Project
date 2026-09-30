@@ -1,4 +1,5 @@
 ﻿using GestoraWebApi.Context;
+using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -75,6 +76,20 @@ namespace GestoraWebApi.Repositories.Postazioni
                 .SelectMany(p => p.PrenotazioniPostazioni)
                 .AnyAsync(pp => pp.DataPrenotazione >= daData);
         }
+
+        // Completata, NonPresentata e Annullata non impegnano piu' il tavolo: chiudono lo storico.
+        // Le righe join di una Annullata sono gia' cancellate (REV-003), quelle di Completata e
+        // NonPresentata restano, quindi il filtro va sullo stato della prenotazione, non sulla
+        // sola presenza della riga.
+        public async Task<bool> HasPrenotazioniViveAsync(long postazioneId)
+        {
+            return await _context.PrenotazioniPostazioni
+                .AsNoTracking()
+                .AnyAsync(pp => pp.PostazioneId == postazioneId
+                             && (pp.Prenotazione.Stato == StatoPrenotazione.Attiva
+                                 || pp.Prenotazione.Stato == StatoPrenotazione.InCorso));
+        }
+
         public async Task UpdateAsync(Postazione postazione)
         {
             _dbSet.Update(postazione);

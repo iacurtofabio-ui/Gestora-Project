@@ -623,6 +623,13 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (fasciaOraria.GiornoSettimana != dto.DataPrenotazione.DayOfWeek)
                 throw new ConflictException($"La fascia oraria selezionata è valida solo per il giorno {giornoIt}.");
 
+            // Stessa regola di ConfermaPrenotazioneAsync: una fascia finita non si prenota piu'.
+            // Vale anche per lo Staff che registra al telefono; se la fascia e' in corso si puo'.
+            var fineFascia = dto.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
+                                 .Add(fasciaOraria.OrarioFine.ToTimeSpan());
+            if (_clock.NowInRome >= fineFascia)
+                throw new ConflictException("La fascia oraria selezionata è già passata.");
+
             int copertiGiaPrenotati = await _prenotazioniRepository.GetAllQueryableAsync()
                 .Where(p =>
                     p.DataPrenotazione == dto.DataPrenotazione &&

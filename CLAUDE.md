@@ -7,9 +7,9 @@
 
 ## 1. Stato — aggiornato al 30/09/2026
 
-**Il progetto è finito.** Ultima versione pubblicata: **`v1.0.6`**. La **v1.1** è su `main` dal
-30/09/2026 (merge di `dev`); il tag `v1.1.0` e i controlli finali del rilascio vanno ancora fatti
-(sezione *Rilascio* di `GestoraDocs/CONSEGNA_v1.1.md`).
+**Il progetto è finito.** Ultima versione pubblicata: **`v1.1.0`** (30/09/2026, tag sul merge
+`f68825c`). Verificata in produzione lo stesso giorno: build Actions → Docker Hub → Azure, login,
+e job `PrenotazioniJob` forzato da Admin (ha segnato 1 prenotazione come «Non presentata»).
 
 > ✅ **Migrazione hosting completata** — Railway (backend + database) è stato spento dal
 > 16/09/2026 (trial scaduto) ed eliminato il 18/09/2026, dopo verifica end-to-end sulla nuova
@@ -24,7 +24,7 @@
 | Test | **258** backend (xUnit) + **47** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, decisione aperta (`SEC-001` in `BACKLOG.md`) |
-| Branch | `main` contiene tutta la v1.1; `dev` è indietro solo del commit di merge |
+| Branch | `main` = `dev` = `origin`, allineati (tag `v1.1.0`) |
 
 **Ultima cosa fatta**: la chiusura **v1.1** (tetto dei coperti protetto, stato «Non presentata»,
 restyle con barra superiore, dashboard per giorno, note e tavoli leggibili in Prenotazioni,
@@ -146,8 +146,8 @@ imparate sbagliando, è in `docs/archivio/STORICO_FASI.md`.
 
 Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**.
 
-**Priorità corrente**: chiudere il rilascio v1.1 (tag `v1.1.0`, `/health`, login con i tre ruoli in
-produzione), poi `UI-001` per le voci rimaste.
+**Priorità corrente**: `UI-001` — le voci della checklist ancora da provare (768px, 375px, touch).
+Subito dopo, decisione su `SEC-001` (AutoMapper) e i reset `OPS-001` a fine lavori.
 
 ---
 
