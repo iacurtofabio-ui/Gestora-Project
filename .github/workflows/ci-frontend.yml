@@ -23,7 +23,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Stessa versione dello sviluppo locale. Con la 20 i test non partono nemmeno:
+          # jsdom 30, undici 8 e vitest 5 richiedono Node 22.19+ o 24.
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: gestora-frontend/package-lock.json
 
