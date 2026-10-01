@@ -604,7 +604,6 @@ File eliminati: `GestoraWebApi/railway.json`, `GestoraWebApi/.github/` (cartella
 
 | Appunto (riassunto) | È diventato | Fase |
 |---|---|---|
-| SEPARARE FE E BE | Preparazione dei file per lo split, non lo split vero | 11 (in corso) |
 | Dubbio sul token JWT in localStorage | Spiegazione scritta + `ClockSkew` corretto | 10 |
 | Bug: utente senza ruolo resta bloccato in loop su "Accesso non autorizzato" | `paginaDiCasa()`, schermata dedicata con solo «Esci» | 2 |
 | Ottimizzazione della leggibilità dei log | Formato di log + instradamento richieste, bug di un 409 loggato come 500 corretto | 5 |
@@ -641,30 +640,9 @@ File: `RUNBOOK.md`, `CLAUDE.md`, `GestoraWebApi/CLAUDE.md`, `gestora-frontend/CL
 `GestoraWebApi/Extensions/AuthenticationExtensions.cs`, `BACKLOG.md`,
 `docs/archivio/STORICO_FASI.md`, `GestoraDocs/CONSEGNA_v1.1.md`.
 
-### Fase 11 — Separare FE/BE, reset database, consegna finale ⚠️ parziale
+### Fase 11 — Reset database, consegna finale ⚠️ parziale
 
-**11a — Preparazione per separare i repository.** Non ho creato repository né fatto push (vietato
-dalla regola del progetto), solo preparato i file:
-- `.gitignore` di `GestoraWebApi/` esteso con le regole per backup e credenziali (prima solo
-  nella radice del monorepo).
-- `README.md` nuovo per `GestoraWebApi/` (non esisteva) e riscritto per `gestora-frontend/` (era
-  ancora il testo generico di scaffolding di Vite, mai personalizzato).
-- Copie dei documenti trasversali (`CLAUDE.md` di radice, `BACKLOG.md`, `RUNBOOK.md`,
-  `docs/archivio/`) dentro `GestoraWebApi/docs/progetto/` — copie, non spostamento: gli originali
-  alla radice restano quelli veri finché il monorepo esiste.
-- I tre workflow copiati nella cartella del progetto giusto, **con `paths:` e
-  `working-directory` tolti** (la radice del nuovo repo sarà già quella cartella):
-  `GestoraWebApi/.github/workflows/{ci-backend.yml, docker-publish.yml}`,
-  `gestora-frontend/.github/workflows/ci-frontend.yml`. I workflow originali alla radice
-  **restano** finché il monorepo esiste (si spostano/cancellano solo al momento vero dello split).
-- `gestora-frontend/CLAUDE.md`: aggiunta una nota che rimanda a `docs/progetto/` nel repository
-  del backend, con un segnaposto per il link GitHub (non esiste ancora, il repo non è stato
-  creato).
-- Procedura passo-passo per lo split vero e proprio scritta in `RUNBOOK.md` §10
-  (`git subtree split`, creazione dei due repository, ricollegamento di Vercel, secret di GitHub
-  Actions da ricreare, verifica finale, archiviazione — non cancellazione — del monorepo).
-
-**11b — Reset dei database.**
+**Reset dei database.**
 - **Locale**: fatto. Non con `dotnet ef database drop` + `update` come indicato dal piano — quei
   due comandi sono **negati** dalle regole del progetto in questa sessione (`dotnet ef database
   update` è in blocco esplicito; `drop` chiede una conferma interattiva che questo ambiente non
@@ -684,14 +662,11 @@ dalla regola del progetto), solo preparato i file:
 pulizie facoltative, bloccato/non fatto) sono qui sotto.
 
 **Verifica:** backend 256 verdi, frontend 45 verdi (nessun codice toccato in questa fase, solo
-file di preparazione e lo script SQL, non eseguito).
+lo script SQL, non eseguito).
 
-**Commit:** `docs: consegna v1.1 — preparazione split repo, script reset Neon`
-File nuovi: `GestoraWebApi/README.md`, `gestora-frontend/README.md` (riscritto),
-`GestoraWebApi/docs/progetto/*` (copie), `GestoraWebApi/.github/workflows/*`,
-`gestora-frontend/.github/workflows/ci-frontend.yml`,
-`GestoraWebApi/Scripts/reset_dati_prova.sql`, `RUNBOOK.md` (§10 nuova),
-`gestora-frontend/CLAUDE.md`, `GestoraWebApi/.gitignore`, `GestoraDocs/CONSEGNA_v1.1.md`.
+**Commit:** `docs: consegna v1.1 — script reset Neon`
+File nuovi: `GestoraWebApi/Scripts/reset_dati_prova.sql`, `GestoraWebApi/.gitignore`,
+`GestoraDocs/CONSEGNA_v1.1.md`.
 
 ---
 
@@ -763,8 +738,6 @@ Sequenza per Fabio, quando deciderà di pubblicare v1.1.0:
   `du -sh` in questa sessione).
 - `OPS-003` — `git gc --prune=now` a PC appena riavviato.
 - `OPS-004` — `git push --force origin refs/tags/v1.0.0` per riallineare il tag.
-- **Separazione dei repository** (Fase 11a): procedura completa in `RUNBOOK.md` §10, file di
-  preparazione già pronti.
 - `backup_LogActivities_20260904.csv` nella radice (non tracciato, ma contiene dati veri): da
   cancellare.
 - `SEC-001` — decidere se aggiornare AutoMapper (12.0.1 → 16.2.0, cambio di licenza da valutare).
@@ -790,9 +763,6 @@ Onestà prima di tutto: elenco di ciò che questa chiusura **non** ha completato
   davvero verificare le migration su un database vuoto.
 - **Reset di Neon**: script pronto (`Scripts/reset_dati_prova.sql`), **non eseguito** — è
   produzione, tocca a Fabio.
-- **Separazione vera dei repository**: solo preparazione (file pronti). La procedura in
-  `RUNBOOK.md` §10 non è stata eseguita — crea repository, fa push, tocca pannelli di produzione
-  (Vercel, GitHub), tutte cose fuori dal perimetro di questa sessione.
 - **Nessun commit, push, merge, tag**: come da regola del progetto in questa sessione, ogni fase
   ha il proprio messaggio di commit pronto qui sopra, ma l'esecuzione (`git add`, `git commit`,
   `git status --untracked-files=all` per contare i file) resta a Fabio.

@@ -279,7 +279,7 @@ essere usato sul serio.
 
 Ho fatto tutto quello che potevo fare da solo, in autonomia, senza toccare produzione e senza
 fare commit (li fai tu). Restano aperti solo i punti sopra, che o richiedono una tua decisione
-(AutoMapper, verifica visiva a mano, separazione dei repository) o toccano direttamente la
+(AutoMapper, verifica visiva a mano) o toccano direttamente la
 produzione (reset di Neon).
 
 **Numeri finali**: 256 test del backend verdi (erano 239 a inizio lavoro), 45 test del frontend

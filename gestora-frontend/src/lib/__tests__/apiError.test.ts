@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
-import { messaggioErrore } from '@/lib/apiError'
+import { messaggioErrore, messaggioErroreLogin } from '@/lib/apiError'
 import type { ApiErrorResponse } from '@/types/apiError'
 
 /**
@@ -72,5 +72,31 @@ describe('messaggioErrore', () => {
     expect(messaggioErrore(errore, 'Errore durante la creazione')).toBe(
       'Server non raggiungibile. Controlla la connessione e riprova.'
     )
+  })
+})
+
+describe('messaggioErroreLogin', () => {
+  // Prima ogni errore diventava "email o password errate", anche l'account bloccato:
+  // l'utente riprovava all'infinito una password giusta.
+  const vuoto = {} as ApiErrorResponse
+
+  it('credenziali errate su 401', () => {
+    expect(messaggioErroreLogin(erroreConRisposta(401, vuoto))).toMatch(/non corrispondono/)
+  })
+
+  it('account bloccato su 423', () => {
+    expect(messaggioErroreLogin(erroreConRisposta(423, vuoto))).toMatch(/bloccato/)
+  })
+
+  it('troppi tentativi su 429', () => {
+    expect(messaggioErroreLogin(erroreConRisposta(429, vuoto))).toMatch(/Troppi tentativi/)
+  })
+
+  it('errore del server su 500, non credenziali errate', () => {
+    expect(messaggioErroreLogin(erroreConRisposta(500, vuoto))).not.toMatch(/non corrispondono/)
+  })
+
+  it('server non raggiungibile senza risposta', () => {
+    expect(messaggioErroreLogin(new AxiosError('Network Error'))).toMatch(/non raggiungibile/)
   })
 })

@@ -21,11 +21,4 @@ Richiede PostgreSQL attivo e i due User Secrets (`ConnectionStrings:DefaultConne
 dotnet test
 ```
 
-## Dove trovare il resto
-
-Questo repository fa parte di Gestora insieme a `gestora-frontend`. La documentazione trasversale
-al progetto (stato, decisioni di prodotto, procedure operative, storico) vive in
-`docs/progetto/` in questo stesso repository — è la copia di riferimento dopo la separazione dei
-due repository (vedi `docs/progetto/RUNBOOK.md` §10).
-
 Documentazione specifica di questo backend: `CLAUDE.md`.

@@ -103,8 +103,8 @@ Attiva ──(ConfermaPrenotazioneAsync)──> InCorso ──(job: fascia finit
   ▼                                        │
 NonPresentata                              │
   │                                        │
-  └── entrambe: eliminabile da Admin ──────┘
-Annullata: raggiungibile da Attiva/InCorso (AnnullaPrenotazioneAsync), eliminabile da Admin
+  └── entrambe: stati chiusi, non eliminabili ┘
+Annullata: raggiungibile da Attiva/InCorso (AnnullaPrenotazioneAsync), unica eliminabile da Admin
 ```
 
 `Prenotazione.Stato` è salvato come **stringa** (`HasConversion<string>()` in `GestoraContext`):
@@ -118,8 +118,8 @@ migration. Regole di transizione, tutte in `PrenotazioniService`:
   prenotazione è già passata»), non solo uno stato diverso da `Attiva`: altrimenti si potrebbe
   confermare un turno di ieri sera nella finestra prima che il job notturno sia girato.
 - `AnnullaPrenotazioneAsync`/`UpdateAsync` rifiutano `NonPresentata` come rifiutano `Completata`.
-- `DeleteAsync` **ammette** `NonPresentata` (a differenza di `Completata`): non è uno stato
-  chiuso, solo un turno mai confermato.
+- `DeleteAsync` ammette **solo** `Annullata` (v1.1): `Completata` e `NonPresentata` sono storico
+  e non si eliminano a mano (le toglie solo il cleanup a 6 mesi).
 - `AutomaticDeletePrenotazioniAsync` (cleanup 6 mesi) elimina anche le `NonPresentata`, non solo
   le `Completata`.
 - Coperti e occupazione tavoli (`ValidatePrenotazioneAsync`, `PostazioneAssignmentService`,
@@ -167,7 +167,14 @@ fisso).
   (`.OrderBy(...).ThenBy(x => x.Id)`), altrimenti pagine duplicate/perse.
 - **Tavoli e prenotazioni future**: `HasPrenotazioniFutureAsync` guarda solo da oggi in avanti.
   Non reintrodurre controlli sull'intero storico: renderebbe un tavolo immutabile per sempre dopo
-  la prima prenotazione.
+  la prima prenotazione. **Stesso criterio per le fasce** (`AUD-A2`): tetto e stato si cambiano
+  sempre, giorno e orari solo senza prenotazioni future Attive/InCorso.
+- **Fasce dentro un solo giorno** (`AUD-A1`): il dominio calcola la fine come data + `OrarioFine`,
+  quindi il validator esige fine > inizio (niente «00:00» come fine, al massimo 23:59).
+- **Almeno un Admin** (`AUD-A4`): un Admin non può togliersi il ruolo Admin (e già non può
+  eliminarsi). Senza Admin la schermata di primo avvio, anonima, si riaprirebbe.
+- **Email unica** (`AUD-A3`): `RequireUniqueEmail = true` in `AuthenticationExtensions`. Il login
+  usa `FindByEmailAsync`, che con due account sulla stessa email solleva un'eccezione.
 - **Cache**: chiavi in `Common/CacheKeys.cs` — invalidare **tutte** le chiavi derivate (es.
   `FascePerGiorno+giorno`), non solo quella base.
 - **Avvio**: `Program.cs` valida la configurazione **prima** di registrare i servizi (fail-fast):
@@ -202,7 +209,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **258 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **274 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

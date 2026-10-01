@@ -26,6 +26,7 @@ namespace GestoraWebApi.Tests.Services
         private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
         private readonly Mock<ILogActivityService> _logActivityMock;
         private readonly EsecutoreTransazioneFinto _transazione;
+        private readonly TestClock _clock;
         private readonly FasciaOrariaService _service;
 
         public FasciaOrariaServiceTests()
@@ -40,9 +41,10 @@ namespace GestoraWebApi.Tests.Services
             });
             _logActivityMock = new Mock<ILogActivityService>();
             _transazione = new EsecutoreTransazioneFinto();
+            _clock = new TestClock(new DateTime(2026, 9, 4, 10, 0, 0, DateTimeKind.Utc));
             _service = new FasciaOrariaService(_repoMock.Object,
             _mapperMock.Object, _cache, _httpContextAccessorMock.Object, _logActivityMock.Object,
-            _transazione);
+            _transazione, _clock);
         }
 
         [Fact]
@@ -339,6 +341,88 @@ namespace GestoraWebApi.Tests.Services
             await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(6));
 
             Assert.True(_cache.TryGetValue(chiaveGiorno, out _));
+        }
+
+        // Prima una sola prenotazione nello storico (anche annullata) rendeva la fascia
+        // immutabile per sempre: l'Admin non poteva nemmeno alzarne il tetto dei coperti.
+
+        private FasciaOraria FasciaSabatoSera() => new()
+        {
+            Id = 7,
+            Attiva = true,
+            GiornoSettimana = DayOfWeek.Saturday,
+            OrarioInizio = new TimeOnly(19, 0),
+            OrarioFine = new TimeOnly(23, 0),
+            MaxCoperti = 40
+        };
+
+        private void PreparaUpdate(FasciaOraria fascia, bool prenotazioniFuture)
+        {
+            _repoMock.Setup(r => r.GetByIdAsync(fascia.Id)).ReturnsAsync(fascia);
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria> { fascia }.AsQueryable().BuildMockDbSet().Object);
+            _repoMock.Setup(r => r.HasPrenotazioniFutureAsync(fascia.Id, _clock.TodayInRome))
+                     .ReturnsAsync(prenotazioniFuture);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_AlzaIlTetto_AncheConPrenotazioniFuture()
+        {
+            var fascia = FasciaSabatoSera();
+            PreparaUpdate(fascia, prenotazioniFuture: true);
+
+            await _service.UpdateAsync(new FasciaOrariaDTO
+            {
+                Id = 7, GiornoSettimana = DayOfWeek.Saturday, MaxCoperti = 60, Attiva = true,
+                OrarioInizio = "19:00", OrarioFine = "23:00"
+            });
+
+            _repoMock.Verify(r => r.UpdateAsync(It.Is<FasciaOraria>(f => f.MaxCoperti == 60)), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_CambiaOrari_ConSoloStorico()
+        {
+            var fascia = FasciaSabatoSera();
+            PreparaUpdate(fascia, prenotazioniFuture: false);
+
+            await _service.UpdateAsync(new FasciaOrariaDTO
+            {
+                Id = 7, GiornoSettimana = DayOfWeek.Saturday, MaxCoperti = 40, Attiva = true,
+                OrarioInizio = "19:30", OrarioFine = "23:00"
+            });
+
+            _repoMock.Verify(r => r.UpdateAsync(It.Is<FasciaOraria>(f => f.OrarioInizio == new TimeOnly(19, 30))), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_RifiutaCambioOrari_ConPrenotazioniFuture()
+        {
+            var fascia = FasciaSabatoSera();
+            PreparaUpdate(fascia, prenotazioniFuture: true);
+
+            await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateAsync(new FasciaOrariaDTO
+            {
+                Id = 7, GiornoSettimana = DayOfWeek.Saturday, MaxCoperti = 40, Attiva = true,
+                OrarioInizio = "19:30", OrarioFine = "23:00"
+            }));
+
+            _repoMock.Verify(r => r.UpdateAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_RifiutaCambioGiorno_ConPrenotazioniFuture()
+        {
+            var fascia = FasciaSabatoSera();
+            PreparaUpdate(fascia, prenotazioniFuture: true);
+
+            await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateAsync(new FasciaOrariaDTO
+            {
+                Id = 7, GiornoSettimana = DayOfWeek.Sunday, MaxCoperti = 40, Attiva = true,
+                OrarioInizio = "19:00", OrarioFine = "23:00"
+            }));
+
+            _repoMock.Verify(r => r.UpdateAsync(It.IsAny<FasciaOraria>()), Times.Never);
         }
     }
 }

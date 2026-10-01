@@ -4,11 +4,6 @@ Questo file vale solo quando si lavora dentro `gestora-frontend/`. Per stato del
 decisioni e regole vedi il `CLAUDE.md` alla radice — resta valido sempre. Per gli endpoint
 backend vedi `lib/endpoints.ts` (fonte di verità) o `GestoraWebApi/CLAUDE.md` per le trappole.
 
-> Se questo repository è già stato separato dal monorepo (`RUNBOOK.md` §10): la documentazione
-> trasversale (stato del progetto, decisioni, `BACKLOG.md`, `RUNBOOK.md`, storico) vive nel
-> repository del backend, cartella `docs/progetto/` — `<link GitHub gestora-api da inserire dopo
-> lo split>`.
-
 ## Stack
 
 React 19 + TypeScript + Vite, shadcn/ui + Tailwind CSS, TanStack Query v5 (React Query),
@@ -20,7 +15,7 @@ logout + redirect su 401).
 
 ```
 npm run lint      # zero errori
-npm test          # 47 test, Vitest + Testing Library
+npm test          # 52 test, Vitest + Testing Library
 npm run build     # controlla i tipi — npm test NON lo fa (vedi sezione Test)
 ```
 Se hai toccato un componente/pagina visibile e non hai verificato a mano nel browser, dillo
@@ -208,7 +203,7 @@ l'etichetta è `sr-only` (design con segnaposto).
 
 ## Test
 
-**47 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5),
+**52 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5 + 5 del login),
 `ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), azioni
 di riga e tastiera in `AzioniPrenotazione` (13, incluso l'eliminazione solo sulle annullate), scelta della
 pagina di casa per ruolo (5), navigazione per giorno della Dashboard (1), filtri nell'URL di

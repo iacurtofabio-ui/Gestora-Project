@@ -51,11 +51,16 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
             await _context.SaveChangesAsync();
         }
 
-        public async Task<bool> IsAssignedToPrenotazioneAsync(long fasciaId)
+        // Stesso criterio dei tavoli (REV-099): lo storico non blocca la modifica della fascia,
+        // solo gli impegni ancora da onorare (Attiva/InCorso da oggi in avanti).
+        public async Task<bool> HasPrenotazioniFutureAsync(long fasciaId, DateOnly daData)
         {
             return await _context.Set<Prenotazione>()
                                  .AsNoTracking()
-                                 .AnyAsync(p => p.FasciaOrariaId == fasciaId);
+                                 .AnyAsync(p => p.FasciaOrariaId == fasciaId &&
+                                                p.DataPrenotazione >= daData &&
+                                                (p.Stato == StatoPrenotazione.Attiva ||
+                                                 p.Stato == StatoPrenotazione.InCorso));
         }
 
         public async Task<List<FasciaOraria>> GetFasceAttiveAsync()

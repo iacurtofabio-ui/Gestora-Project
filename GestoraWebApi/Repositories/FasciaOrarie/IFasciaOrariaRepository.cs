@@ -16,7 +16,7 @@ namespace GestoraWebApi.Repositories.FasciaOrarie
         Task<FasciaOraria?> GetByIdConLockAsync(long id);
         Task UpdateAsync(FasciaOraria entity);
         Task DeleteAsync(FasciaOraria entity);
-        Task<bool> IsAssignedToPrenotazioneAsync(long fasciaId);
+        Task<bool> HasPrenotazioniFutureAsync(long fasciaId, DateOnly daData);
         Task<List<FasciaOraria>> GetFasceAttiveAsync();
         Task<List<FasciaOraria>> GetFasceByGiornoAsync(DayOfWeek giorno);
         Task<int> CountNumeroCopertiFasciaOrariaAsync(long fasciaId, DateOnly data);

@@ -19,6 +19,11 @@ namespace GestoraWebApi.Extensions
                 options.Password.RequireNonAlphanumeric = false;
                 options.Password.RequireDigit = true;
 
+                // Il login cerca l'utente per email (FindByEmailAsync): con due account sulla
+                // stessa email solleva un'eccezione e quel login darebbe 500 per sempre. Il
+                // default di Identity e' false, e chiunque puo' registrarsi.
+                options.User.RequireUniqueEmail = true;
+
                 // Lockout: senza questo, CheckPasswordSignInAsync tiene traccia dei tentativi
                 // falliti ma non blocca mai l'account — brute force senza freni sul login.
                 options.Lockout.AllowedForNewUsers = true;

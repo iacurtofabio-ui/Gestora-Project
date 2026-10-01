@@ -22,10 +22,11 @@ namespace GestoraWebApi.Services.FasciaOrarie
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogActivityService _logActivity;
         private readonly IEsecutoreTransazione _transazione;
+        private readonly IClock _clock;
 
         public FasciaOrariaService(IFasciaOrariaRepository fasciaRepository, IMapper mapper, IMemoryCache cache,
                                     IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
-                                    IEsecutoreTransazione transazione)
+                                    IEsecutoreTransazione transazione, IClock clock)
         {
             _fasciaRepository = fasciaRepository;
             _mapper = mapper;
@@ -33,6 +34,7 @@ namespace GestoraWebApi.Services.FasciaOrarie
             _httpContextAccessor = httpContextAccessor;
             _logActivity = logActivity;
             _transazione = transazione;
+            _clock = clock;
         }
         public async Task AddAsync(FasciaOrariaDTO dto)
         {
@@ -230,11 +232,17 @@ namespace GestoraWebApi.Services.FasciaOrarie
                 throw new KeyNotFoundException($"Fascia oraria con ID {dto.Id} non trovata.");
             }
 
-            // Verifica se la fascia è già assegnata a una prenotazione: in tal caso non è modificabile
-            var assegnata = await _fasciaRepository.IsAssignedToPrenotazioneAsync(dto.Id);
-            if (assegnata)
+            // Prima bastava una prenotazione qualsiasi nello storico (anche annullata) per rendere
+            // la fascia immutabile per sempre: non si poteva nemmeno alzarne il tetto. Ora tetto
+            // e stato si cambiano sempre; giorno e orari solo se nessuna prenotazione ancora da
+            // onorare dipende da essi (stesso criterio dei tavoli, REV-099).
+            var cambiaGiornoOOrari = existing.GiornoSettimana != dto.GiornoSettimana ||
+                                     existing.OrarioInizio.ToTimeSpan() != orarioInizio ||
+                                     existing.OrarioFine.ToTimeSpan() != orarioFine;
+            if (cambiaGiornoOOrari &&
+                await _fasciaRepository.HasPrenotazioniFutureAsync(dto.Id, _clock.TodayInRome))
             {
-                throw new ConflictException("Impossibile modificare la fascia: è già assegnata a una prenotazione.");
+                throw new ConflictException("Impossibile cambiare giorno o orari della fascia: esistono prenotazioni future associate.");
             }
 
             await GuardSovrapposizioneAsync(dto.Id, dto.GiornoSettimana, orarioInizio, orarioFine);

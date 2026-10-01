@@ -25,11 +25,4 @@ npm test
 npm run build
 ```
 
-## Dove trovare il resto
-
-Questo repository fa parte di Gestora insieme a `gestora-api`, dove vive la documentazione
-trasversale al progetto (stato, decisioni di prodotto, procedure operative, storico) — vedi
-`gestora-api/docs/progetto/` dopo la separazione dei due repository, o il link diretto:
-`<link GitHub da inserire dopo lo split>`.
-
 Documentazione specifica di questo frontend: `CLAUDE.md`.

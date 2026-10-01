@@ -18,6 +18,12 @@ const schema = z.object({
   maxCoperti: z.number().min(1, 'Numero obbligatorio'),
   attiva: z.boolean(),
 })
+  // Stessa regola del backend (FasciaOrariaDTOValidator): una fascia non supera la mezzanotte.
+  // Gli orari arrivano come "HH:mm", quindi il confronto fra stringhe segue quello fra orari.
+  .refine((f) => f.orarioFine > f.orarioInizio, {
+    path: ['orarioFine'],
+    message: "L'orario di fine deve essere dopo l'inizio (al massimo 23:59)",
+  })
 
 type FasciaOrariaFormDTO = z.infer<typeof schema>
 

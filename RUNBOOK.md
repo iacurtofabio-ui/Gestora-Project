@@ -18,7 +18,6 @@ Tutti i comandi sono per **PowerShell su Windows**, su una riga sola.
 7. [User Secrets: le credenziali locali](#7-user-secrets-le-credenziali-locali)
 8. [Trappole da conoscere](#8-trappole-da-conoscere)
 9. [Sicurezza](#9-sicurezza)
-10. [Separare i repository](#10-separare-i-repository)
 
 ---
 
@@ -390,53 +389,3 @@ a questa). La protezione vera sta in due cose, entrambe già presenti:
 **Idea per la v2.0** (non una correzione da fare ora): passare a cookie `HttpOnly` con protezione
 CSRF è una riprogettazione dell'autenticazione, non un fix — vedi `BACKLOG.md`, sezione *Idee per
 la v2.0*.
-
----
-
-## 10. Separare i repository
-
-**Perché.** Oggi Gestora è un monorepo (backend e frontend nella stessa cartella Git), ma Vercel e
-Docker Hub lavorano già su cartelle separate, e le due pipeline CI hanno già `paths:` distinti. Un
-push al solo backend ricostruisce comunque il frontend (e viceversa), senza bisogno. Interpretazione
-adottata in mancanza di indicazioni più precise: due repository indipendenti, `gestora-api` e
-`gestora-frontend`. Se non è quello che intendevi, correggimi.
-
-**Procedura**, una riga per comando:
-
-1. Isolare la storia del solo backend in un branch temporaneo (mantiene i commit, non solo lo
-   stato finale):
-   ```powershell
-   git subtree split --prefix=GestoraWebApi -b split-api
-   ```
-2. Fare lo stesso per il frontend:
-   ```powershell
-   git subtree split --prefix=gestora-frontend -b split-frontend
-   ```
-3. Creare i due repository vuoti su GitHub (`gestora-api`, `gestora-frontend`), senza README
-   generato automaticamente (altrimenti confligge col primo push).
-4. Pubblicare la storia isolata su ciascuno:
-   ```powershell
-   git push <url-nuovo-repo-api> split-api:main
-   git push <url-nuovo-repo-frontend> split-frontend:main
-   ```
-5. Su **Vercel**: *Settings → Git* → scollegare il monorepo, ricollegare al nuovo repo
-   `gestora-frontend` con root `.` (non più `gestora-frontend/`, perché ora è la radice).
-6. Su **GitHub**, nel nuovo repo `gestora-api`: *Settings → Secrets* → ricreare
-   `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN` (non si trasferiscono da soli).
-7. Nel workflow spostato (`gestora-api/.github/workflows/docker-publish.yml` e `ci-backend.yml`):
-   togliere `paths:` e `working-directory: GestoraWebApi` — la radice del nuovo repo è già quella
-   cartella, quei filtri non servono più e rischiano solo di non far scattare il workflow.
-8. **Verifica finale**: `/health` risponde `Healthy`; login con i tre ruoli sul frontend
-   ripubblicato; un push di prova sul nuovo `gestora-api` per controllare che la catena
-   Actions → Docker Hub → webhook → Azure funzioni ancora.
-9. **Archiviare** il monorepo su GitHub (*Settings → Archive this repository*), **non
-   cancellarlo**: resta raggiungibile in sola lettura, con la storia e i tag `v1.0.x`, che restano
-   solo lì — il primo tag dei nuovi repository sarà `v1.1.0`.
-
-**File già preparati in questa sessione** (nella cartella di ciascun progetto, pronti per quando si
-farà lo split — non ancora spostati, il monorepo resta l'unico repository reale finché non si
-esegue la procedura sopra):
-- nessun file è stato ancora scritto per questo punto: la preparazione vera e propria (`.gitignore`
-  dedicato, `README.md` per ciascun repo, copia dei workflow con i filtri tolti, copia dei
-  documenti trasversali dentro `GestoraWebApi/docs/progetto/`) resta da fare — vedi
-  `GestoraDocs/CONSEGNA_v1.1.md`, sezione Fase 11, per lo stato esatto.

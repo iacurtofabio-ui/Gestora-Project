@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link } from 'react-router-dom'
-import { isAxiosError } from 'axios'
+import { messaggioErroreLogin } from '@/lib/apiError'
 import { useAuth } from '@/hooks/useAuth'
 import { paginaDiCasa } from '@/lib/navigazione'
 import apiClient from '@/lib/axios'
@@ -42,10 +42,7 @@ export default function LoginPage() {
     } catch (errore) {
       // Un token illeggibile non e' un problema di credenziali: dirlo com'e', altrimenti si
       // manda l'utente a riprovare all'infinito una password che era giusta.
-      const messaggio = isAxiosError(errore)
-        ? 'Email o password non corrispondono a nessun account. Controlla e riprova.'
-        : 'Accesso non riuscito: la risposta del server non risulta utilizzabile.'
-      setError('root', { message: messaggio })
+      setError('root', { message: messaggioErroreLogin(errore) })
     }
   }
 

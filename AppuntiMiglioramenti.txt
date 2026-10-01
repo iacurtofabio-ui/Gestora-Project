@@ -1,0 +1,10 @@
+Da tenere presente
+  - Il sistema non mantiene uno storico delle eliminazioni. Se una prenotazione viene eliminata per sbaglio, non c'è modo di
+    ricostruirla dai dati, a meno di un backup del database.
+  - Se ti serve poter dire «chi ha eliminato cosa», il log attuale basta a metà.
+  - Un'eventuale modifica, per esempio scrivere nel log anche nome e data, oppure passare a un'eliminazione «morbida» (un campo
+    che nasconde la riga), sarebbe una scelta di prodotto. La eviterei senza una richiesta concreta: il progetto è chiuso alla
+    v1.1.
+
+Dove si vede
+ - Solo tramite l'API LogActivity/get-log, riservata all'Admin

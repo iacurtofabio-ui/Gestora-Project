@@ -158,6 +158,13 @@ namespace GestoraWebApi.Controllers
         [HttpDelete("remove-role")]
         public async Task<IActionResult> RemoveRole([FromBody] AssignRoleDTO dto)
         {
+            // Chi chiama e' sempre un Admin e non puo' eliminare se stesso (DeleteUser): vietando
+            // anche di togliersi il ruolo Admin, almeno un Admin resta sempre. Senza questo blocco,
+            // rimasti a zero Admin, la schermata di primo avvio (SetupController, anonima) si
+            // riaprirebbe a chiunque.
+            if (dto.Role == Roles.Admin && dto.UserId == User.GetAuthenticatedUserId())
+                return BadRequest("Non è possibile togliere a se stessi il ruolo Admin: chiedilo a un altro Admin.");
+
             var user = await _userManager.FindByIdAsync(dto.UserId);
             if (user == null)
                 return NotFound($"Utente con ID '{dto.UserId}' non trovato.");

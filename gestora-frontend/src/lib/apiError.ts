@@ -44,6 +44,33 @@ export function segnalaErrore(fallback: string) {
 }
 
 /**
+ * Messaggio del login. Prima ogni errore Axios diventava "email o password errate": anche
+ * l'account bloccato (423), il limite di tentativi (429) e il server spento o in avvio. Chi era
+ * bloccato riprovava all'infinito una password giusta. Il backend risponde a 423/401 con una
+ * stringa semplice, non con `{ message }`: per questo i testi sono scritti qui.
+ */
+export function messaggioErroreLogin(error: unknown): string {
+  if (!isAxiosError(error)) {
+    // Un token illeggibile non e' un problema di credenziali.
+    return 'Accesso non riuscito: la risposta del server non risulta utilizzabile.'
+  }
+  if (!error.response) {
+    return 'Server non raggiungibile. Controlla la connessione e riprova.'
+  }
+  switch (error.response.status) {
+    case 400:
+    case 401:
+      return 'Email o password non corrispondono a nessun account. Controlla e riprova.'
+    case 423:
+      return 'Account bloccato per troppi tentativi sbagliati. Riprova tra 15 minuti.'
+    case 429:
+      return 'Troppi tentativi in poco tempo. Attendi un minuto e riprova.'
+    default:
+      return 'Il server non ha risposto correttamente. Riprova tra qualche istante.'
+  }
+}
+
+/**
  * NEW-006 — stessa idea di `messaggioErrore`, ma per gli errori di *caricamento* (React Query
  * `error` di una query, non di una mutation). Prima ogni pagina mostrava lo stesso testo fisso
  * ("Errore nel caricamento") a prescindere dalla causa: backend spento, permessi mancanti o
