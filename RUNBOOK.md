@@ -133,6 +133,16 @@ alla stessa connection string (via variabile d'ambiente, vedi §7), poi
 Prima di iniziare: **backup** (`pg_dump`, vedi §6), anche se si sta cancellando apposta. Se
 qualcosa va storto a metà si resta con un database mezzo vuoto e nessun modo di tornare indietro.
 
+**Come è andata il 01/10/2026** (tre differenze rispetto al locale):
+- **Fermare l'App Service** su Azure prima di iniziare, e riavviarlo alla fine (poi `/health`).
+- **Al posto di `dotnet ef database drop`**: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`
+  con `psql -c`. Su Neon il ruolo `neondb_owner` può non riuscire a cancellare il database stesso.
+  Porta via anche le tabelle `QRTZ_*`: poi `dotnet ef database update` e `quartz_postgres.sql`.
+- **`pg_dump` 17 non funziona con Neon (server 18)**: dà «la versione del server non corrisponde».
+  Per un backup serve il client PostgreSQL 18, oppure un branch Neon (*Branches → Create branch*).
+- La password si passa con `$env:PGPASSWORD` (inserita con `Read-Host -AsSecureString`) e a EF con
+  `$env:ConnectionStrings__DefaultConnection`; a fine lavoro `Remove-Item` di entrambe.
+
 ---
 
 ## 4. Applicare una modifica al database in produzione

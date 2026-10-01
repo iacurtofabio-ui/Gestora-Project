@@ -12,6 +12,9 @@ graphify-out/
 .vs/
 /AppuntiFix.txt
 
+.vs/
+/Credenziali.txt
+
 # backup di database e dump: mai versionati (dati reali)
 backup_*.csv
 backup_*.dump

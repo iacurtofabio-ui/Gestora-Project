@@ -23,14 +23,16 @@ e job `PrenotazioniJob` forzato da Admin (ha segnato 1 prenotazione come «Non p
 | Database | PostgreSQL su Neon (gratuito permanente), schema riallineato (7 migration EF + tabelle Quartz) |
 | Test | **258** backend (xUnit) + **47** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *Migration* del tracker) |
-| Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, decisione aperta (`SEC-001` in `BACKLOG.md`) |
+| Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata, non si aggiorna per non pagare la licenza (`SEC-001` in `BACKLOG.md`) |
 | Branch | `main` = `dev` = `origin`, allineati (tag `v1.1.0`) |
 
 **Ultima cosa fatta**: la chiusura **v1.1** (tetto dei coperti protetto, stato «Non presentata»,
 restyle con barra superiore, dashboard per giorno, note e tavoli leggibili in Prenotazioni,
 eliminazione solo delle prenotazioni annullate). Il 30/09/2026 Fabio ha rifatto a mano il giro di
-prova sul portale locale: tutto ok. Della checklist completa in
-`GestoraDocs/verifica-redesign.md` (`UI-001`) restano da fare le voci a 768px/375px e sul touch.
+prova sul portale locale: tutto ok. La checklist completa in
+`GestoraDocs/verifica-redesign.md` (`UI-001`) è terminata il 01/10/2026. Lo stesso giorno sono stati
+azzerati i due database (`OPS-001`, locale e Neon, Admin ricreato, `/health` ok) ed eliminata la
+cartella `Gestora_BACKUP_20260903` (`OPS-002`).
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto in
 `GestoraDocs/CONSEGNA_v1.1.md` e `docs/archivio/STORICO_FASI.md`.
 
@@ -146,8 +148,8 @@ imparate sbagliando, è in `docs/archivio/STORICO_FASI.md`.
 
 Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**.
 
-**Priorità corrente**: `UI-001` — le voci della checklist ancora da provare (768px, 375px, touch).
-Subito dopo, decisione su `SEC-001` (AutoMapper) e i reset `OPS-001` a fine lavori.
+**Priorità corrente**: nessuna. Restano solo le pulizie `OPS-003` e `OPS-004` e la separazione dei
+repository (`RUNBOOK.md` §10).
 
 ---
 
