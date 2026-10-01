@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import type { FasciaOrariaDTO, FasciaOrariaFormDTO } from '@/types/fasciaOraria'
 import { segnalaErrore } from '@/lib/apiError'
 import { Endpoints } from '@/lib/endpoints'
+import { invalidaVisteDellaSala } from '@/lib/invalidazioni'
 
 export function useFasceOrarie() {
   return useQuery<FasciaOrariaDTO[]>({
@@ -33,6 +34,7 @@ export function useCreaFasciaOraria() {
     mutationFn: (data: FasciaOrariaFormDTO) => apiClient.post(Endpoints.fasciaOraria.crea, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fasce-orarie'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Fascia oraria creata con successo')
     },
     onError: segnalaErrore('Errore durante la creazione'),
@@ -45,6 +47,7 @@ export function useUpdateFasciaOraria() {
     mutationFn: (data: FasciaOrariaDTO) => apiClient.put(Endpoints.fasciaOraria.update, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fasce-orarie'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Fascia oraria aggiornata con successo')
     },
     onError: segnalaErrore("Errore durante l'aggiornamento"),
@@ -57,6 +60,7 @@ export function useDeleteFasciaOraria() {
     mutationFn: (id: number) => apiClient.delete(Endpoints.fasciaOraria.delete(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fasce-orarie'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Fascia oraria eliminata con successo')
     },
     onError: segnalaErrore("Errore durante l'eliminazione"),

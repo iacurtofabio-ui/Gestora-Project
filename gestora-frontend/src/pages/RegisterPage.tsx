@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { ErroreForm } from '@/components/PageState'
 import { Label } from '@/components/ui/label'
 import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
+import { erroriPerCampo, messaggioErroreCaricamento } from '@/lib/apiError'
 
 // GAP-001: registrazione pubblica per i clienti — assegna sempre il ruolo Cliente
 // (POST /register lato backend non accetta un ruolo diverso).
@@ -21,6 +22,8 @@ const schema = z.object({
 })
 
 type RegisterForm = z.infer<typeof schema>
+
+const CAMPI = ['username', 'email', 'password'] as const
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -37,11 +40,20 @@ export default function RegisterPage() {
       await apiClient.post(Endpoints.auth.register, data)
       navigate('/login')
     } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined
-      setError('root', { message: message ?? 'Registrazione non riuscita. Riprova.' })
+      // Prima si leggeva solo `message`: gli errori di Identity (email o nome gia' usati)
+      // arrivavano in un'altra forma e l'utente vedeva solo "Registrazione non riuscita".
+      const { perCampo, altri } = erroriPerCampo(err, CAMPI)
+      for (const campo of CAMPI) {
+        const messaggio = perCampo[campo]
+        if (messaggio) setError(campo, { message: messaggio })
+      }
+      if (altri.length > 0) {
+        setError('root', { message: altri.join(', ') })
+      } else if (Object.keys(perCampo).length === 0) {
+        setError('root', {
+          message: messaggioErroreCaricamento(err, 'Registrazione non riuscita. Riprova.'),
+        })
+      }
     }
   }
 

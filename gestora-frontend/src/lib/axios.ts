@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { notifySessionExpired } from '@/lib/session'
+import { Endpoints } from '@/lib/endpoints'
 
 // REV-017 - senza l'indirizzo del backend Axios userebbe URL relativi: le chiamate finirebbero
 // sull'host del frontend, che risponde con l'HTML della SPA, e l'utente vedrebbe errori di
@@ -22,9 +23,14 @@ if (configurazioneMancante) {
 
 const apiClient = axios.create({ baseURL: baseURL ?? '' })
 
+// Login e registrazione non hanno bisogno del token. Allegarlo era dannoso: con una sessione
+// ancora aperta (per esempio aprendo /login a mano) una password sbagliata dava 401 su una
+// richiesta "con token", trattata come sessione scaduta: token cancellato e redirect.
+const SENZA_TOKEN: readonly string[] = [Endpoints.auth.login, Endpoints.auth.register]
+
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
-  if (token) {
+  if (token && !SENZA_TOKEN.includes(config.url ?? '')) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -37,7 +43,11 @@ apiClient.interceptors.response.use(
     // non per un 401 su una richiesta anonima come il login stesso: altrimenti una password
     // sbagliata provoca un reload a pagina intera invece di mostrare l'errore nel form.
     const hadToken = Boolean(error.config?.headers?.Authorization)
-    if (error.response?.status === 401 && hadToken) {
+    // Piu' richieste in volo (la Dashboard ne fa tre) ricevono 401 insieme: solo la prima trova
+    // ancora il token e segnala la scadenza, le altre no. Prima ognuna mostrava il suo avviso
+    // "Sessione scaduta" e avviava la sua navigazione.
+    const primaASegnalare = localStorage.getItem('token') !== null
+    if (error.response?.status === 401 && hadToken && primaASegnalare) {
       localStorage.removeItem('token')
       // REV-025: uscita pulita gestita da React (toast + navigazione). Il reload duro resta
       // solo come rete di sicurezza, se nessun componente e' in ascolto.

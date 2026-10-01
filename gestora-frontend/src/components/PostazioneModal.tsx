@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { interoObbligatorio } from '@/lib/validazioni'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import type { PostazioneDTO } from '@/types/postazione'
@@ -12,9 +13,9 @@ import { useCreaPostazione, useUpdatePostazione } from '@/hooks/usePostazioni'
 import { useZone } from '@/hooks/useZone'
 
 const schema = z.object({
-  numero: z.number().min(1, 'Numero obbligatorio'),
-  capienzaMassima: z.number().min(1, 'Capienza obbligatoria'),
-  zonaId: z.number().min(1, 'Zona obbligatoria'),
+  numero: interoObbligatorio('Numero obbligatorio'),
+  capienzaMassima: interoObbligatorio('Capienza obbligatoria'),
+  zonaId: interoObbligatorio('Zona obbligatoria'),
   attiva: z.boolean(),
 })
 

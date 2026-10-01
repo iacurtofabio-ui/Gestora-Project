@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AzioniPrenotazione } from '@/components/AzioniPrenotazione'
@@ -17,10 +17,21 @@ import { STATI_PRENOTAZIONE, type PrenotazioneDTO } from '@/types/prenotazione'
  * Si prova il comportamento visibile, non l'implementazione: nessun assert sulle classi CSS.
  */
 
-function prenotazione(stato: string): PrenotazioneDTO {
+// Orologio fermo al 09/09/2026 alle 15:00 di Roma (13:00 UTC): la prenotazione di prova
+// (stesso giorno, 19:00-21:00) e' confermabile e annullabile. Si finge solo Date, non i timer,
+// altrimenti userEvent resterebbe in attesa.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-09T13:00:00Z'))
+})
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+function prenotazione(stato: string, dataPrenotazione = '2026-09-09'): PrenotazioneDTO {
   return {
     id: 1,
-    dataPrenotazione: '2026-09-09',
+    dataPrenotazione,
     numeroCoperti: 4,
     note: null,
     stato,
@@ -34,7 +45,11 @@ function prenotazione(stato: string): PrenotazioneDTO {
   }
 }
 
-function monta(stato: string, ruoli: { isStaff: boolean; isAdmin: boolean }) {
+function monta(
+  stato: string,
+  ruoli: { isStaff: boolean; isAdmin: boolean },
+  dataPrenotazione?: string
+) {
   const gestori = {
     onConferma: vi.fn(),
     onCompleta: vi.fn(),
@@ -44,7 +59,7 @@ function monta(stato: string, ruoli: { isStaff: boolean; isAdmin: boolean }) {
   }
   render(
     <AzioniPrenotazione
-      prenotazione={prenotazione(stato)}
+      prenotazione={prenotazione(stato, dataPrenotazione)}
       isStaff={ruoli.isStaff}
       isAdmin={ruoli.isAdmin}
       inCorso={false}
@@ -194,5 +209,34 @@ describe('AzioniPrenotazione - tastiera', () => {
     expect(gestori.onModifica).toHaveBeenCalledTimes(1)
     expect(gestori.onAnnulla).not.toHaveBeenCalled()
     expect(screen.queryByRole('menuitem', { name: 'Modifica prenotazione' })).toBeNull()
+  })
+})
+
+describe('AzioniPrenotazione - niente azioni che il backend rifiuterebbe', () => {
+  it('su una prenotazione Attiva di domani non offre Conferma, ma si puo annullare', async () => {
+    const utente = userEvent.setup()
+    monta(STATI_PRENOTAZIONE.ATTIVA, STAFF, '2026-09-10')
+
+    expect(screen.queryByRole('button', { name: 'Conferma' })).not.toBeInTheDocument()
+    await utente.click(trigger())
+    expect(await screen.findByRole('menuitem', { name: 'Annulla prenotazione' })).toBeVisible()
+  })
+
+  it('su una prenotazione Attiva di ieri non offre ne Conferma ne Annulla', async () => {
+    const utente = userEvent.setup()
+    monta(STATI_PRENOTAZIONE.ATTIVA, STAFF, '2026-09-08')
+
+    expect(screen.queryByRole('button', { name: 'Conferma' })).not.toBeInTheDocument()
+    await utente.click(trigger())
+    expect(await screen.findByRole('menuitem', { name: 'Modifica prenotazione' })).toBeVisible()
+    expect(screen.queryByRole('menuitem', { name: 'Annulla prenotazione' })).toBeNull()
+  })
+
+  it('a fascia finita (oggi dopo le 21:00) non si annulla piu una prenotazione In corso', async () => {
+    vi.setSystemTime(new Date('2026-09-09T20:00:00Z')) // 22:00 a Roma
+    monta(STATI_PRENOTAZIONE.IN_CORSO, STAFF)
+
+    expect(screen.getByRole('button', { name: 'Completa' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Altre azioni/ })).not.toBeInTheDocument()
   })
 })

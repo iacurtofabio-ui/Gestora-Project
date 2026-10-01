@@ -109,4 +109,15 @@ public class PrenotazioneCreateDTOValidatorTests
 
         Assert.DoesNotContain(Valida(dto).Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.Note));
     }
+
+    // Stesso orizzonte di check-disponibilita (365 giorni): oltre, nel form la verifica dei posti
+    // falliva in silenzio e le fasce sembravano tutte libere.
+    [Fact]
+    public void RifiutaUnaDataOltreUnAnno()
+    {
+        var dto = Valido();
+        dto.DataPrenotazione = new DateOnly(2027, 6, 30);
+
+        Assert.Contains(Valida(dto).Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.DataPrenotazione));
+    }
 }

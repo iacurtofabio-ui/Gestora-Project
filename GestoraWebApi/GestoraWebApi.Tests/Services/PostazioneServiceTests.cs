@@ -247,35 +247,28 @@ public class PostazioneServiceTests
     }
     // ─── REV-023 — lo storico non si carica nel percorso caldo ───────────────
 
+    // AUD-M8: l'elenco esponeva gli Id delle prenotazioni di ogni tavolo (anche al Cliente),
+    // tenuti in cache senza invalidazione. Ora usa la query leggera e non li espone piu'.
     [Fact]
-    public async Task GetPostazioniAttiveAsync_UsaLaQueryConLoStorico_PerchePopolaPrenotazioneId()
+    public async Task GetPostazioniAttiveAsync_NonEsponeLePrenotazioni()
     {
-        // Il DTO dell'elenco espone PrenotazioneId, quindi qui le righe join servono davvero.
-        // E' il contrappeso del fix: togliendo l'Include dalla query condivisa, questo elenco
-        // sarebbe rimasto silenziosamente con la lista vuota.
-        var postazione = new Postazione
-        {
-            Id = 1,
-            Numero = 5,
-            CapienzaMassima = 4,
-            Attiva = true,
-            ZonaId = 10,
-            PrenotazioniPostazioni = new List<PrenotazionePostazione>
-            {
-                new() { PostazioneId = 1, PrenotazioneId = 77 },
-                new() { PostazioneId = 1, PrenotazioneId = 88 }
-            }
-        };
-
-        _postazioneRepoMock.Setup(r => r.GetPostazioniAttiveConPrenotazioniAsync())
-                            .ReturnsAsync(new List<Postazione> { postazione });
+        _postazioneRepoMock.Setup(r => r.GetPostazioniAttiveAsync())
+                            .ReturnsAsync(new List<Postazione>
+                            {
+                                new()
+                                {
+                                    Id = 1, Numero = 5, CapienzaMassima = 4, Attiva = true, ZonaId = 10,
+                                    PrenotazioniPostazioni = new List<PrenotazionePostazione>
+                                    {
+                                        new() { PostazioneId = 1, PrenotazioneId = 77 }
+                                    }
+                                }
+                            });
 
         var result = await _service.GetPostazioniAttiveAsync();
 
         Assert.Single(result);
-        Assert.Equal(new long[] { 77, 88 }, result[0].PrenotazioneId);
-        // La query leggera non c'entra con questo percorso.
-        _postazioneRepoMock.Verify(r => r.GetPostazioniAttiveAsync(), Times.Never);
+        Assert.Empty(result[0].PrenotazioneId);
     }
 
     [Fact]
@@ -296,6 +289,5 @@ public class PostazioneServiceTests
 
         Assert.Equal(1, riepilogo.TavoliAttivi);
         Assert.Equal(4, riepilogo.PostiTotali);
-        _postazioneRepoMock.Verify(r => r.GetPostazioniAttiveConPrenotazioniAsync(), Times.Never);
     }
 }

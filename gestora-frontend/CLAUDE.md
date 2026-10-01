@@ -15,7 +15,7 @@ logout + redirect su 401).
 
 ```
 npm run lint      # zero errori
-npm test          # 52 test, Vitest + Testing Library
+npm test          # 64 test, Vitest + Testing Library
 npm run build     # controlla i tipi — npm test NON lo fa (vedi sezione Test)
 ```
 Se hai toccato un componente/pagina visibile e non hai verificato a mano nel browser, dillo
@@ -172,6 +172,8 @@ vuoto), valorizzata = edit (form ripopolato via `useEffect` + `reset`).
 | `lib/jwt.ts` | Unico punto che legge il token. È una **lettura**, non una verifica: la firma non è controllabile dal browser |
 | `lib/session.ts` | Ponte fra l'intercettore Axios (fuori da React) e i componenti, per la scadenza sessione senza ricaricare |
 | `lib/giorni.ts` | `GIORNI_SETTIMANA` |
+| `lib/invalidazioni.ts` | `invalidaVisteDellaSala`: Dashboard, disponibilità e riepilogo sala da rinfrescare dopo ogni scrittura su fasce, tavoli e zone |
+| `lib/validazioni.ts` → `interoObbligatorio` | Campo numerico dei form: con `valueAsNumber` un campo vuoto è `NaN` e Zod v4 darebbe un messaggio in inglese. **Non usare `z.number()` nudo** |
 | `lib/queryClient.ts` | Niente nuovi tentativi sui 4xx, nessun tentativo sulle mutation |
 | `components/PageState.tsx` | `PageLoading`/`PageError` (contenuto solo), `ErroreForm`, `TableSkeleton`/`DashboardSkeleton` (`righe`/`colonne` sulla forma reale della pagina) |
 | `components/EmptyState.tsx` | Messaggio per liste vuote |
@@ -203,9 +205,9 @@ l'etichetta è `sr-only` (design con segnaposto).
 
 ## Test
 
-**52 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5 + 5 del login),
+**64 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5 + 5 del login + 1 per campo), regole di nome utente e campi numerici (8),
 `ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), azioni
-di riga e tastiera in `AzioniPrenotazione` (13, incluso l'eliminazione solo sulle annullate), scelta della
+di riga e tastiera in `AzioniPrenotazione` (16, incluso l'eliminazione solo sulle annullate e niente Conferma/Annulla fuori tempo), scelta della
 pagina di casa per ruolo (5), navigazione per giorno della Dashboard (1), filtri nell'URL di
 `PrenotazionePage` (2).
 

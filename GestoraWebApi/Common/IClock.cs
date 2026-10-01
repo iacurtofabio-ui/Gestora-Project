@@ -15,7 +15,8 @@ namespace GestoraWebApi.Common
 
     public sealed class SystemClock : IClock
     {
-        private static readonly TimeZoneInfo RomeTimeZone = ResolveRomeTimeZone();
+        /// <summary>Fuso di Roma, usato anche dagli orari dei job Quartz (Program.cs).</summary>
+        public static TimeZoneInfo RomeTimeZone { get; } = ResolveRomeTimeZone();
 
         public DateTime UtcNow => DateTime.UtcNow;
 

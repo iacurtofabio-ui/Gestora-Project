@@ -76,6 +76,8 @@ function invalidaPrenotazioniEDashboard(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['prenotazioni'] })
   queryClient.invalidateQueries({ queryKey: ['dashboard-giornaliera'] })
   queryClient.invalidateQueries({ queryKey: ['dashboard-settimanale'] })
+  // Una prenotazione cambia i posti liberi mostrati nel form di un'altra prenotazione.
+  queryClient.invalidateQueries({ queryKey: ['disponibilita'] })
 }
 
 export function useCreaPrenotazione() {

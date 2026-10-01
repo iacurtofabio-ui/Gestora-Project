@@ -13,7 +13,6 @@ namespace GestoraWebApi.Repositories.Postazioni
         /// Tavoli attivi con le righe di PrenotazioniPostazioni caricate. Da usare solo dove
         /// quel dato serve davvero: e' pesante e cresce con lo storico.
         /// </summary>
-        Task<List<Postazione>> GetPostazioniAttiveConPrenotazioniAsync();
         Task<List<Postazione>> GetPostazioniDisponibiliAsync();
         Task<Postazione> GetByIdAsync(long id);
         Task<List<Postazione>> GetPostazioniPerZonaAsync(long zonaId);

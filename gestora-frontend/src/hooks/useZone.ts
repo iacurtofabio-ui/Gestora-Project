@@ -4,6 +4,7 @@ import type { ZonaDTO, ZonaFormDTO } from '@/types/zona'
 import { segnalaErrore } from '@/lib/apiError'
 import { toast } from 'sonner'
 import { Endpoints } from '@/lib/endpoints'
+import { invalidaVisteDellaSala } from '@/lib/invalidazioni'
 
 export function useZone() {
   return useQuery<ZonaDTO[]>({
@@ -34,6 +35,7 @@ export function useCreaZona() {
     mutationFn: (data: ZonaFormDTO) => apiClient.post(Endpoints.zona.crea, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Zona creata con successo')
     },
     onError: segnalaErrore('Errore durante la creazione'),
@@ -46,6 +48,7 @@ export function useUpdateZona() {
     mutationFn: (data: ZonaDTO) => apiClient.put(Endpoints.zona.update, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Zona aggiornata con successo')
     },
     onError: segnalaErrore("Errore durante l'aggiornamento"),
@@ -58,6 +61,7 @@ export function useDeleteZona() {
     mutationFn: (id: number) => apiClient.delete(Endpoints.zona.delete(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['zone'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Zona eliminata con successo')
     },
     onError: segnalaErrore('Errore durante la cancellazione'),

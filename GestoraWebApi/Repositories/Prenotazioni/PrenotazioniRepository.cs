@@ -93,6 +93,22 @@ namespace GestoraWebApi.Repositories.Prenotazioni
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        /// <summary>
+        /// AUD-M4: SELECT ... FOR UPDATE sulla riga della prenotazione. Due operazioni sulla
+        /// stessa prenotazione (modifica e annullamento, conferma e job) passano una alla volta:
+        /// la seconda legge lo stato lasciato dalla prima invece di sovrascriverlo. Va chiamato
+        /// dentro una transazione, prima di leggere l'entita'. Il provider InMemory dei test non
+        /// esegue SQL: li' il lock non si puo' provare e viene saltato.
+        /// </summary>
+        public async Task BloccaPerModificaAsync(long id)
+        {
+            if (!_context.Database.IsRelational())
+                return;
+
+            await _context.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM \"Prenotazioni\" WHERE \"Id\" = {id} FOR UPDATE");
+        }
+
         public async Task<List<Prenotazione>> GetPrenotazioniByDataAsync(DateOnly data)
         {
             return await _context.Prenotazioni

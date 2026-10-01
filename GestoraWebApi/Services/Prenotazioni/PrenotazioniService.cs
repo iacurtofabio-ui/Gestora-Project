@@ -129,10 +129,11 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new KeyNotFoundException("Prenotazione non trovata.");
 
             // REV-034: il Cliente può leggere il dettaglio solo della propria prenotazione.
-            // Admin/Staff nessun limite.
+            // Admin/Staff nessun limite. Per il Cliente quella altrui risulta "non trovata", come
+            // un Id inesistente: con 403 contro 404 si capiva quali Id esistono.
             if (IsSelfServiceCliente()
                 && !string.Equals(prenotazione.UserId, _httpContextAccessor.HttpContext.GetAuthenticatedUserId(), StringComparison.OrdinalIgnoreCase))
-                throw new ForbiddenException("Non hai i permessi per visualizzare questa prenotazione.");
+                throw new KeyNotFoundException("Prenotazione non trovata.");
 
             var dtoSingola = _mapper.Map<PrenotazioneDTO>(prenotazione);
             await ApplicaNumeroTurnoAsync(new[] { prenotazione }, new[] { dtoSingola });
@@ -141,32 +142,32 @@ namespace GestoraWebApi.Services.Prenotazioni
 
         public async Task UpdateAsync(long id, PrenotazioneCreateDTO dto)
         {
-            var prenotazione = await _prenotazioniRepository.GetTrackedByIdAsync(id);
-
-            if (prenotazione == null)
-                throw new KeyNotFoundException("Prenotazione non trovata.");
-
-            if (prenotazione.Stato == StatoPrenotazione.InCorso
-                || prenotazione.Stato == StatoPrenotazione.Annullata
-                || prenotazione.Stato == StatoPrenotazione.Completata
-                || prenotazione.Stato == StatoPrenotazione.NonPresentata)
-                throw new ConflictException($"Non è possibile modificare una prenotazione nello stato {prenotazione.Stato}.");
-
             var userId = _httpContextAccessor.HttpContext.GetAuthenticatedUserId();
-
-            // REV-002: il vincolo di ownership vale solo per il self-service del Cliente.
-            // Admin e Staff possono modificare la prenotazione di qualunque cliente (creata
-            // sotto un altro UserId), come previsto dai ruoli.
-            if (IsSelfServiceCliente())
-            {
-                if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
-                    throw new ForbiddenException("Non hai i permessi per modificare questa prenotazione.");
-
-                GuardCutoffAsync(prenotazione);
-            }
 
             await EseguiInTransazioneAsync(async () =>
             {
+                // AUD-M4: lettura e controlli dentro la transazione, dopo il lock sulla riga.
+                // Prima stato e permessi si leggevano fuori: un annullamento arrivato nel mezzo
+                // veniva sovrascritto e la prenotazione tornava "Attiva".
+                var prenotazione = await LeggiConLockAsync(id, "Prenotazione non trovata.");
+
+                if (prenotazione.Stato == StatoPrenotazione.InCorso
+                    || prenotazione.Stato == StatoPrenotazione.Annullata
+                    || prenotazione.Stato == StatoPrenotazione.Completata
+                    || prenotazione.Stato == StatoPrenotazione.NonPresentata)
+                    throw new ConflictException($"Non è possibile modificare una prenotazione nello stato {prenotazione.Stato}.");
+
+                // REV-002: il vincolo di ownership vale solo per il self-service del Cliente.
+                // Admin e Staff possono modificare la prenotazione di qualunque cliente (creata
+                // sotto un altro UserId), come previsto dai ruoli.
+                if (IsSelfServiceCliente())
+                {
+                    if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
+                        throw new ForbiddenException("Non hai i permessi per modificare questa prenotazione.");
+
+                    GuardCutoffAsync(prenotazione);
+                }
+
                 // CAP-001: la verifica del tetto stava fuori dalla transazione, quindi il lock
                 // sulla fascia non la copriva. Dentro, come in AddAsync.
                 await ValidatePrenotazioneAsync(dto, prenotazione.Id);
@@ -213,80 +214,95 @@ namespace GestoraWebApi.Services.Prenotazioni
 
         public async Task ConfermaPrenotazioneAsync(long id)
         {
-            var prenotazione = await _prenotazioniRepository.GetTrackedByIdAsync(id);
+            await EseguiInTransazioneAsync(async () =>
+            {
+                var prenotazione = await LeggiConLockAsync(id, "Prenotazione non trovata.");
 
-            if (prenotazione == null)
-                throw new KeyNotFoundException("Prenotazione non trovata.");
+                if (prenotazione.Stato != StatoPrenotazione.Attiva)
+                    throw new ConflictException("Solo prenotazioni con stato 'Attiva' possono essere confermate.");
 
-            if (prenotazione.Stato != StatoPrenotazione.Attiva)
-                throw new ConflictException("Solo prenotazioni con stato 'Attiva' possono essere confermate.");
+                // FASE 3: una "Attiva" con data/fascia gia' passate non e' piu' confermabile: il job
+                // notturno non e' ancora passato a portarla a NonPresentata, ma il momento e' gia'
+                // andato. Stessa condizione usata da AutomaticCompletPrenotazioniAsync per il no-show.
+                if (prenotazione.FasciaOraria == null)
+                    throw new ConflictException("La fascia oraria associata alla prenotazione non è disponibile.");
 
-            // FASE 3: una "Attiva" con data/fascia gia' passate non e' piu' confermabile: il job
-            // notturno non e' ancora passato a portarla a NonPresentata, ma il momento e' gia'
-            // andato. Stessa condizione usata da AutomaticCompletPrenotazioniAsync per il no-show.
-            if (prenotazione.FasciaOraria == null)
-                throw new ConflictException("La fascia oraria associata alla prenotazione non è disponibile.");
+                var oraAttualeConferma = _clock.NowInRome;
+                var fineFasciaConferma = prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
+                                              .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan());
+                if (oraAttualeConferma >= fineFasciaConferma)
+                    throw new ConflictException("La prenotazione è già passata.");
 
-            var oraAttualeConferma = _clock.NowInRome;
-            var fineFasciaConferma = prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
-                                          .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan());
-            if (oraAttualeConferma >= fineFasciaConferma)
-                throw new ConflictException("La prenotazione è già passata.");
+                // Si conferma l'arrivo del cliente, quindi solo nel giorno della prenotazione. Prima
+                // si poteva confermare per sbaglio una prenotazione della settimana dopo: passava
+                // "In corso", il cliente non poteva piu' modificarla e il tetto restava occupato.
+                if (prenotazione.DataPrenotazione != _clock.TodayInRome)
+                    throw new ConflictException("Si può confermare una prenotazione solo nel giorno in cui è prevista.");
 
-            prenotazione.Stato = StatoPrenotazione.InCorso;
-            await _prenotazioniRepository.UpdateAsync(prenotazione);
-            await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Confermata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
+                prenotazione.Stato = StatoPrenotazione.InCorso;
+                await _prenotazioniRepository.UpdateAsync(prenotazione);
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Confermata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
+            });
         }
 
         public async Task CompletePrenotazioneAsync(long id)
         {
-            var prenotazione = await _prenotazioniRepository.GetTrackedByIdAsync(id);
+            await EseguiInTransazioneAsync(async () =>
+            {
+                var prenotazione = await LeggiConLockAsync(id, "Prenotazione non trovata.");
 
-            if (prenotazione == null)
-                throw new KeyNotFoundException("Prenotazione non trovata.");
+                if (prenotazione.FasciaOraria == null)
+                    throw new ConflictException("La fascia oraria associata alla prenotazione non è disponibile.");
 
-            if (prenotazione.FasciaOraria == null)
-                throw new ConflictException("La fascia oraria associata alla prenotazione non è disponibile.");
+                if (prenotazione.Stato != StatoPrenotazione.InCorso)
+                    throw new ConflictException("Solo prenotazioni 'In corso' possono essere completate.");
 
-            if (prenotazione.Stato != StatoPrenotazione.InCorso)
-                throw new ConflictException("Solo prenotazioni 'In corso' possono essere completate.");
+                var now = _clock.NowInRome;
+                var endDateTime = prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
+                                              .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan());
 
-            var now = _clock.NowInRome;
-            var endDateTime = prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
-                                          .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan());
+                if (now < endDateTime)
+                    throw new ConflictException("Non è possibile completare: la prenotazione non è ancora terminata.");
 
-            if (now < endDateTime)
-                throw new ConflictException("Non è possibile completare: la prenotazione non è ancora terminata.");
-
-            prenotazione.Stato = StatoPrenotazione.Completata;
-            await _prenotazioniRepository.UpdateAsync(prenotazione);
-            await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Completata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
+                prenotazione.Stato = StatoPrenotazione.Completata;
+                await _prenotazioniRepository.UpdateAsync(prenotazione);
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Completata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
+            });
         }
 
         public async Task AnnullaPrenotazioneAsync(long id)
         {
-            var prenotazione = await _prenotazioniRepository.GetTrackedByIdAsync(id);
-
-            if (prenotazione == null)
-                throw new KeyNotFoundException("Prenotazione non trovata nel sistema.");
-
-            if (prenotazione.Stato == StatoPrenotazione.Completata)
-                throw new ConflictException("Non è possibile annullare una prenotazione già completata.");
-
-            if (prenotazione.Stato == StatoPrenotazione.NonPresentata)
-                throw new ConflictException("Non è possibile annullare una prenotazione mai confermata: è già segnata come non presentata.");
-
-            if (IsSelfServiceCliente())
-            {
-                var userId = _httpContextAccessor.HttpContext.GetAuthenticatedUserId();
-                if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
-                    throw new ForbiddenException("Non hai i permessi per annullare questa prenotazione.");
-
-                GuardCutoffAsync(prenotazione);
-            }
-
             await EseguiInTransazioneAsync(async () =>
             {
+                // AUD-M4: lettura e controlli dopo il lock sulla riga, come in UpdateAsync.
+                var prenotazione = await LeggiConLockAsync(id, "Prenotazione non trovata nel sistema.");
+
+                if (prenotazione.Stato == StatoPrenotazione.Completata)
+                    throw new ConflictException("Non è possibile annullare una prenotazione già completata.");
+
+                if (prenotazione.Stato == StatoPrenotazione.NonPresentata)
+                    throw new ConflictException("Non è possibile annullare una prenotazione mai confermata: è già segnata come non presentata.");
+
+                if (prenotazione.Stato == StatoPrenotazione.Annullata)
+                    throw new ConflictException("La prenotazione è già annullata.");
+
+                // AUD-M3: una prenotazione la cui fascia e' finita non si annulla piu', nemmeno da
+                // Staff/Admin. Il job notturno la porta a Completata o NonPresentata: annullandola
+                // prima (e poi eliminandola) il no-show o il coperto servito sparivano dallo storico.
+                if (prenotazione.FasciaOraria != null &&
+                    _clock.NowInRome >= prenotazione.DataPrenotazione.ToDateTime(TimeOnly.MinValue)
+                                            .Add(prenotazione.FasciaOraria.OrarioFine.ToTimeSpan()))
+                    throw new ConflictException("La prenotazione è già passata: non si può più annullare.");
+
+                if (IsSelfServiceCliente())
+                {
+                    var userId = _httpContextAccessor.HttpContext.GetAuthenticatedUserId();
+                    if (!string.Equals(prenotazione.UserId, userId, StringComparison.OrdinalIgnoreCase))
+                        throw new ForbiddenException("Non hai i permessi per annullare questa prenotazione.");
+
+                    GuardCutoffAsync(prenotazione);
+                }
+
                 prenotazione.Stato = StatoPrenotazione.Annullata;
 
                 // REV-003: una prenotazione annullata libera il tavolo. Le righe join vanno
@@ -578,12 +594,32 @@ namespace GestoraWebApi.Services.Prenotazioni
         /// CreateExecutionStrategy().ExecuteAsync: con EnableRetryOnFailure attivo (vedi
         /// Program.cs) EF deve poter ritentare l'intero blocco, non una singola query.
         /// </summary>
+        /// <summary>
+        /// AUD-M4: blocca la riga e poi la legge, dentro la transazione aperta da
+        /// EseguiInTransazioneAsync. Lo stato letto qui non puo' cambiare fino al commit.
+        /// </summary>
+        private async Task<Prenotazione> LeggiConLockAsync(long id, string messaggioNonTrovata)
+        {
+            await _prenotazioniRepository.BloccaPerModificaAsync(id);
+
+            return await _prenotazioniRepository.GetTrackedByIdAsync(id)
+                   ?? throw new KeyNotFoundException(messaggioNonTrovata);
+        }
+
         private async Task EseguiInTransazioneAsync(Func<Task> operazione)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
+            var tentativo = 0;
 
             await strategy.ExecuteAsync(async () =>
             {
+                // Un nuovo tentativo dopo un errore transitorio deve ripartire pulito: le entita'
+                // lette e modificate al tentativo precedente restavano nel change tracker (righe
+                // tavolo gia' staccate, nuove righe in stato Added) e si scrivevano dati incoerenti.
+                // Per questo le operazioni leggono tutto dentro la transazione.
+                if (tentativo++ > 0)
+                    _context.ChangeTracker.Clear();
+
                 await using var transaction = await _context.Database.BeginTransactionAsync();
 
                 try

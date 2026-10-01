@@ -19,4 +19,8 @@ COPY --from=build /app/out .
 # La porta effettiva arriva da ASPNETCORE_URLS/WEBSITES_PORT (variabili d'ambiente di Azure
 # App Service) — EXPOSE è solo documentazione, non vincola nulla a runtime.
 EXPOSE 8080
+
+# L'immagine aspnet ha gia' un utente senza privilegi (APP_UID): senza questa riga l'app girava
+# come root dentro il container. La porta 8080 non richiede privilegi.
+USER $APP_UID
 ENTRYPOINT ["dotnet", "GestoraWebApi.dll"]

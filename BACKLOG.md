@@ -63,21 +63,37 @@ Report completo dell'analisi (backend, sicurezza, frontend) consegnato in chat i
 > - `AUD-A5` casella «Attiva» nella modifica tavolo, prima ignorata dal backend
 > - `AUD-A6` messaggi del login distinti: bloccato / troppi tentativi / server irraggiungibile
 
-**Ancora aperti — piccoli**
-- `AUD-M1` «Gestisci ruoli» non si aggiorna dopo Assegna/Rimuovi (legge una copia dell'utente)
-- `AUD-M2` `check-disponibilita` mostra come libere le fasce di oggi già finite
-- `AUD-M3` Staff/Admin possono annullare (e poi eliminare) prenotazioni di giorni passati: lo storico si perde
-- `AUD-M8` cache «postazioni attive» non svuotata dalle prenotazioni; espone al Cliente gli ID delle prenotazioni altrui
-- `AUD-M9` il workflow Docker pubblica senza aspettare i test; la CI frontend non lancia `npm test`
-- `AUD-M11` form con campi numerici vuoti: messaggio in inglese (Zod v4); data passata selezionabile in PrenotazioneModal
+> **Corretti il 01/10/2026, secondo giro** (medi e bassi, 292 test backend + 64 frontend verdi):
+> - `AUD-M1` «Gestisci ruoli» si aggiorna dopo Assegna/Rimuovi
+> - `AUD-M2` `check-disponibilita` non propone più le fasce di oggi già finite
+> - `AUD-M3` una prenotazione con la fascia già finita non si annulla più (nemmeno da Staff/Admin)
+> - `AUD-M4` modifica, annullamento, conferma e completamento bloccano la riga (`FOR UPDATE`) e
+>   leggono lo stato dentro la transazione; un nuovo tentativo automatico riparte pulito
+> - `AUD-M6` i token portano il security stamp: cambio ruolo, eliminazione, reset password o cambio
+>   email li invalidano subito
+> - `AUD-M8` l'elenco tavoli attivi non espone più gli Id delle prenotazioni (né al Cliente)
+> - `AUD-M9` la pubblicazione Docker aspetta i test; la CI frontend lancia `npm test`
+> - `AUD-M10` cron dei job in ora di Roma, nessuna doppia esecuzione dello stesso job
+> - `AUD-M11` form: messaggi italiani sui numeri vuoti, data fra oggi e un anno (anche lato backend)
+> - bassi: conferma solo nel giorno della prenotazione (e i pulsanti Conferma/Annulla compaiono solo
+>   quando il backend li accetterebbe); 404 (non 403) al Cliente su prenotazione
+>   altrui; ruolo Cliente controllato in registrazione; container non root; `.dockerignore` per
+>   dump/csv/graphify; un solo avviso di sessione scaduta; nessun token sul login; Dashboard (campo
+>   data, errori visibili, invalidazioni); fascia non più attiva in modifica; data massima nella
+>   pagina pubblica; creazione utente da Admin che segnala il ruolo non assegnato; log SQL di EF Core
+>   a Warning
+> - registrazione: messaggi italiani per campo (email / nome già usati); nome utente con spazi
+>   («Fabio Iacurto»), apostrofi e lettere accentate
 
-**Ancora aperti — da valutare (strutturali, possono restare limiti noti della v1)**
-- `AUD-M4` modifica e annullamento simultanei della stessa prenotazione: può «resuscitare»
-- `AUD-M5` «una prenotazione al giorno» aggirabile con due richieste parallele su fasce diverse
-  (rischio già accettato con `REV-004`)
-- `AUD-M6` cambio ruolo / eliminazione utente non invalidano i token già emessi (fino a 60 minuti)
-- `AUD-M7` chi conosce l'email dell'Admin può tenerlo bloccato (5 tentativi ogni 15 minuti)
-- `AUD-M10` su Azure F1 l'app si spegne: i job notturni partono solo al primo accesso; cron in UTC
+**Lasciati aperti di proposito**
+- `AUD-M5` «una prenotazione al giorno» aggirabile con due richieste parallele su fasce diverse:
+  è la decisione di prodotto 10 (`REV-004`), resta un controllo dell'applicazione per la v1
+- `AUD-M7` chi conosce l'email dell'Admin può tenerlo bloccato (5 tentativi ogni 15 minuti): è il
+  prezzo del blocco contro i tentativi a forza bruta, accettato
+- `AUD-M10` (parte non risolvibile nel codice): su Azure F1 l'app si spegne senza traffico e i job
+  notturni partono al primo accesso del giorno. Serve «Always On», cioè un piano a pagamento
+- limite di 50 coperti per prenotazione fisso nel codice: un gruppo più grande è un evento da
+  gestire a mano, e sull'endpoint pubblico il limite fa da freno. Da rendere configurabile solo se serve
 
 **Facoltativo per `AUD-A3`**: indice unico sull'email anche nel database (migration). Oggi il
 controllo è dell'applicazione; prima di aggiungerlo verificare che non esistano email doppie.

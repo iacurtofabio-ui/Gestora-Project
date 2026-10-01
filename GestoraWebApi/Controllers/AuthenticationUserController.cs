@@ -55,11 +55,22 @@ namespace GestoraWebApi.Controllers
                     nameof(AuthenticationUserController), nameof(Register),
                     HttpContext.GetIpAddress(), string.Join(", ", result.Errors.Select(e => e.Description)));
 
-                return BadRequest(result.Errors);
+                throw ErroriIdentity.ComeValidationException(result, "Registrazione non riuscita: controlla i dati inseriti.");
             }
 
-            // Ogni nuovo utente registrato riceve il ruolo Cliente di default
-            await _userManager.AddToRoleAsync(user, Roles.Cliente);
+            // Ogni nuovo utente registrato riceve il ruolo Cliente di default. Il risultato era
+            // ignorato: se falliva, l'utente restava senza ruolo e riceveva 403 ovunque, senza
+            // traccia nei log. Si elimina l'utente appena creato, cosi' puo' riprovare.
+            var roleResult = await _userManager.AddToRoleAsync(user, Roles.Cliente);
+            if (!roleResult.Succeeded)
+            {
+                _logger.LogError("[{Controller}] - [{Method}]: Ruolo Cliente non assegnato a {UserId} - {Errors}",
+                    nameof(AuthenticationUserController), nameof(Register), user.Id,
+                    string.Join(", ", roleResult.Errors.Select(e => e.Description)));
+
+                await _userManager.DeleteAsync(user);
+                throw new InvalidOperationException("Assegnazione del ruolo Cliente non riuscita.");
+            }
 
             _logger.LogInformation("[{Controller}] - [{Method}]: Registrazione riuscita per {UserId}",
                 nameof(AuthenticationUserController), nameof(Register), user.Id);
@@ -114,7 +125,8 @@ namespace GestoraWebApi.Controllers
             }
 
             var roles = await _userManager.GetRolesAsync(user);
-            var token = _tokenGenerator.GenerateToken(user.Id, user.Email!, roles);
+            var token = _tokenGenerator.GenerateToken(user.Id, user.Email!, roles,
+                await _userManager.GetSecurityStampAsync(user));
 
             await _logActivityService.LogAsync(user.Id, "Login", HttpContext.GetIpAddress());
 
@@ -142,6 +154,10 @@ namespace GestoraWebApi.Controllers
             var result = await _userManager.AddToRoleAsync(user, dto.Role);
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
+
+            // AUD-M6: i token gia' emessi portano i ruoli vecchi. Cambiare lo stamp li invalida:
+            // l'utente rifa' l'accesso e riceve un token con i ruoli giusti.
+            await _userManager.UpdateSecurityStampAsync(user);
 
             _logger.LogInformation("[{Controller}] - [{Method}]: Ruolo '{Role}' assegnato all'utente {UserId}",
                 nameof(AuthenticationUserController), nameof(AssignRole), dto.Role, dto.UserId);
@@ -175,6 +191,9 @@ namespace GestoraWebApi.Controllers
             var result = await _userManager.RemoveFromRoleAsync(user, dto.Role);
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
+
+            // AUD-M6: senza questo l'utente conservava il ruolo tolto fino alla scadenza del token.
+            await _userManager.UpdateSecurityStampAsync(user);
 
             _logger.LogInformation("[{Controller}] - [{Method}]: Ruolo '{Role}' rimosso dall'utente {UserId}",
                 nameof(AuthenticationUserController), nameof(RemoveRole), dto.Role, dto.UserId);
@@ -256,12 +275,19 @@ namespace GestoraWebApi.Controllers
             if (!string.IsNullOrWhiteSpace(dto.UserName))
                 user.UserName = dto.UserName;
 
+            var emailCambiata = !string.IsNullOrWhiteSpace(dto.Email) &&
+                                !string.Equals(dto.Email, user.Email, StringComparison.OrdinalIgnoreCase);
+
             if (!string.IsNullOrWhiteSpace(dto.Email))
                 user.Email = dto.Email;
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
-                return BadRequest(result.Errors);
+                throw ErroriIdentity.ComeValidationException(result, "Modifica dell'utente non riuscita: controlla i dati inseriti.");
+
+            // Il token porta l'email: se cambia, quelli gia' emessi vanno rifatti (AUD-M6).
+            if (emailCambiata)
+                await _userManager.UpdateSecurityStampAsync(user);
 
             _logger.LogInformation("[{Controller}] - [{Method}]: Utente {Id} aggiornato",
                 nameof(AuthenticationUserController), nameof(UpdateUser), id);

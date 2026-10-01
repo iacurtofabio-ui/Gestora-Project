@@ -264,20 +264,13 @@ public class PrenotazioniServiceTests
     [Fact]
     public async Task ConfermaPrenotazioneAsync_SetsStatoInCorso_WhenAttiva()
     {
-        // Arrange - fascia che finisce ampiamente dopo l orologio di test (TestClock), altrimenti
-        // la guardia FASE 3 sulla prenotazione gia passata la rifiuterebbe.
-        var prenotazione = new Prenotazione
-        {
-            Id = 1,
-            NumeroCoperti = 2,
-            Stato = StatoPrenotazione.Attiva,
-            DataPrenotazione = DataLunediFuturo,
-            FasciaOraria = new FasciaOraria { Id = 1, OrarioInizio = new TimeOnly(19, 0), OrarioFine = new TimeOnly(21, 0) }
-        };
+        // Arrange - prenotazione di oggi (orologio fermo alle 14:00 di OggiFermo) con fascia
+        // serale: non ancora passata (FASE 3) e nel giorno giusto (si conferma solo quel giorno).
+        var prenotazione = PrenotazioneConFascia(1, StatoPrenotazione.Attiva, OggiFermo, new TimeOnly(23, 0));
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
 
         // Act
-        await _service.ConfermaPrenotazioneAsync(1);
+        await ServiceConOrologioFermo(IstanteFermo).ConfermaPrenotazioneAsync(1);
 
         // Assert
         Assert.Equal(StatoPrenotazione.InCorso, prenotazione.Stato);
@@ -372,7 +365,8 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Setup(r => r.GetByIdAsync(1))
                              .ReturnsAsync(new Prenotazione { Id = 1, NumeroCoperti = 2, UserId = "altro-utente" });
 
-        await Assert.ThrowsAsync<ForbiddenException>(() => _service.GetByIdAsync(1));
+        // Come un Id inesistente: un 403 rivelerebbe che l'Id esiste.
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetByIdAsync(1));
     }
 
     [Fact]
@@ -1301,6 +1295,75 @@ public class PrenotazioniServiceTests
             () => ServiceConOrologioFermo(IstanteFermo).ConfermaPrenotazioneAsync(1));
 
         Assert.Contains("passata", ex.Message.ToLowerInvariant());
+    }
+
+    // Si conferma l'arrivo del cliente: una prenotazione della settimana dopo confermata per
+    // sbaglio diventava "In corso", non piu' modificabile dal cliente, con il tetto occupato.
+    [Fact]
+    public async Task ConfermaPrenotazioneAsync_ThrowsConflict_QuandoNonEIlGiornoDellaPrenotazione()
+    {
+        var futura = PrenotazioneConFascia(1, StatoPrenotazione.Attiva, OggiFermo.AddDays(7), new TimeOnly(23, 0));
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(futura);
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(
+            () => ServiceConOrologioFermo(IstanteFermo).ConfermaPrenotazioneAsync(1));
+
+        Assert.Contains("giorno", ex.Message);
+        Assert.Equal(StatoPrenotazione.Attiva, futura.Stato);
+    }
+
+    // AUD-M3: lo Staff annullava una prenotazione di ieri ancora "Attiva" (il job non era
+    // passato) e l'Admin poi la eliminava: il no-show spariva dallo storico.
+    [Theory]
+    [InlineData(StatoPrenotazione.Attiva)]
+    [InlineData(StatoPrenotazione.InCorso)]
+    public async Task AnnullaPrenotazioneAsync_ThrowsConflict_QuandoLaFasciaEFinita(StatoPrenotazione stato)
+    {
+        var ieri = PrenotazioneConFascia(1, stato, OggiFermo.AddDays(-1), new TimeOnly(23, 0));
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(ieri);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => ServiceConOrologioFermo(IstanteFermo).AnnullaPrenotazioneAsync(1));
+
+        Assert.Equal(stato, ieri.Stato);
+    }
+
+    [Fact]
+    public async Task AnnullaPrenotazioneAsync_Consentito_PrimaDellaFineDellaFascia()
+    {
+        var stasera = PrenotazioneConFascia(1, StatoPrenotazione.Attiva, OggiFermo, new TimeOnly(23, 0));
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(stasera);
+
+        await ServiceConOrologioFermo(IstanteFermo).AnnullaPrenotazioneAsync(1);
+
+        Assert.Equal(StatoPrenotazione.Annullata, stasera.Stato);
+    }
+
+    [Fact]
+    public async Task AnnullaPrenotazioneAsync_ThrowsConflict_QuandoGiaAnnullata()
+    {
+        var annullata = PrenotazioneConFascia(1, StatoPrenotazione.Annullata, OggiFermo, new TimeOnly(23, 0));
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(annullata);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => ServiceConOrologioFermo(IstanteFermo).AnnullaPrenotazioneAsync(1));
+    }
+
+    // AUD-M4: la riga va bloccata prima di leggerla, dentro la transazione. Se la lettura
+    // tornasse fuori dal lock, un annullamento simultaneo verrebbe sovrascritto dalla modifica.
+    [Fact]
+    public async Task AnnullaEConferma_BloccanoLaRigaPrimaDiLeggerla()
+    {
+        var ordine = new List<string>();
+        var stasera = PrenotazioneConFascia(1, StatoPrenotazione.Attiva, OggiFermo, new TimeOnly(23, 0));
+        _prenotazioniRepoMock.Setup(r => r.BloccaPerModificaAsync(1))
+                             .Callback(() => ordine.Add("lock")).Returns(Task.CompletedTask);
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1))
+                             .Callback(() => ordine.Add("lettura")).ReturnsAsync(stasera);
+
+        await ServiceConOrologioFermo(IstanteFermo).ConfermaPrenotazioneAsync(1);
+
+        Assert.Equal(new[] { "lock", "lettura" }, ordine);
     }
 
     [Fact]

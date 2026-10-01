@@ -18,7 +18,7 @@ namespace GestoraWebApi.Validators
         // Orizzonte massimo di prenotazione. Serve soprattutto qui: l'endpoint e' pubblico e
         // senza un tetto si potrebbero interrogare date arbitrariamente lontane, ognuna con il
         // suo giro di query, senza alcun costo per chi chiama.
-        private const int GiorniMassimiInAvanti = 365;
+        public const int GiorniMassimiInAvanti = 365;
 
         public CheckDisponibilitaDTOValidator(IClock clock)
         {

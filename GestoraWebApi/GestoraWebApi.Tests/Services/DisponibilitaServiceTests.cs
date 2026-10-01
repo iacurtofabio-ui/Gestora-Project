@@ -23,8 +23,11 @@ public class DisponibilitaServiceTests
     private readonly Mock<IPostazioneRepository> _postazioni = new();
     private readonly Mock<IZonaRepository> _zone = new();
 
+    // Prima del lunedi' di prova: tutte le fasce sono ancora da venire.
+    private readonly TestClock _clock = new(new DateTime(2026, 9, 4, 10, 0, 0, DateTimeKind.Utc));
+
     private DisponibilitaService CreateService() =>
-        new(_prenotazioni.Object, _postazioni.Object, _zone.Object);
+        new(_prenotazioni.Object, _postazioni.Object, _zone.Object, _clock);
 
     private static Zona Zona(long id, bool attiva = true) => new() { Id = id, Nome = $"Zona {id}", Attiva = attiva };
 
@@ -251,5 +254,34 @@ public class DisponibilitaServiceTests
         var fascia = Fascia(res, 1);
         Assert.False(fascia.DisponibilePerRichiesta);
         Assert.Empty(fascia.Postazioni);
+    }
+
+    // Alle 16:00 il pranzo di oggi risultava ancora disponibile e la prenotazione poi falliva
+    // con 409 "fascia gia' passata". Ora la verifica guarda l'ora come la prenotazione.
+    [Fact]
+    public async Task FasciaDiOggiGiaFinita_NonDisponibile()
+    {
+        Setup(fasce: new[] { Fascia(1, maxCoperti: 20) }, postazioniAttive: new[] { Tavolo(1, 4) },
+              prenotazioni: Array.Empty<Prenotazione>());
+        _clock.UtcNow = new DateTime(2026, 9, 7, 20, 0, 0, DateTimeKind.Utc); // 22:00 a Roma, fascia 19-21
+
+        var res = await CreateService().CheckDisponibilitaAsync(new CheckDisponibilitaDTO { DataPrenotazione = Lunedi, NumeroCoperti = 2 });
+
+        var fascia = Fascia(res, 1);
+        Assert.False(fascia.DisponibilePerRichiesta);
+        Assert.Empty(fascia.Postazioni);
+        Assert.Contains("terminata", fascia.Messaggio);
+    }
+
+    [Fact]
+    public async Task FasciaDiOggiInCorso_AncoraDisponibile()
+    {
+        Setup(fasce: new[] { Fascia(1, maxCoperti: 20) }, postazioniAttive: new[] { Tavolo(1, 4) },
+              prenotazioni: Array.Empty<Prenotazione>());
+        _clock.UtcNow = new DateTime(2026, 9, 7, 18, 0, 0, DateTimeKind.Utc); // 20:00 a Roma, fascia 19-21
+
+        var res = await CreateService().CheckDisponibilitaAsync(new CheckDisponibilitaDTO { DataPrenotazione = Lunedi, NumeroCoperti = 2 });
+
+        Assert.True(Fascia(res, 1).DisponibilePerRichiesta);
     }
 }

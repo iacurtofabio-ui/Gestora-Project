@@ -19,12 +19,21 @@ import { useCreaPrenotazione, useModificaPrenotazione } from '@/hooks/usePrenota
 import { useCheckDisponibilita } from '@/hooks/useDisponibilita'
 import { useAuth } from '@/hooks/useAuth'
 import type { PrenotazioneDTO } from '@/types/prenotazione'
+import { interoObbligatorio } from '@/lib/validazioni'
+import { oggiInItalia, ultimaDataPrenotabile } from '@/lib/date'
 
+// AUD-M11: la data non aveva limiti. Una data passata o oltre un anno era rifiutata solo al
+// salvataggio, e intanto la verifica dei posti falliva in silenzio: le fasce sembravano libere.
+// I confronti fra stringhe YYYY-MM-DD seguono quelli fra date.
 const schema = z.object({
-  dataPrenotazione: z.string().min(1, 'Data obbligatoria'),
-  fasciaOrariaId: z.number().min(1, 'Fascia oraria obbligatoria'),
+  dataPrenotazione: z
+    .string()
+    .min(1, 'Data obbligatoria')
+    .refine((d) => d >= oggiInItalia(), 'La data non può essere nel passato')
+    .refine((d) => d <= ultimaDataPrenotabile(), 'Si può prenotare al massimo un anno in anticipo'),
+  fasciaOrariaId: interoObbligatorio('Fascia oraria obbligatoria'),
   zonaId: z.number().nullable().optional(),
-  numeroCoperti: z.number().min(1, 'Almeno 1 coperto'),
+  numeroCoperti: interoObbligatorio('Almeno 1 coperto'),
   note: z.string().optional(),
   nomeCliente: z.string().optional(),
 })
@@ -128,7 +137,12 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
   useEffect(() => {
     if (!selezioniDaPrecompilare.current || !prenotazione) return
     if (!fasceOrarie.data || !zone.data) return
-    setValue('fasciaOrariaId', prenotazione.fasciaOrariaId)
+    // Se la fascia della prenotazione non e' piu' attiva non ha un'opzione nella select: impostarla
+    // la lasciava su "Scegli un turno" mentre il form inviava comunque la vecchia fascia, senza
+    // avvisare. Restando vuota, la validazione chiede di sceglierne una attiva.
+    if (fasceOrarie.data.some((f) => f.id === prenotazione.fasciaOrariaId)) {
+      setValue('fasciaOrariaId', prenotazione.fasciaOrariaId)
+    }
     setValue('zonaId', zonaAssegnataId)
     selezioniDaPrecompilare.current = false
   }, [fasceOrarie.data, zone.data, prenotazione, zonaAssegnataId, setValue])
@@ -180,7 +194,13 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="space-y-1">
             <Label htmlFor="prenotazione-data">Data</Label>
-            <Input id="prenotazione-data" type="date" {...register('dataPrenotazione')} />
+            <Input
+              id="prenotazione-data"
+              type="date"
+              min={oggiInItalia()}
+              max={ultimaDataPrenotabile()}
+              {...register('dataPrenotazione')}
+            />
             {errors.dataPrenotazione && (
               <p className="text-nota text-destructive">{errors.dataPrenotazione.message}</p>
             )}

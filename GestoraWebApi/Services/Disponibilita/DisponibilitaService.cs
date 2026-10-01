@@ -1,3 +1,4 @@
+using GestoraWebApi.Common;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Prenotazioni;
@@ -17,14 +18,17 @@ namespace GestoraWebApi.Services.Disponibilita
         private readonly IPrenotazioniRepository _prenotazioniRepository;
         private readonly IPostazioneRepository _postazioneRepository;
         private readonly IZonaRepository _zonaRepository;
+        private readonly IClock _clock;
 
         public DisponibilitaService(IPrenotazioniRepository prenotazioniRepository,
                                     IPostazioneRepository postazioneRepository,
-                                    IZonaRepository zonaRepository)
+                                    IZonaRepository zonaRepository,
+                                    IClock clock)
         {
             _prenotazioniRepository = prenotazioniRepository;
             _postazioneRepository = postazioneRepository;
             _zonaRepository = zonaRepository;
+            _clock = clock;
         }
 
         public async Task<DisponibilitaResponseDTO> CheckDisponibilitaAsync(CheckDisponibilitaDTO dto)
@@ -52,6 +56,12 @@ namespace GestoraWebApi.Services.Disponibilita
                 var postiResidui = Math.Max(0, f.MaxCoperti - copertiPrenotati);
                 var tettoSufficiente = postiResidui >= richiesti;
 
+                // Stessa regola di ValidatePrenotazioneAsync: una fascia finita non si prenota
+                // piu'. Prima qui non si guardava l'ora: alle 16:00 il pranzo 12:00-15:00 di oggi
+                // risultava disponibile e la prenotazione poi falliva con 409.
+                var fasciaFinita = _clock.NowInRome >=
+                    dto.DataPrenotazione.ToDateTime(TimeOnly.MinValue).Add(f.OrarioFine.ToTimeSpan());
+
                 // Tavoli fisicamente liberi in questa fascia.
                 var occupateIds = prenotazioniFascia
                     .SelectMany(p => p.PrenotazioniPostazioni ?? Enumerable.Empty<PrenotazionePostazione>())
@@ -62,7 +72,7 @@ namespace GestoraWebApi.Services.Disponibilita
 
                 // Stesso motore dell'assegnazione reale.
                 var combinazione = AssegnazioneTavoli.TrovaMigliorCombinazione(libere, richiesti);
-                var tavoliSufficienti = combinazione != null;
+                var tavoliSufficienti = combinazione != null && !fasciaFinita;
 
                 var fasciaDto = new FasciaDisponibilitaDTO
                 {
@@ -76,7 +86,11 @@ namespace GestoraWebApi.Services.Disponibilita
                     DisponibilePerRichiesta = tettoSufficiente && tavoliSufficienti
                 };
 
-                if (!tettoSufficiente)
+                if (fasciaFinita)
+                {
+                    fasciaDto.Messaggio = "La fascia oraria è già terminata.";
+                }
+                else if (!tettoSufficiente)
                 {
                     fasciaDto.Messaggio = postiResidui <= 0
                         ? "La fascia oraria ha raggiunto la capienza massima: nessun coperto disponibile."

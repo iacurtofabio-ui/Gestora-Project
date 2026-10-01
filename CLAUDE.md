@@ -21,7 +21,7 @@ e job `PrenotazioniJob` forzato da Admin (ha segnato 1 prenotazione come «Non p
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al nuovo backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente), schema riallineato (7 migration EF + tabelle Quartz) |
-| Test | **274** backend (xUnit) + **52** frontend (Vitest), tutti verdi |
+| Test | **292** backend (xUnit) + **64** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata, non si aggiorna per non pagare la licenza (`SEC-001` in `BACKLOG.md`) |
 | Branch | si lavora su `dev`; `main` resta indietro di proposito per ora (ultimo tag `v1.1.0`) |

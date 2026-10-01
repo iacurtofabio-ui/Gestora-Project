@@ -3,6 +3,10 @@ using Quartz;
 
 namespace GestoraWebApi.Background
 {
+    // AUD-M10: JobsController puo' forzare il job mentre gira gia' dal cron (o al risveglio
+    // dell'app su Azure F1, che recupera le esecuzioni perse): due esecuzioni insieme
+    // lavorerebbero sulle stesse righe.
+    [DisallowConcurrentExecution]
     public class PrenotazioniJob : IJob
     {
         private readonly IServiceProvider _serviceProvider;

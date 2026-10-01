@@ -88,3 +88,34 @@ const formattatoreBreve = new Intl.DateTimeFormat('it-IT', {
 export function dataBreveInItalia(iso: string): string {
   return formattatoreBreve.format(new Date(`${iso}T12:00:00Z`)).replace(/\.$/, '')
 }
+
+/** Come CheckDisponibilitaDTOValidator.GiorniMassimiInAvanti nel backend. */
+export const GIORNI_MASSIMI_IN_AVANTI = 365
+
+/** Ultima data prenotabile (oggi in Italia + 365 giorni), come stringa YYYY-MM-DD. */
+export function ultimaDataPrenotabile(): string {
+  return aggiungiGiorni(oggiInItalia(), GIORNI_MASSIMI_IN_AVANTI)
+}
+
+const formattatoreOra = new Intl.DateTimeFormat('en-GB', {
+  timeZone: FUSO_ITALIA,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/** Ora attuale in Italia, come stringa HH:mm (confrontabile con gli orari delle fasce). */
+export function oraInItalia(): string {
+  return formattatoreOra.format(new Date())
+}
+
+/**
+ * La fascia di una prenotazione e' gia' finita? Stessa regola del backend (data + fine fascia
+ * contro l'ora di Roma): oltre quel momento non si conferma e non si annulla piu'.
+ */
+export function fasciaGiaFinita(dataPrenotazione: string, oraFine: string | null): boolean {
+  const oggi = oggiInItalia()
+  if (dataPrenotazione < oggi) return true
+  if (dataPrenotazione > oggi || !oraFine) return false
+  return oraInItalia() >= oraFine.slice(0, 5)
+}

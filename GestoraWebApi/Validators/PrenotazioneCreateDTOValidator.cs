@@ -14,7 +14,11 @@ namespace GestoraWebApi.Validators
 
             RuleFor(x => x.DataPrenotazione)
                 .Must(d => d >= clock.TodayInRome)
-                .WithMessage("Non è possibile effettuare prenotazioni in una data passata.");
+                .WithMessage("Non è possibile effettuare prenotazioni in una data passata.")
+                // Stesso orizzonte di check-disponibilita: oltre, la verifica dei posti falliva
+                // mentre la prenotazione passava, e nel form le fasce sembravano tutte libere.
+                .Must(d => d <= clock.TodayInRome.AddDays(CheckDisponibilitaDTOValidator.GiorniMassimiInAvanti))
+                .WithMessage($"Non è possibile prenotare oltre {CheckDisponibilitaDTOValidator.GiorniMassimiInAvanti} giorni.");
 
             RuleFor(x => x.FasciaOrariaId)
                 .GreaterThan(0).WithMessage("Specificare una fascia oraria valida.");

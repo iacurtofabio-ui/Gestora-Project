@@ -4,6 +4,7 @@ import type { PostazioneDTO, PostazioneFormDTO, RiepilogoSala } from '@/types/po
 import { segnalaErrore } from '@/lib/apiError'
 import { toast } from 'sonner'
 import { Endpoints } from '@/lib/endpoints'
+import { invalidaVisteDellaSala } from '@/lib/invalidazioni'
 
 export function usePostazioni(zonaId: number, options?: { enabled?: boolean }) {
   return useQuery<PostazioneDTO[]>({
@@ -27,6 +28,7 @@ export function useCreaPostazione() {
     mutationFn: (data: PostazioneFormDTO) => apiClient.post(Endpoints.postazione.crea, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Postazione creata con successo')
     },
     onError: segnalaErrore('Errore durante la creazione'),
@@ -39,6 +41,7 @@ export function useUpdatePostazione() {
     mutationFn: (data: PostazioneDTO) => apiClient.put(Endpoints.postazione.update, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Postazione aggiornata con successo')
     },
     onError: segnalaErrore("Errore durante l'aggiornamento"),
@@ -51,6 +54,7 @@ export function useDeletePostazione() {
     mutationFn: (id: number) => apiClient.delete(Endpoints.postazione.delete(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['postazioni'] })
+      invalidaVisteDellaSala(queryClient)
       toast.success('Postazione eliminata con successo')
     },
     onError: segnalaErrore('Errore durante la cancellazione'),

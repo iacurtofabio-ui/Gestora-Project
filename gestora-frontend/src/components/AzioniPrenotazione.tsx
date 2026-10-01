@@ -1,6 +1,7 @@
 import { Loader2Icon } from 'lucide-react'
 import { AzioniRiga, type VoceAzione } from '@/components/AzioniRiga'
 import { STATI_PRENOTAZIONE, type PrenotazioneDTO } from '@/types/prenotazione'
+import { fasciaGiaFinita, oggiInItalia } from '@/lib/date'
 
 /**
  * Le azioni di una riga di prenotazione.
@@ -43,8 +44,14 @@ export function AzioniPrenotazione({
 
   // L'azione in chiaro e' quella che lo stato rende ovvia. Su Completata e Annullata non ce n'e'
   // nessuna: non c'e' piu' niente da fare.
+  // Stesse regole del backend, per non offrire azioni che verrebbero rifiutate con un 409:
+  // si conferma l'arrivo solo nel giorno della prenotazione e prima della fine della fascia;
+  // a fascia finita non si annulla piu' (ci pensa il job notturno: Completata o Non presentata).
+  const finita = fasciaGiaFinita(p.dataPrenotazione, p.oraFine)
+  const confermabile = attiva && p.dataPrenotazione === oggiInItalia() && !finita
+
   const azionePrimaria =
-    isStaff && attiva
+    isStaff && confermabile
       ? { etichetta: 'Conferma', onSelect: onConferma }
       : isStaff && confermata
         ? { etichetta: 'Completa', onSelect: onCompleta }
@@ -56,7 +63,8 @@ export function AzioniPrenotazione({
   if (attiva) voci.push({ etichetta: 'Modifica prenotazione', onSelect: onModifica })
   // RBAC-002: il Cliente puo' annullare una propria prenotazione (la lista che vede e' gia'
   // filtrata sulle sue), entro il cutoff verificato dal backend.
-  if (attiva || confermata) voci.push({ etichetta: 'Annulla prenotazione', onSelect: onAnnulla })
+  if ((attiva || confermata) && !finita)
+    voci.push({ etichetta: 'Annulla prenotazione', onSelect: onAnnulla })
 
   // Il backend accetta l'eliminazione solo su Annullata. Fuori da quello stato la voce non si
   // mostra, invece di far scoprire il limite con un 409.

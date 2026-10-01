@@ -173,6 +173,21 @@ fisso).
   quindi il validator esige fine > inizio (niente «00:00» come fine, al massimo 23:59).
 - **Almeno un Admin** (`AUD-A4`): un Admin non può togliersi il ruolo Admin (e già non può
   eliminarsi). Senza Admin la schermata di primo avvio, anonima, si riaprirebbe.
+- **Lock sulla prenotazione** (`AUD-M4`): modifica, annullamento, conferma e completamento
+  leggono la prenotazione con `LeggiConLockAsync` (`FOR UPDATE` + lettura) **dentro**
+  `EseguiInTransazioneAsync`. Non riportare lettura e controlli di stato fuori dalla transazione.
+  `EseguiInTransazioneAsync` svuota il change tracker a ogni nuovo tentativo automatico.
+- **Annullamento**: rifiutato se la fascia è già finita (`AUD-M3`), anche per Staff/Admin; la
+  conferma si fa solo nel giorno della prenotazione.
+- **Token e security stamp** (`AUD-M6`): il JWT porta il claim `stamp`, confrontato a ogni
+  richiesta in `OnTokenValidated`. Chi cambia ruoli o email di un utente deve chiamare
+  `UpdateSecurityStampAsync` (già fatto in assign/remove-role e update-user).
+- **Nome utente**: ammessi spazi, apostrofi e lettere accentate (`AllowedUserNameCharacters`), non
+  in testa/coda né doppi (`RegoleUsername`). Errori di Identity in italiano
+  (`IdentityErrorDescriberItaliano`) e sempre restituiti con `ErroriIdentity.ComeValidationException`,
+  mai `BadRequest(result.Errors)`: il frontend non saprebbe leggerli.
+- **Elenco tavoli attivi** (`AUD-M8`): non espone più `PrenotazioneId` (era in cache, vecchio e
+  visibile al Cliente).
 - **Email unica** (`AUD-A3`): `RequireUniqueEmail = true` in `AuthenticationExtensions`. Il login
   usa `FindByEmailAsync`, che con due account sulla stessa email solleva un'eccezione.
 - **Cache**: chiavi in `Common/CacheKeys.cs` — invalidare **tutte** le chiavi derivate (es.
@@ -209,7 +224,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **274 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **292 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

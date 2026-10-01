@@ -17,6 +17,7 @@ import {
   aggiungiGiorni,
 } from '@/lib/date'
 import { PageError, DashboardSkeleton } from '@/components/PageState'
+import { messaggioErroreCaricamento } from '@/lib/apiError'
 import { BandaCoperti } from '@/components/BandaCoperti'
 import { AzioniPrenotazione } from '@/components/AzioniPrenotazione'
 import ConfirmDialog from '@/components/ConfirmDialog'
@@ -129,6 +130,18 @@ function ProssimeInArrivo({ data }: { data: string }) {
   const [idDaAnnullare, setIdDaAnnullare] = useState<number | undefined>(undefined)
   const [idDaEliminare, setIdDaEliminare] = useState<number | undefined>(undefined)
 
+  // Prima un errore qui restituiva null: il blocco spariva senza dire nulla, come se non ci
+  // fossero arrivi.
+  if (prenotazioni.isError)
+    return (
+      <section className="space-y-1">
+        <h2 className="text-sezione text-muted-foreground">In arrivo</h2>
+        <p className="text-corpo text-destructive">
+          {messaggioErroreCaricamento(prenotazioni.error, 'Non riesco a caricare le prossime prenotazioni.')}
+        </p>
+      </section>
+    )
+
   if (!prenotazioni.data) return null
 
   const oraAttuale = data === oggiInItalia()
@@ -210,6 +223,62 @@ function ProssimeInArrivo({ data }: { data: string }) {
   )
 }
 
+/**
+ * FASE 7: navigazione per giorno. ‹ ieri · Oggi · domani › piu' una data a scelta.
+ *
+ * Il campo data ha un valore suo mentre si scrive: su Chrome, digitando l'anno da tastiera,
+ * arrivano valori parziali ma validi ("0002-10-01", "0020-10-01"...). Prima ognuno cambiava il
+ * giorno della dashboard: partiva una richiesta per l'anno 2, lo scheletro di caricamento
+ * sostituiva la pagina e il campo perdeva il focus. Ora si cambia giorno solo con un anno vero.
+ */
+function SceltaGiorno({ data, onCambia }: { data: string; onCambia: (data: string) => void }) {
+  const [digitata, setDigitata] = useState(data)
+  // Se il giorno cambia dai pulsanti, il campo lo segue (aggiornamento durante il render, come
+  // suggerito dalla documentazione di React, invece di un useEffect).
+  const [dataPrecedente, setDataPrecedente] = useState(data)
+  if (data !== dataPrecedente) {
+    setDataPrecedente(data)
+    setDigitata(data)
+  }
+
+  function cambiaDigitata(valore: string) {
+    setDigitata(valore)
+    const anno = Number(valore.slice(0, 4))
+    if (valore && anno >= 2000 && anno <= 2100) onCambia(valore)
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onCambia(aggiungiGiorni(data, -1))}
+        aria-label="Giorno precedente"
+      >
+        <ChevronLeftIcon />
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => onCambia(oggiInItalia())}>
+        Oggi
+      </Button>
+      <input
+        type="date"
+        value={digitata}
+        onChange={(e) => cambiaDigitata(e.target.value)}
+        className="border-input bg-background text-corpo h-8 rounded-md border px-2"
+        aria-label="Scegli una data"
+      />
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onCambia(aggiungiGiorni(data, 1))}
+        aria-label="Giorno successivo"
+      >
+        <ChevronRightIcon />
+      </Button>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   // FASE 7: il giorno mostrato e' navigabile, non piu' fisso su oggi.
   const [data, setData] = useState(oggiInItalia())
@@ -218,18 +287,37 @@ export default function DashboardPage() {
   const giornaliera = useDashboardGiornaliera(data)
   const settimanale = useDashboardSettimanale(lunediSettimanaDi(data))
 
-  if (giornaliera.isLoading || settimanale.isLoading) return <DashboardSkeleton />
+  // Titolo e scelta del giorno restano visibili anche durante il caricamento e in caso di
+  // errore: prima l'errore sostituiva tutta la pagina, comandi compresi, e si restava bloccati
+  // sul giorno che non si riusciva a caricare.
+  const intestazione = (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <h1 className="text-titolo">Oggi in sala</h1>
+      <SceltaGiorno data={data} onCambia={setData} />
+    </div>
+  )
+
+  if (giornaliera.isLoading || settimanale.isLoading)
+    return (
+      <div className="mx-auto max-w-5xl space-y-4">
+        {intestazione}
+        <DashboardSkeleton />
+      </div>
+    )
   if (giornaliera.isError || settimanale.isError)
     return (
-      <PageError
-        error={giornaliera.error ?? settimanale.error}
-        fallback="Errore nel caricamento della dashboard."
-        onRiprova={() => {
-          giornaliera.refetch()
-          settimanale.refetch()
-        }}
-        className="m-0"
-      />
+      <div className="mx-auto max-w-5xl space-y-4">
+        {intestazione}
+        <PageError
+          error={giornaliera.error ?? settimanale.error}
+          fallback="Errore nel caricamento della dashboard."
+          onRiprova={() => {
+            giornaliera.refetch()
+            settimanale.refetch()
+          }}
+          className="m-0"
+        />
+      </div>
     )
 
   const fasce = giornaliera.data?.copertiPerFascia ?? []
@@ -252,39 +340,7 @@ export default function DashboardPage() {
           Il momento orchestrato: la banda del giorno.
           ------------------------------------------------------------------ */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <h1 className="text-titolo">Oggi in sala</h1>
-
-          {/* FASE 7: navigazione per giorno. ‹ ieri · Oggi · domani › piu' una data a scelta. */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setData((d) => aggiungiGiorni(d, -1))}
-              aria-label="Giorno precedente"
-            >
-              <ChevronLeftIcon />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setData(oggiInItalia())}>
-              Oggi
-            </Button>
-            <input
-              type="date"
-              value={data}
-              onChange={(e) => e.target.value && setData(e.target.value)}
-              className="border-input bg-background text-corpo h-8 rounded-md border px-2"
-              aria-label="Scegli una data"
-            />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setData((d) => aggiungiGiorni(d, 1))}
-              aria-label="Giorno successivo"
-            >
-              <ChevronRightIcon />
-            </Button>
-          </div>
-        </div>
+        {intestazione}
 
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p className="text-corpo text-muted-foreground first-letter:uppercase">

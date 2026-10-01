@@ -33,5 +33,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # AUD-M9: i test giravano solo a mano. npm test non controlla i tipi: lo fa la build.
+      - name: Test
+        run: npm test
+
       - name: Build
         run: npm run build

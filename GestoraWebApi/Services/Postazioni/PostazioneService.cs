@@ -170,8 +170,12 @@ namespace GestoraWebApi.Services.Postazioni
             if (_cache.TryGetValue(CacheKeys.PostazioniAttive, out List<PostazioneDTO>? cached))
                 return cached!;
 
-            // Qui serve lo storico: PostazioneDTO espone PrenotazioneId (REV-023).
-            var postazioni = await _postazioneRepository.GetPostazioniAttiveConPrenotazioniAsync();
+            // AUD-M8: l'elenco esponeva in PrenotazioneId tutte le prenotazioni mai collegate a ogni
+            // tavolo. Era in cache per 30 minuti senza che le prenotazioni la svuotassero (dato
+            // vecchio), cresceva senza limite e l'endpoint e' aperto anche al Cliente, che riceveva
+            // gli Id delle prenotazioni altrui. Nessuna schermata lo usa: l'elenco ora contiene
+            // solo i dati del tavolo, che cambiano solo con le scritture su tavoli (gia' invalidate).
+            var postazioni = await _postazioneRepository.GetPostazioniAttiveAsync();
 
             var result = postazioni.Select(p => new PostazioneDTO
             {
@@ -179,10 +183,7 @@ namespace GestoraWebApi.Services.Postazioni
                 Numero = p.Numero,
                 CapienzaMassima = p.CapienzaMassima,
                 Attiva = p.Attiva,
-                ZonaId = p.ZonaId,
-                PrenotazioneId = p.PrenotazioniPostazioni?
-                          .Select(pp => pp.PrenotazioneId)
-                          .ToList() ?? new List<long>()
+                ZonaId = p.ZonaId
             }).ToList();
 
             _cache.Set(CacheKeys.PostazioniAttive, result, CacheKeys.Durata);

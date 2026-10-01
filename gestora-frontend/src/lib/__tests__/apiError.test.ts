@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
-import { messaggioErrore, messaggioErroreLogin } from '@/lib/apiError'
+import { erroriPerCampo, messaggioErrore, messaggioErroreLogin } from '@/lib/apiError'
 import type { ApiErrorResponse } from '@/types/apiError'
 
 /**
@@ -98,5 +98,27 @@ describe('messaggioErroreLogin', () => {
 
   it('server non raggiungibile senza risposta', () => {
     expect(messaggioErroreLogin(new AxiosError('Network Error'))).toMatch(/non raggiungibile/)
+  })
+})
+
+describe('erroriPerCampo', () => {
+  // Registrazione: "email gia' registrata" va sotto il campo Email, non in un messaggio generico.
+  it('assegna gli errori ai campi del form senza distinguere maiuscole e minuscole', () => {
+    const errore = erroreConRisposta(400, {
+      statusCode: 400,
+      message: 'Registrazione non riuscita',
+      errors: [
+        { field: 'email', error: "L'email e' gia' registrata." },
+        { field: 'Username', error: 'Il nome utente e gia in uso.' },
+        { field: '', error: 'Errore generico.' },
+      ],
+    })
+
+    const { perCampo, altri } = erroriPerCampo(errore, ['username', 'email', 'password'] as const)
+
+    expect(perCampo.email).toBe("L'email e' gia' registrata.")
+    expect(perCampo.username).toBe('Il nome utente e gia in uso.')
+    expect(perCampo.password).toBeUndefined()
+    expect(altri).toEqual(['Errore generico.'])
   })
 })

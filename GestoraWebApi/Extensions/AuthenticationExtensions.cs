@@ -4,6 +4,7 @@ using GestoraWebApi.Infrastructure.Auth;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using System.Text;
 
 namespace GestoraWebApi.Extensions
@@ -24,6 +25,12 @@ namespace GestoraWebApi.Extensions
                 // default di Identity e' false, e chiunque puo' registrarsi.
                 options.User.RequireUniqueEmail = true;
 
+                // Il nome utente e' quello mostrato (il login e' per email): deve poter essere
+                // "Fabio Iacurto" o "D'Angelo". Il default di Identity non ammette ne' spazi ne'
+                // apostrofi ne' lettere accentate. Spazi in testa/coda e doppi: RegisterDTOValidator.
+                options.User.AllowedUserNameCharacters =
+                    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+ 'àèéìòùÀÈÉÌÒÙ";
+
                 // Lockout: senza questo, CheckPasswordSignInAsync tiene traccia dei tentativi
                 // falliti ma non blocca mai l'account — brute force senza freni sul login.
                 options.Lockout.AllowedForNewUsers = true;
@@ -31,7 +38,8 @@ namespace GestoraWebApi.Extensions
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<GestoraContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddErrorDescriber<IdentityErrorDescriberItaliano>();
 
             //Configuration JWT            
             var jwtSettings = configuration.GetSection("JwtSettings");
@@ -66,6 +74,24 @@ namespace GestoraWebApi.Extensions
                 // Personalizzazione risposta 401
                 options.Events = new JwtBearerEvents
                 {
+                    // AUD-M6: senza questo controllo un token restava valido fino alla scadenza
+                    // anche dopo che all'utente era stato tolto un ruolo o l'account era stato
+                    // eliminato. Costa una lettura dell'utente per richiesta autenticata.
+                    OnTokenValidated = async context =>
+                    {
+                        var userManager = context.HttpContext.RequestServices
+                            .GetRequiredService<UserManager<ApplicationUser>>();
+
+                        // Stessa lettura di ClaimsPrincipalExtensions.GetAuthenticatedUserId.
+                        var userId = context.Principal?.FindFirstValue("sub")
+                                     ?? context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        var stamp = context.Principal?.FindFirstValue(JwtTokenGenerator.ClaimSecurityStamp);
+                        var user = userId == null ? null : await userManager.FindByIdAsync(userId);
+
+                        if (user == null || stamp == null || stamp != await userManager.GetSecurityStampAsync(user))
+                            context.Fail("Sessione non piu' valida: ruoli o account modificati.");
+                    },
+
                     OnChallenge = context =>
                     {
                         // Impedisce la risposta di default (WWW-Authenticate senza body)
@@ -78,7 +104,7 @@ namespace GestoraWebApi.Extensions
                         //Scrive il body JSON
                         var result = System.Text.Json.JsonSerializer.Serialize(new
                         {
-                            message = "Devi effettuare il login per poter creare una prenotazione."
+                            message = "Sessione assente o scaduta: effettua di nuovo l'accesso."
                         });
 
                         return context.Response.WriteAsync(result);

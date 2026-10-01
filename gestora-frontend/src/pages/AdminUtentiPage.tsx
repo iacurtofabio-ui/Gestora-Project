@@ -30,13 +30,17 @@ export default function AdminUtentiPage() {
   const deleteUser = useDeleteUser()
 
   const [utenteDaEliminare, setUtenteDaEliminare] = useState<UserDTO | undefined>(undefined)
-  const [utenteSelezionato, setUtenteSelezionato] = useState<UserDTO | undefined>(undefined)
+  // Si tiene l'id, non una copia dell'utente: la copia restava ferma dopo "Assegna"/"Rimuovi"
+  // (l'invalidazione aggiorna solo la lista), quindi la finestra dei ruoli mostrava lo stato vecchio
+  // e un secondo clic produceva un errore. Ricavato dalla lista, segue ogni aggiornamento.
+  const [idSelezionato, setIdSelezionato] = useState<string | undefined>(undefined)
+  const utenteSelezionato = utenti.data?.find((u) => u.id === idSelezionato)
   const [modalAperto, setModalAperto] = useState<
     'edit' | 'ruoli' | 'password' | 'crea' | undefined
   >(undefined)
 
   function apri(modale: 'edit' | 'ruoli' | 'password', utente: UserDTO) {
-    setUtenteSelezionato(utente)
+    setIdSelezionato(utente.id)
     setModalAperto(modale)
   }
 

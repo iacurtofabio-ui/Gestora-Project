@@ -40,18 +40,6 @@ namespace GestoraWebApi.Repositories.Postazioni
                 .ToListAsync();
         }
 
-        // L'unico chiamante che ha bisogno anche delle righe join e' l'elenco per l'interfaccia,
-        // che espone PostazioneDTO.PrenotazioneId. Resta un metodo separato per non far pagare
-        // quel carico a chi non lo usa.
-        public async Task<List<Postazione>> GetPostazioniAttiveConPrenotazioniAsync()
-        {
-            return await _dbSet
-                .Where(p => p.Attiva)
-                .Include(p => p.PrenotazioniPostazioni)
-                .OrderByDescending(p => p.CapienzaMassima)
-                .ToListAsync();
-        }
-
         public async Task<Postazione> GetByIdAsync(long id)
         {
             return await _dbSet

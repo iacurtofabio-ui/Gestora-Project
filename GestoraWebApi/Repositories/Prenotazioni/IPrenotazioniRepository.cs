@@ -6,6 +6,7 @@ namespace GestoraWebApi.Repositories.Prenotazioni
     public interface IPrenotazioniRepository : IRepository<Prenotazione>
     {
         Task<Prenotazione?> GetTrackedByIdAsync(long id);
+        Task BloccaPerModificaAsync(long id);
         IQueryable<Prenotazione> GetAllQueryableAsync();
 
         /// <summary>

@@ -8,7 +8,9 @@ import type {
   ResetPasswordDTO,
   CreateUserFormDTO,
 } from '@/types/utente'
+import type { AxiosError } from 'axios'
 import { segnalaErrore } from '@/lib/apiError'
+import type { ApiErrorResponse } from '@/types/apiError'
 import { Endpoints } from '@/lib/endpoints'
 
 export function useUtenti() {
@@ -21,6 +23,15 @@ export function useUtenti() {
 // GAP-001: il backend non ha un endpoint dedicato "crea utente con ruolo" — /register crea
 // sempre un Cliente. Per l'Admin che crea un account Staff/Admin, si compone la stessa
 // sequenza di chiamate già disponibili: registrazione + eventuale cambio ruolo.
+/** Registrazione riuscita, cambio di ruolo no: l'utente esiste ma resta Cliente. */
+class RuoloNonAssegnato extends Error {
+  readonly ruolo: string
+  constructor(ruolo: string) {
+    super('Ruolo non assegnato')
+    this.ruolo = ruolo
+  }
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -32,9 +43,13 @@ export function useCreateUser() {
       })
 
       if (data.role !== 'Cliente') {
-        const users = await apiClient.get<UserDTO[]>(Endpoints.auth.getUsers).then((r) => r.data)
-        const nuovoUtente = users.find((u) => u.email === data.email)
-        if (nuovoUtente) {
+        // Le chiamate non sono una sola operazione: se il ruolo fallisce l'utente esiste gia'.
+        // Prima l'errore diceva "creazione non riuscita", e riprovando si otteneva "email gia' in
+        // uso"; se l'utente non si trovava, il ruolo veniva saltato senza avvisare.
+        try {
+          const users = await apiClient.get<UserDTO[]>(Endpoints.auth.getUsers).then((r) => r.data)
+          const nuovoUtente = users.find((u) => u.email.toLowerCase() === data.email.toLowerCase())
+          if (!nuovoUtente) throw new Error('utente appena creato non trovato')
           await apiClient.post(Endpoints.auth.assignRole, {
             userId: nuovoUtente.id,
             role: data.role,
@@ -42,16 +57,27 @@ export function useCreateUser() {
           await apiClient.delete(Endpoints.auth.removeRole, {
             data: { userId: nuovoUtente.id, role: 'Cliente' },
           })
+        } catch {
+          throw new RuoloNonAssegnato(data.role)
         }
       }
 
       return response
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['utenti'] })
       toast.success('Utente creato con successo')
     },
-    onError: segnalaErrore("Errore durante la creazione dell'utente"),
+    onError: (error) => {
+      if (error instanceof RuoloNonAssegnato) {
+        toast.warning(
+          `Utente creato, ma il ruolo ${error.ruolo} non è stato assegnato: assegnalo da «Gestisci ruoli».`
+        )
+        return
+      }
+      segnalaErrore("Errore durante la creazione dell'utente")(error as AxiosError<ApiErrorResponse>)
+    },
+    // Anche a meta' strada l'utente puo' essere stato creato: la lista va riletta comunque.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['utenti'] }),
   })
 }
 

@@ -5,3 +5,11 @@ GestoraWebApi.Tests/obj/
 Logs/
 .vs/
 *.user
+
+# Dati e file di lavoro che non devono finire nel contesto di build ne' nell'immagine.
+# In GitHub Actions non esistono (sono ignorati da git), ma in una build locale si'.
+*.dump
+*.csv
+*.sql.gz
+graphify-out/
+docs/

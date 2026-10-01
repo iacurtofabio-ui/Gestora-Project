@@ -44,6 +44,29 @@ export function segnalaErrore(fallback: string) {
 }
 
 /**
+ * Errori di validazione del server divisi per campo del form, per mostrarli sotto il campo giusto
+ * ("questa email e' gia' registrata" sotto Email, non in fondo al form). Il nome del campo arriva
+ * in maiuscolo dal validator automatico ("Username") e in minuscolo dagli errori di Identity
+ * ("username"): si confronta senza distinguere maiuscole e minuscole. Restano fuori, e vanno
+ * mostrati in generale, gli errori di campi che il form non ha.
+ */
+export function erroriPerCampo<C extends string>(
+  error: unknown,
+  campi: readonly C[]
+): { perCampo: Partial<Record<C, string>>; altri: string[] } {
+  const perCampo: Partial<Record<C, string>> = {}
+  const altri: string[] = []
+  if (!isAxiosError<ApiErrorResponse>(error)) return { perCampo, altri }
+
+  for (const e of error.response?.data?.errors ?? []) {
+    const campo = campi.find((c) => c.toLowerCase() === e.field.toLowerCase())
+    if (campo && !perCampo[campo]) perCampo[campo] = e.error
+    else if (!campo) altri.push(e.error)
+  }
+  return { perCampo, altri }
+}
+
+/**
  * Messaggio del login. Prima ogni errore Axios diventava "email o password errate": anche
  * l'account bloccato (423), il limite di tentativi (429) e il server spento o in avvio. Chi era
  * bloccato riprovava all'infinito una password giusta. Il backend risponde a 423/401 con una

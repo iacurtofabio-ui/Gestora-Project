@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCheckDisponibilita } from '@/hooks/useDisponibilita'
-import { oggiInItalia } from '@/lib/date'
+import { oggiInItalia, ultimaDataPrenotabile } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -57,6 +57,9 @@ export function VerificaDisponibilita() {
               value={data}
               // Non ha senso proporre una data passata: il backend la rifiuterebbe comunque.
               min={oggiInItalia()}
+              // Oltre un anno il backend risponde 400 e la pagina diceva "non riesco a controllare,
+              // chiamaci", come se il servizio fosse guasto.
+              max={ultimaDataPrenotabile()}
               onChange={(e) => setData(e.target.value)}
               required
             />

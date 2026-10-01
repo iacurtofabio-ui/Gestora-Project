@@ -137,12 +137,14 @@ builder.Services.AddQuartz(q =>
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
         .WithIdentity("PrenotazioniJob-trigger")
-        .WithCronSchedule("0 00 2 * * ?"));
+        // AUD-M10: senza InTimeZone il cron usava il fuso del container (UTC): "02:00" era
+        // 03:00 o 04:00 in Italia. Il job ragiona gia' in ora di Roma (IClock).
+        .WithCronSchedule("0 00 2 * * ?", x => x.InTimeZone(GestoraWebApi.Common.SystemClock.RomeTimeZone)));
 
     q.AddTrigger(opts => opts
         .ForJob(jobCleanupKey)
         .WithIdentity("PrenotazioniCleanupJob-trigger")
-        .WithCronSchedule("0 30 2 * * ?"));
+        .WithCronSchedule("0 30 2 * * ?", x => x.InTimeZone(GestoraWebApi.Common.SystemClock.RomeTimeZone)));
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);

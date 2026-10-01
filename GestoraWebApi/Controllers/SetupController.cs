@@ -1,6 +1,7 @@
 using GestoraWebApi.Auth;
 using GestoraWebApi.Common;
 using GestoraWebApi.Extensions;
+using GestoraWebApi.Infrastructure.Auth;
 using GestoraWebApi.Infrastructure.Exceptions;
 using GestoraWebApi.Services.Auth.DTOs;
 using GestoraWebApi.Services.LogActivity;
@@ -80,7 +81,7 @@ namespace GestoraWebApi.Controllers
                 var result = await _userManager.CreateAsync(user, request.Password);
 
                 if (!result.Succeeded)
-                    throw ComeValidationException(result);
+                    throw ErroriIdentity.ComeValidationException(result, MessaggioErrore);
 
                 // Il ruolo lo crea gia' RoleSeeder all'avvio, ma questo e' l'unico endpoint che
                 // gira per definizione su un database appena creato: non deve dipendere
@@ -94,7 +95,7 @@ namespace GestoraWebApi.Controllers
                     // Un utente creato ma senza ruolo bloccherebbe il setup per sempre: la
                     // prossima chiamata troverebbe zero Admin ma l'username gia' occupato.
                     await _userManager.DeleteAsync(user);
-                    throw ComeValidationException(roleResult);
+                    throw ErroriIdentity.ComeValidationException(roleResult, MessaggioErrore);
                 }
 
                 // REV-070: nei log resta l'UserId, non l'email.
@@ -111,28 +112,7 @@ namespace GestoraWebApi.Controllers
             }
         }
 
-        /// <summary>
-        /// Traduce gli errori di Identity nel formato che il resto dell'API usa per gli errori
-        /// di validazione (400 con l'elenco per campo). Restituire result.Errors cosi' com'e'
-        /// darebbe una forma diversa da tutte le altre risposte e il frontend non saprebbe
-        /// leggerla: mostrerebbe un generico "riprova" al posto di "questa email e' gia' in uso".
-        /// </summary>
-        private static ValidationException ComeValidationException(IdentityResult result)
-        {
-            var errori = result.Errors
-                .GroupBy(CampoDi)
-                .ToDictionary(g => g.Key, g => g.Select(e => e.Description).ToArray());
-
-            return new ValidationException("Dati non validi per la creazione dell'amministratore.", errori);
-        }
-
-        private static string CampoDi(IdentityError errore) => errore.Code switch
-        {
-            var c when c.StartsWith("Password") => "password",
-            "DuplicateUserName" or "InvalidUserName" => "username",
-            "DuplicateEmail" or "InvalidEmail" => "email",
-            _ => string.Empty
-        };
+        private const string MessaggioErrore = "Dati non validi per la creazione dell'amministratore.";
 
         /// <summary>
         /// GetUsersInRoleAsync solleva InvalidOperationException se il ruolo non esiste, e da

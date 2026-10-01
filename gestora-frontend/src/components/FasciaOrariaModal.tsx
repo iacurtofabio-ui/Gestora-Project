@@ -10,12 +10,13 @@ import { useEffect } from 'react'
 import type { FasciaOrariaDTO } from '@/types/fasciaOraria'
 import { useCreaFasciaOraria, useUpdateFasciaOraria } from '@/hooks/useFasceOrarie'
 import { GIORNI_SETTIMANA_DA_LUNEDI } from '@/lib/giorni'
+import { interoObbligatorio } from '@/lib/validazioni'
 
 const schema = z.object({
   orarioInizio: z.string().min(1, 'Orario obbligatorio'),
   orarioFine: z.string().min(1, 'Orario obbligatorio'),
-  giornoSettimana: z.number().min(0, 'Giorno obbligatorio'),
-  maxCoperti: z.number().min(1, 'Numero obbligatorio'),
+  giornoSettimana: interoObbligatorio('Giorno obbligatorio', 0),
+  maxCoperti: interoObbligatorio('Numero obbligatorio'),
   attiva: z.boolean(),
 })
   // Stessa regola del backend (FasciaOrariaDTOValidator): una fascia non supera la mezzanotte.
