@@ -1,6 +1,6 @@
 # Gestora — cosa resta da fare
 
-Aggiornato il **01/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **02/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -16,6 +16,16 @@ vista d'insieme che si guarda per decidere cosa fare.
 ---
 
 ## 🔵 Da fare prima
+
+**`CAP-002` — tetto dei 50 coperti per prenotazione configurabile.** Oggi il limite è scritto nel
+codice in due validatori (`PrenotazioneCreateDTOValidator`, `CheckDisponibilitaDTOValidator`) e
+nel frontend (`max={50}` in `VerificaDisponibilita.tsx`). Due strade:
+- **A (consigliata)**: valore nella configurazione (`appsettings`), letto da backend e restituito
+  al frontend; cambiarlo richiede un riavvio, nessuna migration
+- **B**: impostazione nel database modificabile dall'Admin da una schermata; serve una migration
+  e una pagina nuova
+
+Registrato anche nel foglio *Fix e Bug* del tracker. Decisione da prendere prima di iniziare.
 
 > `CAP-001` (tetto dei coperti non garantito) è **chiusa il 18/09/2026**: lock `FOR UPDATE`
 > sulla riga della fascia dentro la transazione, validazione di `UpdateAsync` spostata dentro la
@@ -85,18 +95,16 @@ Report completo dell'analisi (backend, sicurezza, frontend) consegnato in chat i
 > - registrazione: messaggi italiani per campo (email / nome già usati); nome utente con spazi
 >   («Fabio Iacurto»), apostrofi e lettere accentate
 
-**Lasciati aperti di proposito**
+**Chiusi il 02/10/2026 senza modifiche, per decisione** (rischio accettato)
 - `AUD-M5` «una prenotazione al giorno» aggirabile con due richieste parallele su fasce diverse:
   è la decisione di prodotto 10 (`REV-004`), resta un controllo dell'applicazione per la v1
 - `AUD-M7` chi conosce l'email dell'Admin può tenerlo bloccato (5 tentativi ogni 15 minuti): è il
   prezzo del blocco contro i tentativi a forza bruta, accettato
 - `AUD-M10` (parte non risolvibile nel codice): su Azure F1 l'app si spegne senza traffico e i job
   notturni partono al primo accesso del giorno. Serve «Always On», cioè un piano a pagamento
-- limite di 50 coperti per prenotazione fisso nel codice: un gruppo più grande è un evento da
-  gestire a mano, e sull'endpoint pubblico il limite fa da freno. Da rendere configurabile solo se serve
-
-**Facoltativo per `AUD-A3`**: indice unico sull'email anche nel database (migration). Oggi il
-controllo è dell'applicazione; prima di aggiungerlo verificare che non esistano email doppie.
+- indice unico sull'email anche nel database (facoltativo per `AUD-A3`): il controllo resta
+  dell'applicazione, che basta
+- il limite di 50 coperti per prenotazione è diventato `CAP-002`, in cima a questo file
 
 ---
 

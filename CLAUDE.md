@@ -5,11 +5,12 @@
 
 ---
 
-## 1. Stato — aggiornato al 30/09/2026
+## 1. Stato — aggiornato al 02/10/2026
 
-**Il progetto è finito.** Ultima versione pubblicata: **`v1.1.0`** (30/09/2026, tag sul merge
-`f68825c`). Verificata in produzione lo stesso giorno: build Actions → Docker Hub → Azure, login,
-e job `PrenotazioniJob` forzato da Admin (ha segnato 1 prenotazione come «Non presentata»).
+**Il progetto è finito.** Ultima versione pubblicata: **`v1.2.0`** (tag del 02/10/2026 sul commit
+`a4e5672`, lo stesso di `main`). Contiene le correzioni dell'analisi completa del 01/10/2026
+(`AUD-A1`…`AUD-A6`, `AUD-M1`…`AUD-M11`). Fabio l'ha mergiata su `main`, pubblicata e provata in
+produzione il 02/10/2026: tutto ok.
 
 > ✅ **Migrazione hosting completata** — Railway (backend + database) è stato spento dal
 > 16/09/2026 (trial scaduto) ed eliminato il 18/09/2026, dopo verifica end-to-end sulla nuova
@@ -22,18 +23,17 @@ e job `PrenotazioniJob` forzato da Admin (ha segnato 1 prenotazione come «Non p
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al nuovo backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente), schema riallineato (7 migration EF + tabelle Quartz) |
 | Test | **292** backend (xUnit) + **64** frontend (Vitest), tutti verdi |
-| Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *Migration* del tracker) |
+| Modifiche al database | 7 applicate, in locale e nel nuovo database Neon (elenco nel foglio *BE · Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata, non si aggiorna per non pagare la licenza (`SEC-001` in `BACKLOG.md`) |
-| Branch | si lavora su `dev`; `main` resta indietro di proposito per ora (ultimo tag `v1.1.0`) |
+| Branch | si lavora su `dev`; `main` è fermo al tag `v1.2.0`, `dev` è avanti solo con riordino e documenti |
 
-**Ultima cosa fatta**: la chiusura **v1.1** (tetto dei coperti protetto, stato «Non presentata»,
-restyle con barra superiore, dashboard per giorno, note e tavoli leggibili in Prenotazioni,
-eliminazione solo delle prenotazioni annullate). Il 30/09/2026 Fabio ha rifatto a mano il giro di
-prova sul portale locale: tutto ok. La checklist completa in
-`docs/archivio/v1.1/verifica-redesign.md` (`UI-001`) è terminata il 01/10/2026. Lo stesso giorno sono stati
-azzerati i due database (`OPS-001`, locale e Neon, Admin ricreato, `/health` ok) ed eliminata la
-cartella `Gestora_BACKUP_20260903` (`OPS-002`).
-Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto in
+**Ultima cosa fatta** (02/10/2026): riordino della cartella del progetto (documenti chiusi in
+`docs/archivio/`, test spostati in `GestoraWebApi.Tests/`, soluzione `Gestora.sln` in radice, CI
+verde) e tracker `TrackGestora_v2.xlsx` rifatto con fogli separati per backend e frontend.
+Chiusi senza modifiche, per decisione: `AUD-M5`, `AUD-M7`, `AUD-M10` (parte Azure) e l'indice
+unico sull'email nel database. Resta aperto solo il **tetto dei 50 coperti per prenotazione**,
+fisso nel codice: segnalato nel foglio *Fix e Bug* del tracker (`CAP-002`).
+Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto della v1.1 in
 `docs/archivio/v1.1/CONSEGNA_v1.1.md` e `docs/archivio/STORICO_FASI.md`.
 
 ---
@@ -151,9 +151,10 @@ imparate sbagliando, è in `docs/archivio/STORICO_FASI.md`.
 
 ## 6. Cosa è aperto
 
-Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**.
+Il dettaglio aggiornato è in **`BACKLOG.md`**; i difetti singoli nel foglio **Fix e Bug** del tracker.
 
-**Priorità corrente**: nessuna.
+**Priorità corrente**: `CAP-002`, rendere configurabile il tetto dei 50 coperti per prenotazione.
+Da scegliere fra valore nella configurazione (consigliato) e impostazione modificabile dall'Admin.
 
 ---
 
@@ -181,6 +182,16 @@ Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**
 **`TrackGestora_v2.xlsx`**, in questa cartella, è il tracker unico e ufficiale. Aggiornamento
 manuale, nessuna automazione.
 
+Rifatto il 02/10/2026 sul modello del vecchio tracker: una **Dashboard** con indice cliccabile e
+conteggi automatici, poi un foglio per ogni parte del progetto, con backend e frontend separati
+(prefisso `BE ·` e `FE ·`: Models, DTO, Repository, Services, Controllers, Method, Validators,
+Infrastruttura, Test, Auth e Security, Jobs, Migration · Pagine, Componenti, Hook e API, Auth,
+Test). **Appunti e Step** e **Fix e Bug** si compilano a mano. Quando il codice cambia (un
+endpoint, un test, una migration) va aggiornato il foglio corrispondente.
+
+> Il contenuto precedente (fogli Oggi, Referto, Fatte, Decisioni, Diario) è in
+> `docs/archivio/TrackGestora_v2_fino_al_02-10-2026.xlsx`.
+
 > **`docs/archivio/TrackAttività_Gestora.xlsx` è congelato**, non si aggiorna più: resta come archivio storico
 > dei primi mesi, si legge solo per ritrovare qualcosa del passato.
 
@@ -195,7 +206,8 @@ manuale, nessuna automazione.
 | Come si resetta il database, si applica una migration, si pubblica | `RUNBOOK.md` |
 | Endpoint, architettura e note del backend | `GestoraWebApi/CLAUDE.md` |
 | Pattern, routing e note del frontend | `gestora-frontend/CLAUDE.md` |
-| Cosa manca oggi, referto dell'audit, decisioni, diario | `TrackGestora_v2.xlsx` |
+| Mappa del progetto foglio per foglio, diario, difetti | `TrackGestora_v2.xlsx` |
+| Referto dell'audit, decisioni e diario fino al 02/10/2026 | `docs/archivio/TrackGestora_v2_fino_al_02-10-2026.xlsx` |
 | Storia dei primi mesi e inventari tecnici (congelato) | `docs/archivio/TrackAttività_Gestora.xlsx` |
 | Com'è andata una fase, cosa abbiamo imparato | `docs/archivio/STORICO_FASI.md` |
 | Cosa vuol dire una sigla `REV-xxx` | `docs/archivio/REVISIONE_END_TO_END.md` |

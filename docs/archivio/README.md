@@ -119,5 +119,7 @@ Resta vivo, in `GestoraWebApi/Scripts/`, solo `quartz_postgres.sql`, usato dal `
 ### Altri file
 - `TrackAttività_Gestora.xlsx` — il tracker dei primi mesi, congelato. Quello attivo è
   `TrackGestora_v2.xlsx` nella cartella principale.
+- `TrackGestora_v2_fino_al_02-10-2026.xlsx` — copia del tracker attivo prima che venisse rifatto
+  il 02/10/2026: fogli Oggi, Referto (audit), Fatte, Decisioni, Diario della chiusura v1.1.
 - `Gestora - Deploy con Docker.docx` — scritto il 31/08/2026, quando il backend stava su
   Railway: per il deploy attuale (Docker Hub → Azure) vale `RUNBOOK.md`.
