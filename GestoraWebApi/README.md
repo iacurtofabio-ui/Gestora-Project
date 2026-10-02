@@ -13,12 +13,14 @@ dotnet run
 ```
 
 Richiede PostgreSQL attivo e i due User Secrets (`ConnectionStrings:DefaultConnection`,
-`JwtSettings:Secret`) — vedi `docs/progetto/RUNBOOK.md` §7. Ascolta su `localhost:5099`.
+`JwtSettings:Secret`) — vedi `RUNBOOK.md` §7 nella cartella principale. Ascolta su `localhost:5099`.
 
 ## Verifica
 
+Dalla cartella principale (i test stanno in `GestoraWebApi.Tests/`, accanto a questa cartella):
+
 ```powershell
-dotnet test
+dotnet test Gestora.sln
 ```
 
 Documentazione specifica di questo backend: `CLAUDE.md`.

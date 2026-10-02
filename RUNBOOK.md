@@ -48,13 +48,15 @@ Quel file **non è versionato**: su un computer nuovo va ricreato.
 Da fare prima di chiudere una fase. Tutti e quattro devono essere puliti.
 
 ```powershell
-cd "...\GestoraWebApi"; dotnet test
+cd "...\Gestora"; dotnet test Gestora.sln
 cd "...\gestora-frontend"; npm test
 cd "...\gestora-frontend"; npm run build
 cd "...\gestora-frontend"; npm run lint
 ```
 
-Valori attesi oggi: **258** test backend, **47** frontend, build senza errori, lint senza errori.
+Valori attesi oggi: **292** test backend, **64** frontend, build senza errori, lint senza errori.
+I test del backend stanno in `GestoraWebApi.Tests/`, accanto all'API: si lanciano dalla radice
+attraverso `Gestora.sln` (dal 02/10/2026, prima stavano dentro `GestoraWebApi/`).
 
 > ⚠️ `npm test` **non controlla i tipi**, `npm run build` sì. Un test verde non sostituisce una
 > build pulita: in Fase 8 la build ha trovato un campo scritto male che i test non vedevano.

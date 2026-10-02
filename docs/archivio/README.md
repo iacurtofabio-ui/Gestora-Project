@@ -17,7 +17,7 @@ Archiviati l'**08/09/2026**, a chiusura della Fase 12 (ordine e pulizia).
 | `RUNBOOK.md` | cartella principale | Le procedure operative: reset, migration, deploy |
 | `GestoraWebApi/CLAUDE.md` | backend | Riferimento tecnico del backend |
 | `gestora-frontend/CLAUDE.md` | frontend | Riferimento tecnico del frontend |
-| `TrackAttività_Gestora.xlsx` | cartella principale | Il tracker delle attività |
+| `TrackGestora_v2.xlsx` | cartella principale | Il tracker attivo |
 
 ---
 
@@ -95,9 +95,29 @@ di sviluppo, fuori dal repository).
 
 ---
 
-## Cosa NON è archiviato
+## Aggiunti il 02/10/2026 (riordino della cartella, dopo il rilascio `v1.2.0`)
 
-- `AppuntiFix.txt` — il file di appunti d'uso personale di Fabio, nella cartella principale.
-  Non è un documento di progetto e non va toccato: sarà letto e formalizzato in una fase dedicata
-  (vedi `BACKLOG.md`, voce `DOC-001`).
-- `docs/Gestora - Deploy con Docker.docx` — documentazione del deploy, ancora valida.
+### `v1.1/` — la chiusura della v1.1
+- `CONSEGNA_v1.1.md` — il racconto fase per fase della chiusura v1.1, con file toccati e verifiche.
+- `DIARIO_LAVORO_v1.1.md` — il diario giornaliero dello stesso periodo.
+- `PROMPT_CHIUSURA_v1.1.md` e `prompt-redesign-gestora.md` — le istruzioni di lavoro date a
+  Claude per la chiusura e per il redesign.
+- `verifica-redesign.md` — la checklist di prova a mano del redesign «Turno» (`UI-001`, chiusa
+  il 01/10/2026).
+- `restyle-ANALISI.md` — l'analisi visiva da cui è partito il restyle.
+
+Gli screenshot che accompagnavano restyle e verifica sono stati eliminati: si recuperano dal tag
+`v1.2.0` (`GestoraDocs/restyle/` e `GestoraDocs/verifica-redesign/screenshots/`).
+
+### `script-sql/` — script SQL già applicati
+- `20260902_AggiungiSlotPrenotazionePostazione.sql`, `20260904_AuditLogIndiciEStoricoUtenteProtetto.sql`
+  — migration applicate a mano in produzione.
+- `reset_dati_prova.sql` — l'azzeramento di Neon di `OPS-001`, eseguito il 01/10/2026.
+
+Resta vivo, in `GestoraWebApi/Scripts/`, solo `quartz_postgres.sql`, usato dal `RUNBOOK.md`.
+
+### Altri file
+- `TrackAttività_Gestora.xlsx` — il tracker dei primi mesi, congelato. Quello attivo è
+  `TrackGestora_v2.xlsx` nella cartella principale.
+- `Gestora - Deploy con Docker.docx` — scritto il 31/08/2026, quando il backend stava su
+  Railway: per il deploy attuale (Docker Hub → Azure) vale `RUNBOOK.md`.

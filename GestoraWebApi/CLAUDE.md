@@ -12,9 +12,12 @@ tabelle `QRTZ_*` — **non create automaticamente**, va eseguito `Scripts/quartz
 
 ## Verifica prima di dire "fatto"
 
+Dalla cartella principale del repo (i test stanno in `GestoraWebApi.Tests/`, accanto a questa
+cartella: lanciato da qui dentro, `dotnet test` non trova nessun test).
+
 ```
-dotnet build      # deve completare senza errori
-dotnet test       # confronta "Passed" col numero atteso in TrackGestora_v2.xlsx
+dotnet build Gestora.sln      # deve completare senza errori
+dotnet test Gestora.sln       # confronta "Passed" col numero atteso in TrackGestora_v2.xlsx
 ```
 Se hai toccato un endpoint, verifica anche a mano su Swagger (`/swagger`) prima di considerarlo
 concluso, non solo via test unitari.

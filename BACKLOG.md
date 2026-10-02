@@ -20,17 +20,17 @@ vista d'insieme che si guarda per decidere cosa fare.
 > `CAP-001` (tetto dei coperti non garantito) è **chiusa il 18/09/2026**: lock `FOR UPDATE`
 > sulla riga della fascia dentro la transazione, validazione di `UpdateAsync` spostata dentro la
 > transazione, sforamento esposto in dashboard (`copertiOltreIlTetto`). Prova manuale in
-> `RUNBOOK.md` §2. Dettaglio in `GestoraDocs/CONSEGNA_v1.1.md`.
+> `RUNBOOK.md` §2. Dettaglio in `docs/archivio/v1.1/CONSEGNA_v1.1.md`.
 
 ---
 
 > `UI-001` (prova a mano del redesign «Turno») è **chiusa il 01/10/2026**: checklist di
-> `GestoraDocs/verifica-redesign.md` terminata.
+> `docs/archivio/v1.1/verifica-redesign.md` terminata.
 
 
 > `DOC-001` (formalizzare `AppuntiFix.txt`) è **chiusa il 21/09/2026**: le 13 righe del file sono
 > state lette e ognuna è diventata lavoro in una fase di questa chiusura (o una voce qui sotto,
-> per quelle non ancora fatte). La tabella riga-per-riga è in `GestoraDocs/CONSEGNA_v1.1.md`,
+> per quelle non ancora fatte). La tabella riga-per-riga è in `docs/archivio/v1.1/CONSEGNA_v1.1.md`,
 > sezione Fase 10. `AppuntiFix.txt` **non è stato toccato** (resta il file personale di Fabio).
 
 ---

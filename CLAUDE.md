@@ -30,11 +30,11 @@ e job `PrenotazioniJob` forzato da Admin (ha segnato 1 prenotazione come «Non p
 restyle con barra superiore, dashboard per giorno, note e tavoli leggibili in Prenotazioni,
 eliminazione solo delle prenotazioni annullate). Il 30/09/2026 Fabio ha rifatto a mano il giro di
 prova sul portale locale: tutto ok. La checklist completa in
-`GestoraDocs/verifica-redesign.md` (`UI-001`) è terminata il 01/10/2026. Lo stesso giorno sono stati
+`docs/archivio/v1.1/verifica-redesign.md` (`UI-001`) è terminata il 01/10/2026. Lo stesso giorno sono stati
 azzerati i due database (`OPS-001`, locale e Neon, Admin ricreato, `/health` ok) ed eliminata la
 cartella `Gestora_BACKUP_20260903` (`OPS-002`).
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`. Racconto in
-`GestoraDocs/CONSEGNA_v1.1.md` e `docs/archivio/STORICO_FASI.md`.
+`docs/archivio/v1.1/CONSEGNA_v1.1.md` e `docs/archivio/STORICO_FASI.md`.
 
 ---
 
@@ -67,14 +67,19 @@ Per un progetto di questa dimensione la struttura a livelli è la scelta giusta.
 ```
 Gestora/
 ├── GestoraWebApi/        backend (.NET) — vedi il suo CLAUDE.md
+├── GestoraWebApi.Tests/  test del backend (xUnit)
 ├── gestora-frontend/     frontend (React) — vedi il suo CLAUDE.md
-├── docs/archivio/        documenti chiusi, sola lettura
+├── docs/archivio/        documenti chiusi, sola lettura (anche il tracker congelato)
+├── Gestora.sln           soluzione .NET: API + test, si apre questa in Visual Studio
+├── global.json           versione dell'SDK .NET
 ├── CLAUDE.md             questo file
 ├── BACKLOG.md            cosa resta da fare
 ├── RUNBOOK.md            come si fanno le operazioni
-├── TrackGestora_v2.xlsx  il tracker attivo
-└── TrackAttività_Gestora.xlsx   congelato, archivio dei primi mesi
+└── TrackGestora_v2.xlsx  il tracker attivo
 ```
+
+Riordinata il 02/10/2026: in radice stanno solo i documenti vivi. Appunti personali, credenziali
+e backup **non vanno messi in questa cartella**, nemmeno ignorati da Git.
 
 ### Backend — ASP.NET Core 9
 
@@ -176,7 +181,7 @@ Il dettaglio aggiornato è nel foglio **Oggi** del tracker e in **`BACKLOG.md`**
 **`TrackGestora_v2.xlsx`**, in questa cartella, è il tracker unico e ufficiale. Aggiornamento
 manuale, nessuna automazione.
 
-> **`TrackAttività_Gestora.xlsx` è congelato**, non si aggiorna più: resta come archivio storico
+> **`docs/archivio/TrackAttività_Gestora.xlsx` è congelato**, non si aggiorna più: resta come archivio storico
 > dei primi mesi, si legge solo per ritrovare qualcosa del passato.
 
 ---
@@ -191,12 +196,13 @@ manuale, nessuna automazione.
 | Endpoint, architettura e note del backend | `GestoraWebApi/CLAUDE.md` |
 | Pattern, routing e note del frontend | `gestora-frontend/CLAUDE.md` |
 | Cosa manca oggi, referto dell'audit, decisioni, diario | `TrackGestora_v2.xlsx` |
-| Storia dei primi mesi e inventari tecnici (congelato) | `TrackAttività_Gestora.xlsx` |
+| Storia dei primi mesi e inventari tecnici (congelato) | `docs/archivio/TrackAttività_Gestora.xlsx` |
 | Com'è andata una fase, cosa abbiamo imparato | `docs/archivio/STORICO_FASI.md` |
 | Cosa vuol dire una sigla `REV-xxx` | `docs/archivio/REVISIONE_END_TO_END.md` |
 | Il testo integrale delle 10 decisioni | `docs/archivio/ROADMAP_REVISIONE.md` |
 | Perché un documento è stato archiviato | `docs/archivio/README.md` |
-| Come si prova a mano il redesign, schermata per schermata | `GestoraDocs/verifica-redesign.md` |
+| Come si prova a mano il redesign, schermata per schermata | `docs/archivio/v1.1/verifica-redesign.md` |
+| Com'è andata la chiusura v1.1, fase per fase | `docs/archivio/v1.1/CONSEGNA_v1.1.md` |
 
 ### Il grafo del codice (graphify)
 
