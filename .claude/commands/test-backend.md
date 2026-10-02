@@ -2,7 +2,8 @@
 description: Esegue dotnet test sul backend GestoraWebApi e riassume l'esito
 ---
 
-Esegui `dotnet test` nella cartella `GestoraWebApi/` del progetto.
+Esegui `dotnet test Gestora.sln` dalla cartella radice del progetto (i test stanno in
+`GestoraWebApi.Tests/`, accanto a `GestoraWebApi/`).
 
 Al termine riporta in forma sintetica:
 - numero totale di test, passati, falliti, skippati

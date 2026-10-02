@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GestoraWebApi.csproj" />
+    <ProjectReference Include="..\GestoraWebApi\GestoraWebApi.csproj" />
   </ItemGroup>
 
 </Project>

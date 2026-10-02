@@ -12,9 +12,6 @@ jobs:
   # CI Backend gira in parallelo e non blocca nulla. Ora i test sono un passo obbligato.
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: GestoraWebApi
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +20,10 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      # I test stanno in GestoraWebApi.Tests/, accanto all'API: si lanciano dalla radice
+      # attraverso la soluzione, che li contiene entrambi.
       - name: Test
-        run: dotnet test --configuration Release
+        run: dotnet test Gestora.sln --configuration Release
 
   build-and-push:
     needs: test

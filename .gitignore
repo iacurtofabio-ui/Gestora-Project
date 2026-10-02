@@ -2,6 +2,29 @@
 ~$*.xlsx
 ~$*.xls
 
+# Build .NET (API e test) e Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+
+# Impostazioni personali di Claude Code (permessi locali)
+.claude/settings.local.json
+
+- toglie il doppione di .vs/ e la riga di GestoraDocs.
+# File temporanei Excel
+~$*.xlsx
+~$*.xls
+
+# Build .NET (API e test) e Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+
+# Impostazioni personali di Claude Code (permessi locali)
+.claude/settings.local.json
+
 # Graphify - skill e grafo locali, non versionati
 .claude/skills/graphify/
 graphify-out/
@@ -9,10 +32,8 @@ graphify-out/
 # Playwright MCP - snapshot temporanei da test manuali in browser
 .playwright-mcp/
 
-.vs/
+# Appunti personali, per sicurezza anche se spostati fuori
 /AppuntiFix.txt
-
-.vs/
 /Credenziali.txt
 
 # backup di database e dump: mai versionati (dati reali)
@@ -20,7 +41,5 @@ backup_*.csv
 backup_*.dump
 *.dump
 
-# file di credenziali salvati per comodità (es. connection string Neon): mai versionati
-envDBNeon.txt
+# file di credenziali salvati per comodità: mai versionati
 env*.txt
-/GestoraDocs/verifica-redesign/Report post test.txt

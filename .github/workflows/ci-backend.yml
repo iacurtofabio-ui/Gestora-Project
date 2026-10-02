@@ -5,17 +5,20 @@ on:
     branches: [main, dev]
     paths:
       - 'GestoraWebApi/**'
+      - 'GestoraWebApi.Tests/**'
+      - 'Gestora.sln'
+      - 'global.json'
   pull_request:
     branches: [main, dev]
     paths:
       - 'GestoraWebApi/**'
+      - 'GestoraWebApi.Tests/**'
+      - 'Gestora.sln'
+      - 'global.json'
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: GestoraWebApi
 
     steps:
       - uses: actions/checkout@v4
@@ -25,11 +28,12 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      # Si lavora dalla radice: la soluzione Gestora.sln contiene sia l'API sia i test.
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore Gestora.sln
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build Gestora.sln --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
+        run: dotnet test Gestora.sln --no-build --configuration Release --logger "console;verbosity=normal"
