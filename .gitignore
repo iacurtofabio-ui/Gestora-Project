@@ -11,20 +11,6 @@
 # Impostazioni personali di Claude Code (permessi locali)
 .claude/settings.local.json
 
-- toglie il doppione di .vs/ e la riga di GestoraDocs.
-# File temporanei Excel
-~$*.xlsx
-~$*.xls
-
-# Build .NET (API e test) e Visual Studio
-[Bb]in/
-[Oo]bj/
-.vs/
-*.user
-
-# Impostazioni personali di Claude Code (permessi locali)
-.claude/settings.local.json
-
 # Graphify - skill e grafo locali, non versionati
 .claude/skills/graphify/
 graphify-out/
