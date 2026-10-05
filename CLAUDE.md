@@ -21,6 +21,12 @@ v2 (vedi §4).
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione |
 
+**Ultima cosa fatta** (05/10/2026): avvio della v2 (`V2-001`) — documenti riallineati, storico
+spostato in `docs/archivio/v1/`, `BACKLOG.md` con sigle `V2-xxx`, tracker rinominato
+`TrackGestora.xlsx`, ramo `v2` creato e pubblicato. Per andare in produzione: merge `v2` → `main`
+(`RUNBOOK.md` §5); `dev` non si usa più. **Prossimo passo**: le prime segnalazioni dal locale,
+oppure una voce aperta di `BACKLOG.md` (sempre decidendo prima chi la sviluppa).
+
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.
 
 ---
