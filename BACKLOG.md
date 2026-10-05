@@ -1,139 +1,98 @@
-# Gestora — cosa resta da fare
+# Gestora v2 — cosa resta da fare
 
-Aggiornato il **02/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **05/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
 vista d'insieme che si guarda per decidere cosa fare.
 
-> Le sigle vecchie (`REV-xxx`, `NEW-xxx`, `FIX-xxx`) restano valide come riferimento storico.
-> Sono spiegate in `docs/archivio/REVISIONE_END_TO_END.md` e nel tracker.
+---
 
-> `OPS-006` (migrazione da Railway ad Azure/Neon) è **chiusa il 18/09/2026**: verifica
-> end-to-end fatta (setup Admin, 3 ruoli, prenotazione con assegnazione tavolo, job Quartz),
-> progetto Railway eliminato. Dettaglio in `CLAUDE.md` §1 e `docs/archivio/STORICO_FASI.md`.
+## Come si legge
+
+**Sigla**: una sola sequenza, `V2-001`, `V2-002`… Non si riusa mai un numero, nemmeno se una voce
+viene scartata.
+
+**Tipo**: `bug` (qualcosa che non funziona come dovrebbe) · `richiesta` (una cosa nuova chiesta
+da chi usa Gestora) · `miglioramento` (una cosa che c'è, fatta meglio) · `refactoring` (stesso
+comportamento, codice più pulito) · `studio` (documentazione, analisi, crescita).
+
+**Chi sviluppa**: si decide **prima di iniziare**, ogni volta (vedi `CLAUDE.md`, *Come
+lavoriamo*): `io` (Fabio, guidato da Claude) oppure `Claude`. Finché non si è deciso, resta `—`.
+
+**Stato**: `da fare` · `in corso` · `fatto` · `scartato`. Le voci `fatto` e `scartato` restano
+qui fino al rilascio successivo, poi si tolgono.
 
 ---
 
-## 🔵 Da fare prima
+## 📥 Segnalazioni dal locale — in arrivo
 
-**`CAP-002` — tetto dei 50 coperti per prenotazione configurabile.** Oggi il limite è scritto nel
-codice in due validatori (`PrenotazioneCreateDTOValidator`, `CheckDisponibilitaDTOValidator`) e
-nel frontend (`max={50}` in `VerificaDisponibilita.tsx`). Due strade:
-- **A (consigliata)**: valore nella configurazione (`appsettings`), letto da backend e restituito
+Quello che emerge dall'uso nei turni di servizio. Si annota qui **così come arriva**, senza
+analizzarlo. Quando lo si prende in mano diventa una voce `V2-xxx` nella sezione sotto e si decide
+chi la sviluppa.
+
+Modello da copiare:
+
+```
+- Data: gg/mm/aaaa — Turno: pranzo/cena — Chi: (ruolo: Admin / Staff / Cliente)
+  Schermata: (es. Prenotazioni, Dashboard, pagina pubblica)
+  Cosa è successo: ...
+  Cosa ci si aspettava: ...
+  Quanto blocca: blocca il servizio / fastidioso / si può aspettare
+```
+
+*Nessuna segnalazione ancora.*
+
+---
+
+## 🔵 Da fare
+
+| Sigla | Tipo | Cosa | Chi sviluppa | Stato |
+|---|---|---|---|---|
+| `V2-001` | studio | Riallineare documentazione e file di supporto all'avvio della v2 | Claude | in corso |
+| `V2-002` | miglioramento | Tetto dei 50 coperti per prenotazione configurabile | — | da fare |
+| `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
+| `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
+| `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
+
+### `V2-002` — tetto dei 50 coperti per prenotazione
+Oggi il limite è scritto nel codice in due validatori (`PrenotazioneCreateDTOValidator`,
+`CheckDisponibilitaDTOValidator`) e nel frontend (`max={50}` in `VerificaDisponibilita.tsx`).
+Due strade, da scegliere prima di iniziare:
+- **A (consigliata)**: valore nella configurazione (`appsettings`), letto dal backend e restituito
   al frontend; cambiarlo richiede un riavvio, nessuna migration
 - **B**: impostazione nel database modificabile dall'Admin da una schermata; serve una migration
   e una pagina nuova
 
-Registrato anche nel foglio *Fix e Bug* del tracker. Decisione da prendere prima di iniziare.
+### `V2-003` — conferma dell'email
+Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter prenotare. Oggi non
+esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
+collega all'idea *Email di conferma e promemoria* qui sotto.
 
-> `CAP-001` (tetto dei coperti non garantito) è **chiusa il 18/09/2026**: lock `FOR UPDATE`
-> sulla riga della fascia dentro la transazione, validazione di `UpdateAsync` spostata dentro la
-> transazione, sforamento esposto in dashboard (`copertiOltreIlTetto`). Prova manuale in
-> `RUNBOOK.md` §2. Dettaglio in `docs/archivio/v1.1/CONSEGNA_v1.1.md`.
-
----
-
-> `UI-001` (prova a mano del redesign «Turno») è **chiusa il 01/10/2026**: checklist di
-> `docs/archivio/v1.1/verifica-redesign.md` terminata.
-
-
-> `DOC-001` (formalizzare `AppuntiFix.txt`) è **chiusa il 21/09/2026**: le 13 righe del file sono
-> state lette e ognuna è diventata lavoro in una fase di questa chiusura (o una voce qui sotto,
-> per quelle non ancora fatte). La tabella riga-per-riga è in `docs/archivio/v1.1/CONSEGNA_v1.1.md`,
-> sezione Fase 10. `AppuntiFix.txt` **non è stato toccato** (resta il file personale di Fabio).
+### `V2-004`, `V2-005`
+Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare
+insieme prima di iniziare.
 
 ---
 
-> `OPS-001` (reset dei due database) è **chiusa il 01/10/2026**: locale con `dotnet ef database drop`,
-> Neon con `DROP SCHEMA public CASCADE` (il ruolo `neondb_owner` può non riuscire a cancellare il database
-> stesso), poi migration e `quartz_postgres.sql`. Admin ricreato dalla schermata di primo avvio, `/health` ok.
-> Il `pg_dump` locale (v17) non funziona con il server Neon (v18): per un backup serve il client 18
-> oppure un branch Neon. Procedura in `RUNBOOK.md` §3.
+## ⚪ Idee
 
-
-> `SEC-001` (AutoMapper 12.0.1, avviso `GHSA-rvv3-g6hj-g44x`) è **chiusa il 01/10/2026**:
-> deciso di **non aggiornare**. La 16.2.0 che risolve l'avviso ha una licenza a pagamento oltre una
-> soglia di fatturato, e non si vuole pagare nessuna licenza. Si resta sulla 12.x accettando
-> l'avviso (non sfruttabile da remoto). Da riaprire solo se si cambia libreria di mapping.
-
----
-
-## 🟠 Analisi completa del 01/10/2026
-
-Report completo dell'analisi (backend, sicurezza, frontend) consegnato in chat il 01/10/2026.
-
-> **Corretti il 01/10/2026** (6 difetti gravi, 274 test backend + 52 frontend verdi):
-> - `AUD-A1` fasce che finiscono a mezzanotte o prima dell'inizio, ora rifiutate (backend e form)
-> - `AUD-A2` fascia immutabile dopo la prima prenotazione: tetto e stato sempre modificabili, giorno e
->   orari bloccati solo con prenotazioni future
-> - `AUD-A3` email unica in Identity (prima un doppione rendeva impossibile il login di quell'email)
-> - `AUD-A4` un Admin non può togliersi il ruolo Admin: almeno un Admin resta sempre, il primo avvio
->   non si riapre
-> - `AUD-A5` casella «Attiva» nella modifica tavolo, prima ignorata dal backend
-> - `AUD-A6` messaggi del login distinti: bloccato / troppi tentativi / server irraggiungibile
-
-> **Corretti il 01/10/2026, secondo giro** (medi e bassi, 292 test backend + 64 frontend verdi):
-> - `AUD-M1` «Gestisci ruoli» si aggiorna dopo Assegna/Rimuovi
-> - `AUD-M2` `check-disponibilita` non propone più le fasce di oggi già finite
-> - `AUD-M3` una prenotazione con la fascia già finita non si annulla più (nemmeno da Staff/Admin)
-> - `AUD-M4` modifica, annullamento, conferma e completamento bloccano la riga (`FOR UPDATE`) e
->   leggono lo stato dentro la transazione; un nuovo tentativo automatico riparte pulito
-> - `AUD-M6` i token portano il security stamp: cambio ruolo, eliminazione, reset password o cambio
->   email li invalidano subito
-> - `AUD-M8` l'elenco tavoli attivi non espone più gli Id delle prenotazioni (né al Cliente)
-> - `AUD-M9` la pubblicazione Docker aspetta i test; la CI frontend lancia `npm test`
-> - `AUD-M10` cron dei job in ora di Roma, nessuna doppia esecuzione dello stesso job
-> - `AUD-M11` form: messaggi italiani sui numeri vuoti, data fra oggi e un anno (anche lato backend)
-> - bassi: conferma solo nel giorno della prenotazione (e i pulsanti Conferma/Annulla compaiono solo
->   quando il backend li accetterebbe); 404 (non 403) al Cliente su prenotazione
->   altrui; ruolo Cliente controllato in registrazione; container non root; `.dockerignore` per
->   dump/csv/graphify; un solo avviso di sessione scaduta; nessun token sul login; Dashboard (campo
->   data, errori visibili, invalidazioni); fascia non più attiva in modifica; data massima nella
->   pagina pubblica; creazione utente da Admin che segnala il ruolo non assegnato; log SQL di EF Core
->   a Warning
-> - registrazione: messaggi italiani per campo (email / nome già usati); nome utente con spazi
->   («Fabio Iacurto»), apostrofi e lettere accentate
-
-**Chiusi il 02/10/2026 senza modifiche, per decisione** (rischio accettato)
-- `AUD-M5` «una prenotazione al giorno» aggirabile con due richieste parallele su fasce diverse:
-  è la decisione di prodotto 10 (`REV-004`), resta un controllo dell'applicazione per la v1
-- `AUD-M7` chi conosce l'email dell'Admin può tenerlo bloccato (5 tentativi ogni 15 minuti): è il
-  prezzo del blocco contro i tentativi a forza bruta, accettato
-- `AUD-M10` (parte non risolvibile nel codice): su Azure F1 l'app si spegne senza traffico e i job
-  notturni partono al primo accesso del giorno. Serve «Always On», cioè un piano a pagamento
-- indice unico sull'email anche nel database (facoltativo per `AUD-A3`): il controllo resta
-  dell'applicazione, che basta
-- il limite di 50 coperti per prenotazione è diventato `CAP-002`, in cima a questo file
-
----
-
-## 🟡 Pulizie senza fretta
-
-Nessuna pulizia aperta.
-
-> `OPS-003` (`git gc`) è **chiusa il 01/10/2026**: tolta, non serve (6 MB, nessun file di scarto).
-> `OPS-004` (tag `v1.0.0`) è **chiusa il 01/10/2026**: tenuto il tag di GitHub, cancellato quello locale e riscaricato.
-> `OPS-005` (devtools fra le dipendenze di sviluppo) è **chiusa il 21/09/2026**, Fase 9.
-> `OPS-002` (cartella `Gestora_BACKUP_20260903`) è **chiusa il 01/10/2026**: cancellata.
-
----
-
-## ⚪ Idee per la v2.0
-
-Recuperate dalla roadmap di revisione, dove erano state messe **fuori** dalla v1 con decisione
-esplicita. Non sono impegni: sono la lista da cui pescare se il progetto riparte.
+Non sono impegni: sono la lista da cui pescare quando una segnalazione dal locale o una scelta
+nostra le rende utili.
 
 **Prenotazioni**
 - Turnover del tavolo: durata della seduta, due turni nella stessa fascia
 - Lista d'attesa quando la fascia è piena
-- No-show come stato vero, con storico e regole per cliente
+- No-show con storico e regole per cliente (oggi c'è solo lo stato `NonPresentata`)
 - Overbooking controllato per fascia
 - Zona come preferenza con ripiego, invece che come vincolo
 - Chiusure straordinarie e orari speciali
+- Vincolo "una prenotazione al giorno" per il Cliente nel database, non solo nell'applicazione:
+  serve una colonna che distingua chi ha creato la prenotazione. Da riprendere insieme a
+  un'eventuale app dedicata al cliente, non da sola
 
 **Sala**
-- Creazione automatica dei tavoli in base ai coperti richiesti *(era la decisione 7)*
+- Creazione automatica dei tavoli in base ai coperti richiesti
 - Unione e separazione tavoli come azione manuale dello Staff
 - Campo `PostiCapotavola` sul singolo tavolo, se un giorno serve precisione piena sul bonus
   testate anche per le unioni miste
@@ -146,30 +105,47 @@ esplicita. Non sono impegni: sono la lista da cui pescare se il progetto riparte
   È una riprogettazione, non un fix: il token in `localStorage` non è un bug (vedi `RUNBOOK.md`
   §9), ma un cookie `HttpOnly` toglie anche la possibilità teorica di leggerlo da JavaScript
 
+**Codice**
+- Estrarre la logica di autenticazione da `AuthenticationUserController` in un service dedicato,
+  così da poterla coprire con test (oggi è l'unico controller senza test). Buon esercizio di
+  refactoring + testing
+
 **Altro**
-- Export CSV/PDF dei report — ⚠️ oggi **non esiste**, esistono solo i due endpoint della
-  dashboard. Il tracker lo dava per fatto: corretto l'08/09/2026 (era la segnalazione `REV-084`)
+- Export CSV/PDF dei report — oggi **non esiste**: esistono solo i due endpoint della dashboard
 - Gestione di più locali sullo stesso impianto
-- Vincolo "una prenotazione al giorno" per il Cliente a livello di database *(era la decisione
-  10)*: serve una colonna che distingua chi ha creato la prenotazione. Da riprendere insieme alla
-  progettazione dell'app dedicata al cliente, non da sola
 
 ---
 
-## 🚫 Deciso di NON fare
+## 🚫 Rischi accettati e cose decise di non fare
 
-Perché torni fuori ogni volta che qualcuno rilegge il codice.
+Scritte qui perché tornano fuori ogni volta che qualcuno rilegge il codice. Si possono riaprire,
+ma con una decisione esplicita (vedi `CLAUDE.md`, *Decisioni di prodotto*).
 
-**`REV-056` — allineare il nome "fascia oraria" ovunque.** Oggi lo stesso concetto si chiama in
-quattro modi diversi fra namespace, classe, indirizzo dell'endpoint e tabella. Sistemarlo del
-tutto vorrebbe dire cambiare l'indirizzo di un endpoint, cioè rompere tutti i collegamenti del
-frontend, per un guadagno di sola leggibilità. Sistemate solo cartelle e namespace in Fase 9,
-l'indirizzo resta com'è.
+**AutoMapper resta alla 12.0.1**, con un avviso di sicurezza noto (`GHSA-rvv3-g6hj-g44x`, non
+sfruttabile da remoto). La versione che lo risolve ha una licenza a pagamento oltre una soglia di
+fatturato, e non si vuole pagare nessuna licenza. Da riaprire solo se si cambia libreria di
+mapping.
 
-**`REV-004` — vincolo "una prenotazione al giorno" nel database.** È la decisione di prodotto 10:
-resta un controllo dell'applicazione per tutta la v1. Il rischio residuo è accettato perché il
-canale self-service del cliente non è ancora quello vero. **Non copre** il rischio del doppio
-tavolo, che è invece già risolto con un vincolo vero nel database.
+**"Una prenotazione al giorno" per il Cliente è un controllo dell'applicazione.** Con due
+richieste parallele su fasce diverse si può aggirare. Rischio accettato (decisione di prodotto
+10); non riguarda il doppio tavolo, che è invece protetto da un vincolo vero nel database.
 
-**Test automatici di concorrenza.** Il database finto usato nei test non applica gli indici
-unici, e introdurre un database vero nei test è sproporzionato. La verifica resta manuale.
+**Blocco del login dopo 5 tentativi in 15 minuti.** Chi conosce l'email dell'Admin può tenerlo
+bloccato sbagliando la password apposta. È il prezzo della protezione contro i tentativi a forza
+bruta, accettato.
+
+**Job notturni al primo accesso del giorno.** Sul piano gratuito F1 di Azure l'applicazione si
+spegne senza traffico, quindi i job Quartz partono quando arriva la prima richiesta. Per farli
+partire all'ora giusta serve «Always On», cioè un piano a pagamento.
+
+**Email unica controllata solo dall'applicazione** (Identity, `RequireUniqueEmail`), senza un
+indice unico nel database: basta così.
+
+**Nome "fascia oraria" non uniformato.** Lo stesso concetto si chiama in quattro modi diversi fra
+namespace, classe, indirizzo dell'endpoint e tabella. Uniformarlo vorrebbe dire cambiare
+l'indirizzo di un endpoint, cioè rompere i collegamenti del frontend, per un guadagno di sola
+leggibilità. Cartelle e namespace sono già allineati, l'indirizzo resta com'è.
+
+**Test automatici di concorrenza.** Il database finto usato nei test non applica gli indici unici
+né i lock, e introdurre un database vero nei test è sproporzionato. La verifica resta manuale
+(`RUNBOOK.md` §2).

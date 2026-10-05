@@ -17,7 +17,7 @@ cartella: lanciato da qui dentro, `dotnet test` non trova nessun test).
 
 ```
 dotnet build Gestora.sln      # deve completare senza errori
-dotnet test Gestora.sln       # confronta "Passed" col numero atteso (foglio BE · Test di TrackGestora.xlsx)
+dotnet test Gestora.sln       # confronta "Passed" col numero atteso (foglio BE · Test di TrackGestora_v2.xlsx)
 ```
 Se hai toccato un endpoint, verifica anche a mano su Swagger (`/swagger`) prima di considerarlo
 concluso, non solo via test unitari.
@@ -47,10 +47,10 @@ liste scritte a mano: invecchiano. Quello che il codice non dice da solo:
 
 - La rotta base è sempre `api/[nome della classe controller]` — es. `AuthenticationUserController`
   → `/api/AuthenticationUser/...` (non `/api/Auth/...`), `FasceOrarieController` →
-  `/api/FasceOrarie/...` (non `/api/FasciaOraria/...`).
+  `/api/FasceOrarie/...` (non `/api/FasciaOraria/...`, vecchia documentazione).
 - **`GET /health`** sta fuori dai controller (registrato in `Program.cs`), pubblico.
   Azure App Service lo chiama di continuo per il proprio controllo di salute; il log di richiesta
-  lo tiene a livello `Verbose` apposta, per non intasare i log con una riga ogni pochi
+  (Fase 5) lo tiene a livello `Verbose` apposta, per non intasare i log con una riga ogni pochi
   secondi.
 - **`check-disponibilita`** (Prenotazione) e **`Setup`** (`GET stato`, `POST admin`) sono pubblici,
   senza auth — necessario per la pagina pubblica e il primo avvio.
@@ -111,7 +111,7 @@ Annullata: raggiungibile da Attiva/InCorso (AnnullaPrenotazioneAsync), unica eli
 ```
 
 `Prenotazione.Stato` è salvato come **stringa** (`HasConversion<string>()` in `GestoraContext`):
-aggiungere un valore all'enum, come `NonPresentata`, non tocca lo schema, nessuna
+aggiungere un valore all'enum, come `NonPresentata` (Fase 3), non tocca lo schema, nessuna
 migration. Regole di transizione, tutte in `PrenotazioniService`:
 - `AutomaticCompletPrenotazioniAsync` (job notturno) porta `InCorso` → `Completata` quando la
   fascia è finita, **e nella stessa esecuzione** porta `Attiva` → `NonPresentata` quando
@@ -121,7 +121,7 @@ migration. Regole di transizione, tutte in `PrenotazioniService`:
   prenotazione è già passata»), non solo uno stato diverso da `Attiva`: altrimenti si potrebbe
   confermare un turno di ieri sera nella finestra prima che il job notturno sia girato.
 - `AnnullaPrenotazioneAsync`/`UpdateAsync` rifiutano `NonPresentata` come rifiutano `Completata`.
-- `DeleteAsync` ammette **solo** `Annullata`: `Completata` e `NonPresentata` sono storico
+- `DeleteAsync` ammette **solo** `Annullata` (v1.1): `Completata` e `NonPresentata` sono storico
   e non si eliminano a mano (le toglie solo il cleanup a 6 mesi).
 - `AutomaticDeletePrenotazioniAsync` (cleanup 6 mesi) elimina anche le `NonPresentata`, non solo
   le `Completata`.
@@ -170,28 +170,28 @@ fisso).
   (`.OrderBy(...).ThenBy(x => x.Id)`), altrimenti pagine duplicate/perse.
 - **Tavoli e prenotazioni future**: `HasPrenotazioniFutureAsync` guarda solo da oggi in avanti.
   Non reintrodurre controlli sull'intero storico: renderebbe un tavolo immutabile per sempre dopo
-  la prima prenotazione. **Stesso criterio per le fasce**: tetto e stato si cambiano
+  la prima prenotazione. **Stesso criterio per le fasce** (`AUD-A2`): tetto e stato si cambiano
   sempre, giorno e orari solo senza prenotazioni future Attive/InCorso.
-- **Fasce dentro un solo giorno**: il dominio calcola la fine come data + `OrarioFine`,
+- **Fasce dentro un solo giorno** (`AUD-A1`): il dominio calcola la fine come data + `OrarioFine`,
   quindi il validator esige fine > inizio (niente «00:00» come fine, al massimo 23:59).
-- **Almeno un Admin**: un Admin non può togliersi il ruolo Admin (e già non può
+- **Almeno un Admin** (`AUD-A4`): un Admin non può togliersi il ruolo Admin (e già non può
   eliminarsi). Senza Admin la schermata di primo avvio, anonima, si riaprirebbe.
-- **Lock sulla prenotazione**: modifica, annullamento, conferma e completamento
+- **Lock sulla prenotazione** (`AUD-M4`): modifica, annullamento, conferma e completamento
   leggono la prenotazione con `LeggiConLockAsync` (`FOR UPDATE` + lettura) **dentro**
   `EseguiInTransazioneAsync`. Non riportare lettura e controlli di stato fuori dalla transazione.
   `EseguiInTransazioneAsync` svuota il change tracker a ogni nuovo tentativo automatico.
-- **Annullamento**: rifiutato se la fascia è già finita, anche per Staff/Admin; la
+- **Annullamento**: rifiutato se la fascia è già finita (`AUD-M3`), anche per Staff/Admin; la
   conferma si fa solo nel giorno della prenotazione.
-- **Token e security stamp**: il JWT porta il claim `stamp`, confrontato a ogni
+- **Token e security stamp** (`AUD-M6`): il JWT porta il claim `stamp`, confrontato a ogni
   richiesta in `OnTokenValidated`. Chi cambia ruoli o email di un utente deve chiamare
   `UpdateSecurityStampAsync` (già fatto in assign/remove-role e update-user).
 - **Nome utente**: ammessi spazi, apostrofi e lettere accentate (`AllowedUserNameCharacters`), non
   in testa/coda né doppi (`RegoleUsername`). Errori di Identity in italiano
   (`IdentityErrorDescriberItaliano`) e sempre restituiti con `ErroriIdentity.ComeValidationException`,
   mai `BadRequest(result.Errors)`: il frontend non saprebbe leggerli.
-- **Elenco tavoli attivi**: non espone `PrenotazioneId` (starebbe in cache, quindi vecchio, e
-  sarebbe visibile al Cliente). Non reintrodurlo.
-- **Email unica**: `RequireUniqueEmail = true` in `AuthenticationExtensions`. Il login
+- **Elenco tavoli attivi** (`AUD-M8`): non espone più `PrenotazioneId` (era in cache, vecchio e
+  visibile al Cliente).
+- **Email unica** (`AUD-A3`): `RequireUniqueEmail = true` in `AuthenticationExtensions`. Il login
   usa `FindByEmailAsync`, che con due account sulla stessa email solleva un'eccezione.
 - **Cache**: chiavi in `Common/CacheKeys.cs` — invalidare **tutte** le chiavi derivate (es.
   `FascePerGiorno+giorno`), non solo quella base.
@@ -205,7 +205,7 @@ fisso).
   `(PostazioneId, DataPrenotazione, FasciaOrariaId)`. Chi scrive una riga join deve valorizzare
   entrambi i campi (passare da `CreaRigaPostazione`); annullare una prenotazione cancella le sue
   righe join.
-- **Concorrenza sul tetto dei coperti**: `ValidatePrenotazioneAsync` legge la fascia
+- **Concorrenza sul tetto dei coperti** (`CAP-001`): `ValidatePrenotazioneAsync` legge la fascia
   con `GetByIdConLockAsync` (`SELECT ... FOR UPDATE`): chi prenota sulla stessa fascia passa uno
   alla volta, quindi la `SUM` dei coperti non può essere letta «vecchia» da due richieste insieme.
   Il metodo va chiamato **solo dentro** `EseguiInTransazioneAsync` (il lock vive fino al commit),
@@ -234,6 +234,6 @@ motore puro, i job, i validator, il mapping, il repository, il modello. **292 te
   riga tutti i test della classe falliscono (l'InMemory non supporta transazioni).
 - Orologio nei test: `TestClock` (istante fisso).
 - Nessun test su `AuthenticationUserController`: la logica di auth non è ancora estratta in un
-  service dedicato (idea in `BACKLOG.md`, sezione *Idee → Codice*).
+  service dedicato (vedi `BACKLOG.md`).
 - Per mockare `IQueryable<T>` dai repository: pacchetto `MockQueryable.Moq` (7.0.3, unica
   versione compatibile con net9.0) — pattern `lista.AsQueryable().BuildMockDbSet().Object`.

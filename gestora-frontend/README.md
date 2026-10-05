@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Richiede il backend (`gestora-api`) attivo su `localhost:5099` e un file `.env.local` con
+Richiede il backend (`GestoraWebApi`) attivo su `localhost:5099` e un file `.env.local` con
 `VITE_API_URL=http://localhost:5099/api` (non versionato, va ricreato su ogni macchina nuova).
 Ascolta su `localhost:5173`.
 

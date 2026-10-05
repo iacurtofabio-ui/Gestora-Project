@@ -45,7 +45,7 @@ Quel file **non è versionato**: su un computer nuovo va ricreato.
 
 ## 2. Verificare che sia tutto a posto
 
-Da fare prima di dire chiusa un'attività. Tutti e quattro devono essere puliti.
+Da fare prima di chiudere una fase. Tutti e quattro devono essere puliti.
 
 ```powershell
 cd "...\Gestora"; dotnet test Gestora.sln
@@ -56,18 +56,18 @@ cd "...\gestora-frontend"; npm run lint
 
 Valori attesi oggi: **292** test backend, **64** frontend, build senza errori, lint senza errori.
 I test del backend stanno in `GestoraWebApi.Tests/`, accanto all'API: si lanciano dalla radice
-attraverso `Gestora.sln`.
+attraverso `Gestora.sln` (dal 02/10/2026, prima stavano dentro `GestoraWebApi/`).
 
 > ⚠️ `npm test` **non controlla i tipi**, `npm run build` sì. Un test verde non sostituisce una
-> build pulita: è già capitato che la build trovasse un campo scritto male che i test non vedevano.
+> build pulita: in Fase 8 la build ha trovato un campo scritto male che i test non vedevano.
 
 > ⚠️ Se un test contraddice quello che vedi succedere davvero, **sospetta la build prima del
 > codice**: un file ripristinato da un backup ha un timestamp vecchio e il compilatore non lo
 > ricompila. Si risolve con `dotnet build -t:Rebuild`.
 
-Per i soli test del backend esiste la scorciatoia `/test-backend`, che li lancia e riassume l'esito.
+Esiste anche la scorciatoia `/verifica-gestora`, che lancia questi controlli e riporta l'esito.
 
-### Prova manuale del tetto dei coperti
+### Prova manuale del tetto dei coperti (`CAP-001`)
 
 Il lock sulla riga della fascia (`SELECT ... FOR UPDATE`) **non si prova con i test automatici**:
 il database finto dei test non ha lock, come non ha gli indici unici. Si prova a mano, così:
@@ -86,8 +86,8 @@ il segnale che il dato è incoerente, messo apposta per non nasconderlo (`copert
 
 ## 3. Reset dei database
 
-Cancellare tutto e ripartire da zero. **Da fare solo se serve davvero**: in produzione si perdono
-anche i dati reali del locale.
+Cancellare tutto e ripartire da zero. **Da fare solo a implementazioni concluse** (voce `OPS-001`
+in `BACKLOG.md`).
 
 ### ⚠️ Le tre cose che si dimenticano
 
@@ -119,8 +119,8 @@ Poi si apre l'applicazione, che porterà alla schermata di primo avvio per ricre
 
 ### Produzione
 
-Stessa sequenza, ma il database è su Neon e **la esegue Fabio**. Neon **ha un indirizzo
-pubblico**: si entra direttamente da locale, non serve una sessione remota.
+Stessa sequenza, ma il database è su Neon e **la esegue Fabio**. A differenza di Railway, Neon
+**ha un indirizzo pubblico**: si entra direttamente da locale, non serve una sessione remota.
 
 ```powershell
 psql "postgresql://<utente>:<password>@<host>.neon.tech/<database>?sslmode=require"
@@ -134,7 +134,7 @@ alla stessa connection string (via variabile d'ambiente, vedi §7), poi
 Prima di iniziare: **backup** (`pg_dump`, vedi §6), anche se si sta cancellando apposta. Se
 qualcosa va storto a metà si resta con un database mezzo vuoto e nessun modo di tornare indietro.
 
-**Differenze rispetto al locale:**
+**Come è andata il 01/10/2026** (tre differenze rispetto al locale):
 - **Fermare l'App Service** su Azure prima di iniziare, e riavviarlo alla fine (poi `/health`).
 - **Al posto di `dotnet ef database drop`**: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`
   con `psql -c`. Su Neon il ruolo `neondb_owner` può non riuscire a cancellare il database stesso.
@@ -172,12 +172,12 @@ cd "...\GestoraWebApi"; dotnet ef migrations script --idempotent -o Scripts\nome
 > ⚠️ **Togliere il BOM dallo script prima di usarlo.** Il file generato ha un carattere invisibile
 > in testa che psql attacca alla prima istruzione: `START TRANSACTION` fallisce e **tutto lo
 > script gira senza transazione**, quindi senza possibilità di annullare se qualcosa va male.
-> È già successo in produzione.
+> È già successo in produzione il 02/09/2026.
 
 > ⚠️ **Se una modifica si applica a mano, usare sempre lo script generato**, non i comandi SQL
 > scritti a mano: lo script include anche la riga che registra la modifica come applicata. Senza
 > quella riga lo schema è giusto ma Entity Framework continua a considerarla da fare, e un futuro
-> aggiornamento proverà a rieseguirla. È già successo.
+> aggiornamento proverà a rieseguirla. Successo il 31/08, sistemato il 04/09.
 
 ---
 
@@ -185,8 +185,8 @@ cd "...\GestoraWebApi"; dotnet ef migrations script --idempotent -o Scripts\nome
 
 **Il commit, il push, il merge e il tag li fa Fabio.** Claude fornisce solo il messaggio.
 
-1. Commit su `v2`
-2. Merge `v2` → `main`
+1. Commit su `dev`
+2. Merge `dev` → `main`
 3. Tag sulla punta di `main`, poi push del tag
 4. Verifica in produzione
 
@@ -204,9 +204,8 @@ resta lo stesso), e viceversa. La catena backend ha due passaggi automatici in s
 webhook Azure): se `/health` non risponde subito dopo il push, aspettare qualche minuto prima di
 sospettare un problema — è la catena che sta ancora girando, non necessariamente un guasto.
 
-**Numerazione:** l'ultimo tag pubblicato è `v1.2.0`; il primo rilascio della v2 sarà `v2.0.0`.
-Poi `v2.x.0` per un gruppo di funzionalità o segnalazioni, `v2.x.y` per fix e correzioni. Un
-riordino interno, senza effetti sull'applicazione, può restare **senza tag**.
+**Numerazione:** si alza l'ultimo numero (`v1.0.5` → `v1.0.6`) per fix e correzioni. Una fase di
+solo riordino interno può restare **senza tag**, come la Fase 9.
 
 **Verifica dopo il deploy:**
 ```powershell
@@ -223,14 +222,14 @@ Poi login dal frontend con i tre ruoli.
 > ```powershell
 > git status --untracked-files=all
 > ```
-> È già successo che un commit lasciasse fuori 12 file nuovi, poi persi.
+> In Fase 7 un commit ha lasciato fuori 12 file nuovi, che sono stati persi.
 
 ---
 
 ## 6. Accedere al database di produzione e fare un backup
 
-Il Postgres di Neon **ha un indirizzo pubblico**: si lavora da locale, non serve entrare in una
-sessione remota.
+A differenza di Railway, il Postgres di Neon **ha un indirizzo pubblico**: si lavora da locale,
+non serve entrare in una sessione remota.
 
 ```powershell
 pg_dump "postgresql://<utente>:<password>@<host>.neon.tech/<database>?sslmode=require" -f backup_completo.dump -Fc
@@ -242,10 +241,10 @@ psql "postgresql://<utente>:<password>@<host>.neon.tech/<database>?sslmode=requi
 ```
 
 > ⚠️ I file di backup **non vanno mai committati**. Il `.gitignore` di radice li esclude già
-> (`backup_*.csv`, `backup_*.dump`, `*.dump`, `env*.txt`), ma controllare prima del commit. È già
-> successo che file di backup finissero in un repository pubblico, e la storia di Git ha dovuto
-> essere riscritta; lo stesso con un file di credenziali di connessione (`envDBNeon.txt`).
-> Principio: qualsiasi cosa con dentro una password sta fuori da Git.
+> (`backup_*.csv`, `backup_*.dump`, `*.dump`), ma controllare prima del commit. Il 02/09/2026 tre
+> file di backup sono finiti in un repository pubblico e la storia di Git ha dovuto essere
+> riscritta. Lo stesso è successo il 18/09/2026 con `envDBNeon.txt` (credenziali di connessione,
+> non un backup, ma stesso principio: qualsiasi cosa con dentro una password sta fuori da Git).
 
 ### Rotazione della password del database
 
@@ -264,8 +263,8 @@ connection string che compare (formato `postgresql://...`), poi:
 > non `ConnectionStrings:DefaultConnection`): è così che ASP.NET Core legge le variabili
 > d'ambiente come se fossero sezioni annidate della configurazione. Un singolo underscore o i due
 > punti vengono ignorati senza errore, e l'app parte comunque — ma con la stringa vuota o quella
-> vecchia. Già successo, insieme a un secondo errore simile: variabili lasciate come testo
-> segnaposto invece del valore vero.
+> vecchia. Già successo durante la migrazione del 16-17/09/2026, insieme a un secondo bug simile:
+> variabili lasciate come testo segnaposto invece del valore vero.
 
 ---
 
@@ -290,8 +289,8 @@ Su un computer nuovo vanno ricreati da zero (`dotnet user-secrets init` e poi `s
 > ```powershell
 > $sec = Read-Host "Password" -AsSecureString
 > ```
-> `Read-Host` da solo **mostra la password a schermo**. È già successo che una password di
-> produzione finisse così in chat e andasse sostituita.
+> `Read-Host` da solo **mostra la password a schermo**. Il 07/09/2026 una password di produzione
+> è finita così in chat ed è stata sostituita.
 
 ---
 
@@ -321,13 +320,13 @@ PowerShell 5.1 lo legge con la codifica sbagliata e gli accenti si rompono.
 
 - I fogli si indirizzano per **numero**, non per nome: i nomi contengono emoji e falliscono
 - I valori si scrivono sempre convertiti a testo: `[string]"..."`
-- Le date vanno scritte come date vere (`[datetime]::new(2026,10,5)`), non come stringhe:
+- Le date vanno scritte come date vere (`[datetime]::new(2026,9,8)`), non come stringhe:
   scritte come testo vengono lette all'americana e il giorno diventa il mese
 - Per copiare la formattazione di una riga: `Rows.Item(x).Copy(Rows.Item(y))`, mai `PasteSpecial`
 - Il colore di una cella si legge come numero, non come testo: per riusare un colore esistente
   si legge da una cella che ce l'ha già, invece di scriverlo a mano
 
-### Azure App Service e Vercel: le trappole della configurazione
+### Azure App Service: le trappole della migrazione (16-18/09/2026)
 
 - **Variabili con doppio underscore.** `ConnectionStrings__DefaultConnection`, non
   `ConnectionStrings:DefaultConnection`: è così che Azure passa le variabili d'ambiente come
@@ -349,11 +348,12 @@ PowerShell 5.1 lo legge con la codifica sbagliata e gli accenti si rompono.
 
 La rotta base è `/api/[nome del controller senza "Controller"]`.
 Quindi `AuthenticationUserController` risponde su `/api/AuthenticationUser/...` — **non**
-`/api/AuthenticationUserController/...` e **non** `/api/Auth/...`.
+`/api/AuthenticationUserController/...` e **non** `/api/Auth/...`, come dice documentazione
+vecchia.
 
 Eccezione da ricordare: le fasce orarie rispondono su `/api/FasceOrarie/...` anche se la classe
 si chiama `FasciaOrariaService`. È il naming incoerente lasciato apposta (vedi `BACKLOG.md`,
-sezione *Rischi accettati e cose decise di non fare*).
+sezione *Deciso di NON fare*).
 
 ---
 
@@ -361,9 +361,9 @@ sezione *Rischi accettati e cose decise di non fare*).
 
 ### Il token nel browser, spiegato in chiaro
 
-La domanda: se il token di accesso (JWT) si legge dagli strumenti sviluppatore del browser
-(F12 → Application → Local Storage), chiunque arrivi a quella schermata non ottiene forse
-l'accesso come quell'utente?
+Il primo appunto di Fabio su questo progetto era un dubbio preciso: se il token di accesso (JWT)
+si legge dagli strumenti sviluppatore del browser (F12 → Application → Local Storage), chiunque
+arrivi a quella schermata non ottiene forse l'accesso come quell'utente?
 
 Risposta: **sì, ma solo chi ha già in mano quel browser con quella sessione aperta.** Non è un
 modo per entrare da fuori. In dettaglio:
@@ -382,11 +382,12 @@ Quindi non è un bug: è come funziona ogni applicazione web con login che non u
 complesso (cookie `HttpOnly` + protezione CSRF, che è un'architettura diversa, non una correzione
 a questa). La protezione vera sta in due cose, entrambe già presenti:
 
-1. **La scadenza**, 60 minuti (`JwtSettings:ExpiryMinutes`) — con `ClockSkew = TimeSpan.Zero`
-   scade esattamente a 60 minuti, non a 65.
+1. **La scadenza**, 60 minuti (`JwtSettings:ExpiryMinutes`) — con la correzione di questa fase
+   (`ClockSkew = TimeSpan.Zero`) scade esattamente a 60 minuti, non a 65.
 2. **Il logout**, che cancella il token e svuota anche la cache di React Query
    (`AppLayout.handleLogout` e il gestore di sessione scaduta fanno entrambi le due cose insieme),
    così non restano dati del vecchio utente in memoria dopo l'uscita.
 
-**Idea** (non una correzione): passare a cookie `HttpOnly` con protezione CSRF è una
-riprogettazione dell'autenticazione, non un fix — vedi `BACKLOG.md`, sezione *Idee*.
+**Idea per la v2.0** (non una correzione da fare ora): passare a cookie `HttpOnly` con protezione
+CSRF è una riprogettazione dell'autenticazione, non un fix — vedi `BACKLOG.md`, sezione *Idee per
+la v2.0*.

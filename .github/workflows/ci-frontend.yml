@@ -2,11 +2,11 @@ name: CI Frontend
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, v2]
     paths:
       - 'gestora-frontend/**'
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, v2]
     paths:
       - 'gestora-frontend/**'
 

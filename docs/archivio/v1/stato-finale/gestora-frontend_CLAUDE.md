@@ -8,7 +8,7 @@ backend vedi `lib/endpoints.ts` (fonte di verità) o `GestoraWebApi/CLAUDE.md` p
 
 React 19 + TypeScript + Vite, shadcn/ui + Tailwind CSS, TanStack Query v5 (React Query),
 React Hook Form + Zod, **React Router v7** (`createBrowserRouter` — attenzione: qualunque nota
-che parla di v6 è sbagliata), Axios con interceptor JWT (attach token da localStorage,
+più vecchia che parla di v6 è superata), Axios con interceptor JWT (attach token da localStorage,
 logout + redirect su 401).
 
 ## Verifica prima di dire "fatto"
@@ -57,29 +57,30 @@ sempre i token del tema, altrimenti quella zona resta bianca in tema scuro.
 
 ### Tipografia
 
-**Inter Variable**, self-hosted via Fontsource. Sei ruoli dichiarati come token,
+**Inter Variable**, self-hosted via Fontsource (dalla Fase 6: prima era Archivo — cambio di
+carattere, non di sistema: i nomi dei token restano gli stessi). Sei ruoli dichiarati come token,
 da usare al posto delle classi improvvisate:
 
 `text-readout` (numeri grandi) · `text-readout-sm` · `text-titolo` (uno per schermata) ·
-`text-sezione` (intestazione di blocco) · `text-corpo` (0.9375rem) ·
+`text-sezione` (intestazione di blocco) · `text-corpo` (0.9375rem dalla Fase 6, prima 0.875rem) ·
 `text-orario` (orari/quantità in tabella, `tabular-nums`) · `text-nota`.
 
 Il ripiego metrico (`@font-face 'Inter Ripiego'` in `index.css`, script
-`scripts/metriche-ripiego.mjs`) va rigenerato solo se si cambia carattere o si aggiorna il
+`scripts/metriche-ripiego.mjs`) va rigenerato solo se si cambia ancora carattere o si aggiorna il
 pacchetto Fontsource.
 
-### Raggi
+### Raggi: due scaglioni, non tre
 
-`2px` bande e righe · `6px` tutto ciò che è controllo o card ·
+Dalla Fase 6 (prima erano tre): `2px` bande e righe · `6px` tutto ciò che è controllo o card ·
 `12px` ciò che galleggia (dialog, menu). I nomi dei token (`--radius-md`, `--radius-2xl`, ecc.)
-non corrispondono alla misura: si cambia il valore del token, non la classe nei componenti.
-Una sola ombra, riservata a ciò che galleggia davvero. Il raggio dice *che cosa è* una cosa.
+non sono cambiati, solo i valori: nessun componente ha dovuto cambiare classe. Una sola ombra,
+riservata a ciò che galleggia davvero. Il raggio dice *che cosa è* una cosa.
 
-### Barra superiore, non sidebar
+### Barra superiore, non più sidebar
 
-`layouts/AppLayout.tsx` ha una barra superiore fissa (`h-14`, sticky), non una sidebar laterale:
-logo a sinistra, voci di menu orizzontali al centro (voce attiva
-sottolineata in `primary`, non sfondo pieno), tema e menu utente (avatar con iniziali) a
+Dalla Fase 6, `layouts/AppLayout.tsx` ha una barra superiore fissa (`h-14`, sticky) al posto
+della sidebar laterale: logo a sinistra, voci di menu orizzontali al centro (voce attiva
+sottolineata in `primary`, non più sfondo pieno), tema e menu utente (avatar con iniziali) a
 destra. Sotto i 1024px le voci vanno in un pannello a scomparsa sotto la barra, aperto dal
 pulsante hamburger. Il filtro per ruolo delle voci di menu è in un solo array (`vociMenu` dentro
 `AppLayout.tsx`), con `ruoli` e `gruppo` per voce — non toccare la logica di filtro altrove.
@@ -148,10 +149,11 @@ form, senza id). Il backend decide l'id, mai il frontend.
   `onError: segnalaErrore('testo di ripiego')` — **mai** scrivere la gestione errore a mano. Se
   la scrittura cambia anche numeri mostrati altrove (es. una prenotazione tocca la Dashboard),
   invalidare anche quelle query — vedi `invalidaPrenotazioniEDashboard` in `usePrenotazioni.ts`
+  (Fase 7)
 - i path degli endpoint si prendono da `lib/endpoints.ts`, **mai scritti inline**
 - **i filtri di una pagina a elenco vivono nell'URL** (`useSearchParams`), non in `useState`
   locale — così sono condivisibili e sopravvivono a un ricaricamento. Esempio di riferimento:
-  `PrenotazionePage.tsx`
+  `PrenotazionePage.tsx` (Fase 7)
 
 **Modal** — un solo modal gestisce create ed edit: prop oggetto `undefined` = create (form
 vuoto), valorizzata = edit (form ripopolato via `useEffect` + `reset`).
@@ -226,9 +228,9 @@ pagina di casa per ruolo (5), navigazione per giorno della Dashboard (1), filtri
 | AdminUtenti | utente.ts | useAdminUtenti.ts | 4 modal (Edit/GestisciRuoli/ResetPassword/CreateUser) | AdminUtentiPage.tsx |
 
 Nuovi moduli CRUD seguono questa struttura — varianti solo se motivate qui. AdminUtenti ha 4
-modal invece di 1 per via della *creazione utenti* qui sotto: resta comunque nella struttura a 4 file.
+modal invece di 1 per via del `GAP-001` sotto: resta comunque nella struttura a 4 file.
 
-### Creazione utenti (non un CRUD standard)
+### GAP-001 — creazione utenti (non un CRUD standard)
 
 Il backend non ha un endpoint "crea utente con ruolo": `POST register` è pubblico e assegna
 sempre `Cliente`. `useCreateUser` compone tre chiamate esistenti: `register` → `get-users` (per

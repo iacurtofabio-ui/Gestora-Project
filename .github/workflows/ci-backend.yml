@@ -2,14 +2,14 @@ name: CI Backend
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, v2]
     paths:
       - 'GestoraWebApi/**'
       - 'GestoraWebApi.Tests/**'
       - 'Gestora.sln'
       - 'global.json'
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, v2]
     paths:
       - 'GestoraWebApi/**'
       - 'GestoraWebApi.Tests/**'
