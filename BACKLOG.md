@@ -50,7 +50,7 @@ Modello da copiare:
 | Sigla | Tipo | Cosa | Chi sviluppa | Stato |
 |---|---|---|---|---|
 | `V2-001` | studio | Riallineare documentazione e file di supporto all'avvio della v2 | Claude | fatto (05/10/2026) |
-| `V2-002` | miglioramento | Tetto dei 50 coperti per prenotazione configurabile | — | da fare |
+| `V2-002` | miglioramento | Tetto dei 50 coperti per prenotazione configurabile (strada A) | io | in corso |
 | `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |

@@ -1,16 +1,19 @@
 using FluentValidation;
 using GestoraWebApi.Common;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
+using Microsoft.Extensions.Options;
 
 namespace GestoraWebApi.Validators
 {
     public class PrenotazioneCreateDTOValidator : AbstractValidator<PrenotazioneCreateDTO>
     {
-        public PrenotazioneCreateDTOValidator(IClock clock)
+        public PrenotazioneCreateDTOValidator(IClock clock, IOptions<PrenotazioniSettings> impostazioni)
         {
+            var maxCoperti = impostazioni.Value.MaxCopertiPerPrenotazione;
+
             RuleFor(x => x.NumeroCoperti)
                 .GreaterThan(0).WithMessage("Il numero di coperti deve essere maggiore di zero.")
-                .LessThanOrEqualTo(50).WithMessage("Il numero di coperti non può superare 50.");
+                .LessThanOrEqualTo(maxCoperti).WithMessage($"Il numero di coperti non può superare {maxCoperti}.");
 
             RuleFor(x => x.DataPrenotazione)
                 .Must(d => d >= clock.TodayInRome)

@@ -1,6 +1,7 @@
 using FluentValidation;
 using GestoraWebApi.Common;
 using GestoraWebApi.Services.PrenotazioniPostazioni;
+using Microsoft.Extensions.Options;
 
 namespace GestoraWebApi.Validators
 {
@@ -20,8 +21,10 @@ namespace GestoraWebApi.Validators
         // suo giro di query, senza alcun costo per chi chiama.
         public const int GiorniMassimiInAvanti = 365;
 
-        public CheckDisponibilitaDTOValidator(IClock clock)
+        public CheckDisponibilitaDTOValidator(IClock clock, IOptions<PrenotazioniSettings> impostazioni)
         {
+            var maxCoperti = impostazioni.Value.MaxCopertiPerPrenotazione;
+
             RuleFor(x => x.DataPrenotazione)
                 .Must(d => d >= clock.TodayInRome)
                 .WithMessage("Non è possibile verificare la disponibilità per una data passata.")
@@ -30,7 +33,7 @@ namespace GestoraWebApi.Validators
 
             RuleFor(x => x.NumeroCoperti)
                 .GreaterThan(0).WithMessage("Il numero di coperti deve essere maggiore di zero.")
-                .LessThanOrEqualTo(50).WithMessage("Il numero di coperti non può superare 50.");
+                .LessThanOrEqualTo(maxCoperti).WithMessage($"Il numero di coperti non può superare {maxCoperti}.");
         }
     }
 }

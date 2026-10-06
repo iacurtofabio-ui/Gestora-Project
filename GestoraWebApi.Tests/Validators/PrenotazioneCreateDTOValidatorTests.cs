@@ -1,5 +1,7 @@
+using GestoraWebApi.Common;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using GestoraWebApi.Validators;
+using Microsoft.Extensions.Options;
 
 namespace GestoraWebApi.Tests.Validators;
 
@@ -11,10 +13,13 @@ public class PrenotazioneCreateDTOValidatorTests
     // 14/06/2026 23:30 UTC == 15/06/2026 a Roma (CEST).
     private static readonly DateTime UtcSera = new(2026, 6, 14, 23, 30, 0, DateTimeKind.Utc);
 
+    private static readonly IOptions<PrenotazioniSettings> Tetto50 =
+          Options.Create(new PrenotazioniSettings { MaxCopertiPerPrenotazione = 50 });
+
     [Fact]
     public void RifiutaLaDataDiIeriInOraItaliana()
     {
-        var validator = new PrenotazioneCreateDTOValidator(new TestClock(UtcSera));
+        var validator = new PrenotazioneCreateDTOValidator(new TestClock(UtcSera), Tetto50);
 
         var result = validator.Validate(new PrenotazioneCreateDTO
         {
@@ -29,7 +34,7 @@ public class PrenotazioneCreateDTOValidatorTests
     [Fact]
     public void AccettaLaDataDiOggiInOraItaliana_AncheSeIlServerUtcEAncoraIeri()
     {
-        var validator = new PrenotazioneCreateDTOValidator(new TestClock(UtcSera));
+        var validator = new PrenotazioneCreateDTOValidator(new TestClock(UtcSera), Tetto50);
 
         var result = validator.Validate(new PrenotazioneCreateDTO
         {
@@ -51,7 +56,7 @@ public class PrenotazioneCreateDTOValidatorTests
     };
 
     private static FluentValidation.Results.ValidationResult Valida(PrenotazioneCreateDTO dto) =>
-        new PrenotazioneCreateDTOValidator(new TestClock(UtcSera)).Validate(dto);
+        new PrenotazioneCreateDTOValidator(new TestClock(UtcSera), Tetto50).Validate(dto);
 
     [Fact]
     public void AccettaUnaRichiestaValida()
@@ -119,5 +124,28 @@ public class PrenotazioneCreateDTOValidatorTests
         dto.DataPrenotazione = new DateOnly(2027, 6, 30);
 
         Assert.Contains(Valida(dto).Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.DataPrenotazione));
+    }
+
+    // Il tetto dei coperti non è scritto nel validatore: arriva dalla configurazione.
+    // Con un tetto di 10, 10 coperti passano, 11 no, e il messaggio riporta il valore vero.
+    [Fact]
+    public void UsaIlTettoDeiCopertiDellaConfigurazione()
+    {
+        // Arrange
+        var tetto10 = Options.Create(new PrenotazioniSettings { MaxCopertiPerPrenotazione = 10 });
+        var validator = new PrenotazioneCreateDTOValidator(new TestClock(UtcSera), tetto10);
+        var dieci = Valido();
+        dieci.NumeroCoperti = 10;
+        var undici = Valido();
+        undici.NumeroCoperti = 11;
+
+        // Act
+        var esitoDieci = validator.Validate(dieci);
+        var esitoUndici = validator.Validate(undici);
+
+        // Assert
+        Assert.DoesNotContain(esitoDieci.Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.NumeroCoperti));
+        var errore = Assert.Single(esitoUndici.Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.NumeroCoperti));
+        Assert.Equal("Il numero di coperti non può superare 10.", errore.ErrorMessage);
     }
 }

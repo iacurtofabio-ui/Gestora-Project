@@ -1,6 +1,8 @@
 using FluentValidation.TestHelper;
+using GestoraWebApi.Common;
 using GestoraWebApi.Services.PrenotazioniPostazioni;
 using GestoraWebApi.Validators;
+using Microsoft.Extensions.Options;
 
 namespace GestoraWebApi.Tests.Validators;
 
@@ -17,7 +19,8 @@ public class CheckDisponibilitaDTOValidatorTests
 
     public CheckDisponibilitaDTOValidatorTests()
     {
-        _validator = new CheckDisponibilitaDTOValidator(_clock);
+        _validator = new CheckDisponibilitaDTOValidator(_clock,
+                      Options.Create(new PrenotazioniSettings { MaxCopertiPerPrenotazione = 50 }));
     }
 
     private CheckDisponibilitaDTO Dto(DateOnly? data = null, int coperti = 2) => new()
@@ -83,5 +86,21 @@ public class CheckDisponibilitaDTOValidatorTests
     public void NumeroCopertiAiLimiti_EAccettato(int coperti)
     {
         _validator.TestValidate(Dto(coperti: coperti)).ShouldNotHaveAnyValidationErrors();
+    }
+
+    // Dimostra che il validator usa il limite massimo di coperti dalla configurazione.
+    [Fact]
+    public void UsaIlTettoDeiCopertiDellaConfigurazione()
+    {
+        // Arrange
+        var validator = new CheckDisponibilitaDTOValidator(_clock,
+                      Options.Create(new PrenotazioniSettings { MaxCopertiPerPrenotazione = 10 }));
+
+        // Act & Assert
+        validator.TestValidate(Dto(coperti: 10)).ShouldNotHaveAnyValidationErrors();
+
+        validator.TestValidate(Dto(coperti: 11))
+                 .ShouldHaveValidationErrorFor(x => x.NumeroCoperti)
+                 .WithErrorMessage("Il numero di coperti non può superare 10.");
     }
 }

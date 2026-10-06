@@ -1,37 +1,38 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using GestoraWebApi.Auth;
 using GestoraWebApi.Background;
+using GestoraWebApi.Common;
 using GestoraWebApi.Context;
 using GestoraWebApi.Development;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
-using Microsoft.AspNetCore.Identity;
+using GestoraWebApi.Infrastructure.Middleware;
 using GestoraWebApi.Mappings;
 using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Repositories.LogActivity;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Prenotazioni;
 using GestoraWebApi.Repositories.Zone;
+using GestoraWebApi.Services.Dashboard;
 using GestoraWebApi.Services.Disponibilita;
 using GestoraWebApi.Services.FasciaOrarie;
 using GestoraWebApi.Services.LogActivity;
-using GestoraWebApi.Services.Postazioni;
 using GestoraWebApi.Services.PostazioneAssignment;
+using GestoraWebApi.Services.Postazioni;
 using GestoraWebApi.Services.Prenotazioni;
 using GestoraWebApi.Services.Zone;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
-using Serilog;
-using System.Text;
 using Quartz;
 using Quartz.Impl;
-using FluentValidation;
-using FluentValidation.AspNetCore;
-using GestoraWebApi.Services.Dashboard;
-using GestoraWebApi.Infrastructure.Middleware;
-using Microsoft.AspNetCore.RateLimiting;
+using Serilog;
+using System.Text;
 using System.Threading.RateLimiting;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 
 
@@ -92,6 +93,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+
+builder.Services.AddOptions<PrenotazioniSettings>()
+    .Bind(builder.Configuration.GetSection(PrenotazioniSettings.Sezione))
+    .Validate(s => s.MaxCopertiPerPrenotazione > 0,
+        "Configurazione non valida: Prenotazioni:MaxCopertiPerPrenotazione deve essere maggiore di zero.")
+    .ValidateOnStart();
 
 // Json Serializza TimeSpan come stringa "HH:mm"
 builder.Services.AddControllers()

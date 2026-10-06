@@ -6,6 +6,8 @@ using GestoraWebApi.Services.PrenotazioniPostazioni;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using GestoraWebApi.Common;
+using Microsoft.Extensions.Options;
 
 namespace GestoraWebApi.Controllers
 {
@@ -15,14 +17,17 @@ namespace GestoraWebApi.Controllers
     {
         private readonly IPrenotazioniService _prenotazioniService;
         private readonly IDisponibilitaService _disponibilitaService;
+        private readonly PrenotazioniSettings _impostazioni;
         private readonly ILogger<PrenotazioneController> _logger;
 
         public PrenotazioneController(IPrenotazioniService prenotazioneService,
                                       IDisponibilitaService disponibilitaService,
+                                      IOptions<PrenotazioniSettings> impostazioni,
                                       ILogger<PrenotazioneController> logger)
         {
             _prenotazioniService = prenotazioneService;
             _disponibilitaService = disponibilitaService;
+            _impostazioni = impostazioni.Value;
             _logger = logger;
         }
 
@@ -165,6 +170,18 @@ namespace GestoraWebApi.Controllers
             // quel giorno. Restituendo 404 il chiamante - qui anche un client pubblico non
             // autenticato - doveva distinguere un giorno di chiusura da un errore vero.
             return Ok(disponibilita ?? new DisponibilitaResponseDTO());
+        }
+
+        /// <summary>Endpoint pubblico (no login richiesto). Restituisce i limiti delle prenotazioni
+        /// letti dalla configurazione, così il frontend non deve scriverli a mano.</summary>
+        [AllowAnonymous]
+        [HttpGet("limiti-prenotazione")]
+        public IActionResult GetLimitiPrenotazione()
+        {
+            return Ok(new LimitiPrenotazioneDTO
+            {
+                MaxCopertiPerPrenotazione = _impostazioni.MaxCopertiPerPrenotazione
+            });
         }
     }
 }
