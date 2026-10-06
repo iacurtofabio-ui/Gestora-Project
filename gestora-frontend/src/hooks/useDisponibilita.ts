@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/lib/axios'
 import { Endpoints } from '@/lib/endpoints'
-import type { DisponibilitaResponseDTO } from '@/types/disponibilita'
+import type { DisponibilitaResponseDTO, LimitiPrenotazioneDTO } from '@/types/disponibilita'
 
 /**
  * NEW-002 — semaforo di disponibilità nel form di prenotazione, invece di scoprire il rifiuto
@@ -31,5 +31,24 @@ export function useCheckDisponibilita(
     // E' solo un'anteprima: un errore qui non deve disturbare la compilazione del form, e non
     // vale la pena ritentare un input che l'utente sta ancora scrivendo.
     retry: false,
+  })
+}
+
+/**
+   * i limiti delle prenotazioni (oggi il tetto dei coperti) vengono dalla configurazione
+   * del backend: il frontend non li scrive più a mano. Endpoint pubblico, usabile anche dalla
+   * pagina senza account.
+   *
+   * `staleTime: Infinity`: il valore cambia solo quando si riavvia il backend.
+   */
+export function useLimitiPrenotazione() {
+  return useQuery<LimitiPrenotazioneDTO>({
+    queryKey: ['limiti-prenotazione'],
+    queryFn: () =>
+      apiClient
+        .get<LimitiPrenotazioneDTO>(Endpoints.prenotazione.limitiPrenotazione)
+        .then((r) => r.data),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   })
 }

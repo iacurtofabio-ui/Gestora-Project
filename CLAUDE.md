@@ -16,16 +16,16 @@ v2 (vedi §4).
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 7 migration EF + tabelle Quartz |
-| Test | **292** backend (xUnit) + **64** frontend (Vitest), tutti verdi |
+| Test | **294** backend (xUnit) + **64** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7, applicate in locale e su Neon (elenco nel foglio *BE · Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione |
 
-**Ultima cosa fatta** (05/10/2026): avvio della v2 (`V2-001`) — documenti riallineati, storico
-spostato in `docs/archivio/v1/`, `BACKLOG.md` con sigle `V2-xxx`, tracker rinominato
-`TrackGestora.xlsx`, ramo `v2` creato e pubblicato. Per andare in produzione: merge `v2` → `main`
-(`RUNBOOK.md` §5); `dev` non si usa più. **Prossimo passo**: le prime segnalazioni dal locale,
-oppure una voce aperta di `BACKLOG.md` (sempre decidendo prima chi la sviluppa).
+**Ultima cosa fatta** (06/10/2026): `V2-002` — tetto dei coperti per prenotazione spostato in
+configurazione (`Prenotazioni:MaxCopertiPerPrenotazione`, 50), letto dai validatori e dalla pagina
+pubblica tramite `GET limiti-prenotazione`. Sviluppata da Fabio, guidato. Per andare in
+produzione: merge `v2` → `main` (`RUNBOOK.md` §5); `dev` non si usa più. **Prossimo passo**:
+le segnalazioni dal locale; `V2-007` è analizzato ma rimandato (soluzioni in `BACKLOG.md`).
 
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.
 
@@ -94,7 +94,8 @@ Test con **Vitest + Testing Library**. Deploy su **Vercel**, che ripubblica da s
 su `main` che tocca `gestora-frontend/**`.
 
 **`/` è pubblica**: presenta il locale e lascia controllare la disponibilità senza registrarsi.
-⚠️ Su quella pagina non c'è nessun token: l'unico endpoint chiamabile è `check-disponibilita`.
+⚠️ Su quella pagina non c'è nessun token: gli unici endpoint chiamabili sono `check-disponibilita`
+e `limiti-prenotazione`.
 
 ### Due ambienti separati in modo stabile
 

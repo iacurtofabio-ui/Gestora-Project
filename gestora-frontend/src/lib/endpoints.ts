@@ -50,6 +50,8 @@ export const Endpoints = {
     mie: '/Prenotazione/get-mie-prenotazioni',
     // NEW-002: pubblico, nessuna autenticazione richiesta.
     checkDisponibilita: '/Prenotazione/check-disponibilita',
+    // V2-002: pubblico, nessuna autenticazione richiesta.
+    limitiPrenotazione: '/Prenotazione/limiti-prenotazione',
     crea: '/Prenotazione/crea-prenotazione',
     update: (id: number) => `/Prenotazione/update-prenotazione?id=${id}`,
     conferma: (id: number) => `/Prenotazione/conferma-prenotazione?id=${id}`,

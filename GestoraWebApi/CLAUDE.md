@@ -52,8 +52,8 @@ liste scritte a mano: invecchiano. Quello che il codice non dice da solo:
   Azure App Service lo chiama di continuo per il proprio controllo di salute; il log di richiesta
   lo tiene a livello `Verbose` apposta, per non intasare i log con una riga ogni pochi
   secondi.
-- **`check-disponibilita`** (Prenotazione) e **`Setup`** (`GET stato`, `POST admin`) sono pubblici,
-  senza auth — necessario per la pagina pubblica e il primo avvio.
+- **`check-disponibilita`** e **`limiti-prenotazione`** (Prenotazione) e **`Setup`** (`GET stato`,
+  `POST admin`) sono pubblici, senza auth — necessario per la pagina pubblica e il primo avvio.
 - **`JobsController`** (`POST trigger/{jobName}`, solo Admin) è **attivo anche in produzione**,
   nessun filtro per ambiente: forza un job Quartz già registrato senza aspettare il cron.
 - **`update-prenotazione`/`annulla-prenotazione`**: aperte anche al Cliente, ma solo sulla propria
@@ -198,6 +198,12 @@ fisso).
 - **Avvio**: `Program.cs` valida la configurazione **prima** di registrare i servizi (fail-fast):
   se manca `ConnectionStrings:DefaultConnection`/`JwtSettings:Secret`, o il segreto è più corto di
   32 caratteri, l'app si ferma con un messaggio esplicito. **Non rimuovere quei controlli.**
+- **Tetto dei coperti per prenotazione**: non è nel codice ma in configurazione,
+  `Prenotazioni:MaxCopertiPerPrenotazione` (`Common/PrenotazioniSettings`, oggi 50; su Azure
+  `Prenotazioni__MaxCopertiPerPrenotazione`). Controllato all'avvio (`ValidateOnStart`, deve
+  essere > 0). Lo leggono i due validatori (`PrenotazioneCreateDTOValidator`,
+  `CheckDisponibilitaDTOValidator`, sempre lo stesso valore) e `GET limiti-prenotazione`, che lo
+  passa al frontend. Non riscrivere il numero a mano da nessuna parte.
 - **Connessione DB**: `EnableRetryOnFailure` attivo (5 tentativi/10s). Le transazioni esplicite
   vanno dentro `CreateExecutionStrategy().ExecuteAsync(...)` — usare l'helper
   `EseguiInTransazioneAsync`, non aprire transazioni a mano.
@@ -227,7 +233,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **292 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **294 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

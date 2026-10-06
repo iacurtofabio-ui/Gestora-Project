@@ -15,3 +15,8 @@ export type FasciaDisponibilitaDTO = {
 export type DisponibilitaResponseDTO = {
   fasce: FasciaDisponibilitaDTO[]
 }
+
+/** Rispecchia LimitiPrenotazioneDTO del backend (GET Prenotazione/limiti-prenotazione, pubblico). */
+export type LimitiPrenotazioneDTO = {
+  maxCopertiPerPrenotazione: number
+}

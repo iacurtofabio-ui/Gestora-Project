@@ -50,24 +50,54 @@ Modello da copiare:
 | Sigla | Tipo | Cosa | Chi sviluppa | Stato |
 |---|---|---|---|---|
 | `V2-001` | studio | Riallineare documentazione e file di supporto all'avvio della v2 | Claude | fatto (05/10/2026) |
-| `V2-002` | miglioramento | Tetto dei 50 coperti per prenotazione configurabile (strada A) | io | in corso |
+| `V2-002` | miglioramento | Tetto dei coperti per prenotazione configurabile (strada A) | io | fatto (06/10/2026) |
 | `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
+| `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli (analizzato) | — | da fare |
 
-### `V2-002` — tetto dei 50 coperti per prenotazione
-Oggi il limite è scritto nel codice in due validatori (`PrenotazioneCreateDTOValidator`,
-`CheckDisponibilitaDTOValidator`) e nel frontend (`max={50}` in `VerificaDisponibilita.tsx`).
-Due strade, da scegliere prima di iniziare:
-- **A (consigliata)**: valore nella configurazione (`appsettings`), letto dal backend e restituito
-  al frontend; cambiarlo richiede un riavvio, nessuna migration
-- **B**: impostazione nel database modificabile dall'Admin da una schermata; serve una migration
-  e una pagina nuova
+### `V2-002` — tetto dei coperti per prenotazione configurabile ✅
+Scelta la strada A: il tetto sta in configurazione (`Prenotazioni:MaxCopertiPerPrenotazione` in
+`appsettings.json`, **50**), controllato all'avvio, letto dai due validatori e passato al
+frontend da `GET api/Prenotazione/limiti-prenotazione` (pubblico). Nella pagina pubblica, oltre il
+tetto, il campo «Persone» resta bloccato dal browser e compare «Per prenotazioni superiori a N
+persone contatta direttamente il ristorante». Per cambiarlo in produzione: variabile d'ambiente di
+Azure `Prenotazioni__MaxCopertiPerPrenotazione` (la mette Fabio), nessun rilascio. 294 test
+backend (+2), 64 frontend.
 
 ### `V2-003` — conferma dell'email
 Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter prenotare. Oggi non
 esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
 collega all'idea *Email di conferma e promemoria* qui sotto.
+
+### `V2-007` — messaggio senza senso quando mancano i tavoli
+Segnalato il 06/10/2026 provando la pagina pubblica. Esempio: 50 persone, fascia con tetto 60
+coperti, in sala solo 2 tavoli da 2 posti. L'utente legge «Disponibilità residua: 58 coperti» e
+accanto «Pieno»: i due dati si contraddicono. **Analisi fatta, correzione rimandata per scelta**
+(più ampia del previsto).
+
+**Causa.** Il backend (`DisponibilitaService.CheckDisponibilitaAsync`) distingue già 4 motivi di
+fascia non prenotabile — terminata, tetto esaurito, posti residui meno di quelli chiesti, tavoli
+che non bastano — e ne scrive uno in `messaggio`. La pagina pubblica
+(`components/landing/VerificaDisponibilita.tsx`, riga della fascia non libera) **ignora il
+motivo** e mostra sempre «Disponibilità residua: N» + «Pieno». La riga che mostrava il motivo è
+stata sostituita nel restyle (commit `a211a8b`), il commento sopra è rimasto. Stesso difetto per
+una fascia già finita, che compare come «Pieno». I testi di `messaggio` sono pensati per lo Staff
+(li usa `PrenotazioneModal`), troppo tecnici per un cliente.
+
+**Soluzioni valutate** (da scegliere quando si riprende):
+1. **Blocco sulla fascia** (proposta di Fabio): creando o modificando una fascia, il tetto
+   `MaxCoperti` non può superare i posti totali della sala (somma delle capienze dei tavoli
+   attivi in zone attive; **non** il motore `TrovaMigliorCombinazione`, che vale per un gruppo
+   solo e unisce al massimo 4 tavoli). Toglie il caso segnalato, ma **cambia la decisione di
+   prodotto 8** (da scrivere in `CLAUDE.md` §5) e impone di creare i tavoli prima delle fasce.
+   Non copre: gruppo più grande di 4 tavoli, tavoli liberi sparsi in zone diverse, sala ridotta
+   dopo la creazione della fascia (zona o tavoli disattivati).
+2. **Motivo vero nella pagina pubblica**: un campo `motivo` nel `FasciaDisponibilitaDTO` del
+   backend (+ test) e un testo per il cliente per ognuno. Unico testo già deciso: posti
+   insufficienti → «Restano N posti». Proposti per gli altri: «Turno concluso», «Pieno», «Per N
+   persone contattaci».
+3. Entrambe (consigliato): la 1 evita le configurazioni incoerenti, la 2 copre i casi rimanenti.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare

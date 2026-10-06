@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useCheckDisponibilita } from '@/hooks/useDisponibilita'
+import { useCheckDisponibilita, useLimitiPrenotazione } from '@/hooks/useDisponibilita'
 import { oggiInItalia, ultimaDataPrenotabile } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,13 +21,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
  * su una pagina pubblica.
  */
 export function VerificaDisponibilita() {
+
   const [data, setData] = useState('')
+
   const [coperti, setCoperti] = useState('2')
   // La ricerca non parte mentre si scrive: parte quando si preme il pulsante. Altrimenti a ogni
   // tasto sul numero di coperti partirebbe una chiamata.
   const [ricerca, setRicerca] = useState<{ data: string; coperti: number } | undefined>(undefined)
 
   const disponibilita = useCheckDisponibilita(ricerca?.data, ricerca?.coperti)
+  // il tetto dei coperti arriva dalla configurazione del backend. Finché la risposta non
+  // c'è (o se fallisce) il campo resta senza massimo: il controllo vero lo fa comunque il backend.
+  const limiti = useLimitiPrenotazione()
+
+  const maxCoperti = limiti.data?.maxCopertiPerPrenotazione
+  // Gruppo troppo grande per la prenotazione online: lo diciamo subito, mentre si scrive.
+  const troppiCoperti = maxCoperti !== undefined && Number(coperti) > maxCoperti
 
   function cerca(e: React.FormEvent) {
     e.preventDefault()
@@ -70,8 +79,8 @@ export function VerificaDisponibilita() {
               id="disp-coperti"
               type="number"
               min={1}
-              max={50}
-              value={coperti}
+              max={maxCoperti}
+              aria-invalid={troppiCoperti} value={coperti}
               onChange={(e) => setCoperti(e.target.value)}
               required
             />
@@ -80,6 +89,12 @@ export function VerificaDisponibilita() {
             Vedi i turni liberi
           </Button>
         </form>
+
+        {troppiCoperti && (
+          <p className="text-nota text-destructive">
+            Per prenotazioni superiori a {maxCoperti} persone contatta direttamente il ristorante.
+          </p>
+        )}
 
         {disponibilita.isFetching && (
           <p className="flex items-center gap-2 text-corpo text-muted-foreground">

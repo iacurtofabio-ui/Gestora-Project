@@ -99,8 +99,10 @@ in `components/ThemeToggle.tsx`, ricordato in `localStorage`. Tre stati: **chiar
 
 `/` mostra `pages/LandingPage.tsx`, raggiungibile **senza account**.
 
-> ⚠️ **In quella pagina non c'è nessun token.** L'unico endpoint chiamabile è
-> `check-disponibilita`. `get-zone-attive`, `get-all-fasce` e tutto il resto **richiedono
+> ⚠️ **In quella pagina non c'è nessun token.** Gli unici endpoint chiamabili sono
+> `check-disponibilita` e `limiti-prenotazione` (il tetto dei coperti per il campo «Persone», hook
+> `useLimitiPrenotazione`: oltre il tetto compare l'invito a contattare il ristorante).
+> `get-zone-attive`, `get-all-fasce` e tutto il resto **richiedono
 > l'accesso**: chiamarli da lì produce un 401. Per questo le zone in vetrina sono testo scritto
 > nella pagina, non dati del database.
 
