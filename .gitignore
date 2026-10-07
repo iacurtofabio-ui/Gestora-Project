@@ -29,3 +29,6 @@ backup_*.dump
 
 # file di credenziali salvati per comodità: mai versionati
 env*.txt
+
+# Tracker di progetto: solo locale, non versionato
+/TrackGestora.xlsx

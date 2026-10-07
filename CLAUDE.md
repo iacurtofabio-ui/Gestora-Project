@@ -68,7 +68,7 @@ Gestora/
 ├── CLAUDE.md             questo file
 ├── BACKLOG.md            cosa resta da fare
 ├── RUNBOOK.md            come si fanno le operazioni
-└── TrackGestora.xlsx     il tracker
+└── TrackGestora.xlsx     il tracker (solo locale, non versionato)
 ```
 
 In radice stanno solo i documenti vivi. Appunti personali, credenziali e backup **non vanno
@@ -202,14 +202,16 @@ tracker.
 
 ## 8. Il tracker
 
-**`TrackGestora.xlsx`**, in questa cartella, è il tracker unico e ufficiale. Aggiornamento
+**`TrackGestora.xlsx`**, in questa cartella, è il tracker unico e ufficiale. **Solo locale**: è nel
+`.gitignore` e non sta nel repository (dal 07/10/2026), quindi va salvato a parte. Aggiornamento
 manuale, nessuna automazione.
 
 Una **Dashboard** con indice cliccabile e conteggi automatici, poi un foglio per ogni parte del
 progetto, con backend e frontend separati (prefisso `BE ·` e `FE ·`: Models, DTO, Repository,
 Services, Controllers, Method, Validators, Infrastruttura, Test, Auth e Security, Jobs, Migration
-· Pagine, Componenti, Hook e API, Auth, Test). **Appunti e Step** e **Fix e Bug** si compilano a
-mano; in *Fix e Bug* si usa la stessa sigla `V2-xxx` di `BACKLOG.md`. Quando il codice cambia (un
+· Pagine, Componenti, Hook e API, Auth, Test). **Appunti e Step**, **Fix e Bug** e **Task** si
+compilano a mano; in *Fix e Bug* si usa la stessa sigla `V2-xxx` di `BACKLOG.md`, in *Task* ogni
+voce è divisa in attività `V2-xxx-Tnn` con categoria, dipendenze, criteri di accettazione e stato. Quando il codice cambia (un
 endpoint, un test, una migration) va aggiornato il foglio corrispondente.
 
 ---
@@ -223,7 +225,7 @@ endpoint, un test, una migration) va aggiornato il foglio corrispondente.
 | Come si resetta il database, si applica una migration, si pubblica | `RUNBOOK.md` |
 | Endpoint, architettura e note del backend | `GestoraWebApi/CLAUDE.md` |
 | Pattern, routing e note del frontend | `gestora-frontend/CLAUDE.md` |
-| Mappa del progetto foglio per foglio, diario, difetti | `TrackGestora.xlsx` |
+| Mappa del progetto foglio per foglio, diario, difetti, task | `TrackGestora.xlsx` (solo locale) |
 | Storico delle versioni precedenti | `docs/archivio/` (indice nel suo `README.md`) |
 
 ### Il grafo del codice (graphify)

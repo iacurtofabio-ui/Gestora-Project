@@ -17,7 +17,7 @@ cartella: lanciato da qui dentro, `dotnet test` non trova nessun test).
 
 ```
 dotnet build Gestora.sln      # deve completare senza errori
-dotnet test Gestora.sln       # confronta "Passed" col numero atteso (foglio BE · Test di TrackGestora.xlsx)
+dotnet test Gestora.sln       # confronta "Passed" col numero atteso (foglio BE · Test di TrackGestora.xlsx, solo locale)
 ```
 Se hai toccato un endpoint, verifica anche a mano su Swagger (`/swagger`) prima di considerarlo
 concluso, non solo via test unitari.
