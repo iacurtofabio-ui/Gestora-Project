@@ -23,18 +23,17 @@ né prenotazioni.
 | Test | **338** backend (xUnit) + **74** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7, applicate in locale e su Neon (elenco nel foglio *BE · Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
-| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione |
+| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione e **resta fermo** (vedi sotto) |
 
-**Ultima cosa fatta** (06/10/2026): `V2-002` — tetto dei coperti per prenotazione spostato in
-configurazione (`Prenotazioni:MaxCopertiPerPrenotazione`, 50), letto dai validatori e dalla pagina
-pubblica tramite `GET limiti-prenotazione`. Sviluppata da Fabio, guidato. **Non ancora in
-produzione**: serve il merge `v2` → `main` (`RUNBOOK.md` §5); `dev` non si usa più.
+**Ultima cosa fatta** (08/10/2026): `V2-007` — coerenza fra fasce, tavoli e prenotazioni (motivo
+vero nella pagina pubblica, limite online 20, tetto delle fasce entro i posti della sala, niente
+limite di 4 tavoli, più tre correzioni dai test visivi). Analisi di Fabio guidato, sviluppo di
+Claude su richiesta di Fabio. Committata su `v2` (`a0b6bc2`).
 
-**In corso** (dal 07/10/2026): `V2-007` — coerenza fra fasce, tavoli e prenotazioni. Analisi di
-Fabio guidato (T01–T03), sviluppo e verifica di Claude su richiesta di Fabio (T04–T22): codice,
-test e documenti fatti. Variabili Azure controllate (T23, nessuna da impostare). Dai test visivi di
-Fabio dell'08/10 tre correzioni di Claude (T26–T28), verificate a vista. **Restano** il
-rilascio (T24) e la chiusura (T25), di Fabio. Avanzamento nel foglio *Task* del tracker.
+**Rilascio rimandato per scelta di Fabio (08/10/2026).** `main` resta com'è finché l'amico
+ristoratore non comincia a usare Gestora: **non proporre il merge `v2` → `main`** finché Fabio non
+lo chiede. Su `v2`, non ancora in produzione: `V2-002` e `V2-007`. Quando arriverà il momento:
+`RUNBOOK.md` §5 (task `V2-007-T24` nel tracker); `dev` non si usa più.
 
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.
 

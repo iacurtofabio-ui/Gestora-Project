@@ -55,7 +55,7 @@ Modello da copiare:
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
 | `V2-006` | richiesta | Gestire il tetto di 100 coperti e renderlo raggiungibile | — | scartato (06/10/2026) |
-| `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli | io + Claude | in corso (manca il rilascio) |
+| `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli | io + Claude | fatto (08/10/2026), su `v2` |
 
 ### `V2-002` — tetto dei coperti per prenotazione configurabile ✅
 Scelta la strada A: il tetto sta in configurazione (`Prenotazioni:MaxCopertiPerPrenotazione` in
@@ -71,7 +71,7 @@ Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter preno
 esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
 collega all'idea *Email di conferma e promemoria* qui sotto.
 
-### `V2-007` — coerenza fra fasce, tavoli e prenotazioni 🔄
+### `V2-007` — coerenza fra fasce, tavoli e prenotazioni ✅
 Segnalato il 06/10/2026 provando la pagina pubblica. Esempio: 50 persone, fascia con tetto 60
 coperti, in sala solo 2 tavoli da 2 posti. L'utente legge «Disponibilità residua: 58 coperti» e
 accanto «Pieno»: i due dati si contraddicono. Ripreso il 07/10/2026: riprodotto in locale con il
@@ -117,8 +117,11 @@ impostare (T23).
   passato; dopo una creazione lo Staff va al giorno della prenotazione.
 
 Non erano difetti: il Cliente che vede 33 prenotazioni (il seed gliele assegna davvero) e il filtro
-per data (prova errata). 338 test backend e 74 frontend verdi. **Restano a Fabio**: rilascio con
-merge `v2` → `main` (T24) e chiusura della voce (T25). T26–T28 verificate a vista da Fabio.
+per data (prova errata). 338 test backend e 74 frontend verdi. T26–T28 verificate a vista da Fabio.
+
+**Chiusa l'08/10/2026** (commit `a0b6bc2` su `v2`). **Rilascio rimandato per scelta**: `main` resta
+fermo finché il locale non comincia a usare Gestora; il merge `v2` → `main` (T24) si fa quando lo
+decide Fabio e porterà insieme `V2-002` e `V2-007`.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare
