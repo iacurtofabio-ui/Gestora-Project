@@ -56,6 +56,7 @@ Modello da copiare:
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
 | `V2-006` | richiesta | Gestire il tetto di 100 coperti e renderlo raggiungibile | — | scartato (06/10/2026) |
 | `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli | io + Claude | fatto (08/10/2026), su `v2` |
+| `V2-008` | bug (sicurezza) | Su Azure l'indirizzo del client è sbagliato: rate limit del login globale e aggirabile | Claude | in corso (manca il rilascio) |
 
 ### `V2-002` — tetto dei coperti per prenotazione configurabile ✅
 Scelta la strada A: il tetto sta in configurazione (`Prenotazioni:MaxCopertiPerPrenotazione` in
@@ -122,6 +123,20 @@ per data (prova errata). 338 test backend e 74 frontend verdi. T26–T28 verific
 **Chiusa l'08/10/2026** (commit `a0b6bc2` su `v2`). **Rilascio rimandato per scelta**: `main` resta
 fermo finché il locale non comincia a usare Gestora; il merge `v2` → `main` (T24) si fa quando lo
 decide Fabio e porterà insieme `V2-002` e `V2-007`.
+
+### `V2-008` — indirizzo del client su Azure 🔄
+Emerso dalla code review dell'08/10/2026 e verificato lo stesso giorno in produzione con
+`GET api/LogActivity/diagnostica-inoltro` (Admin di prova creato per la verifica, da rimuovere dopo). `IndirizzoClient` era
+calibrato su Railway (due anelli in `X-Forwarded-For`, se ne scartava uno); Azure ne aggiunge uno
+solo, il client con la porta. Effetti: richiesta normale → indirizzo interno `169.254.129.1`, uguale
+per tutti (rate limit del login di fatto globale: 5 accessi al minuto per l'intero locale, audit
+trail senza indirizzi utili); richiesta con `X-Forwarded-For: 1.2.3.4` → usato `1.2.3.4` (rate
+limit aggirabile).
+
+**Correzione** (sviluppa Claude): anelli da scartare 1 → 0, commento e test riscritti sulle catene
+reali di Azure. 336 test backend (−2: tolti quelli che descrivevano la catena di Railway).
+**Da fare dopo il rilascio:** rifare le due richieste diagnostiche (normale e con indirizzo
+inventato): in entrambe deve comparire l'IP pubblico vero.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare

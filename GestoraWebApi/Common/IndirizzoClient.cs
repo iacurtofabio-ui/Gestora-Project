@@ -22,27 +22,29 @@ namespace GestoraWebApi.Common
     /// ogni proxy attraversato aggiunge in coda l'indirizzo da cui ha ricevuto la richiesta. Non
     /// va preso il primo: quello e' l'elemento che il client stesso puo' aver scritto, e
     /// leggerlo permetterebbe di falsificare l'indirizzo nell'audit trail e di aggirare il rate
-    /// limit del login, che partiziona proprio su questo valore. Ma non va preso nemmeno
-    /// l'ultimo, perche' qui davanti all'applicazione ci sono <b>due</b> livelli di proxy e
-    /// l'ultimo anello e' il proxy di frontiera, non chi ha fatto la richiesta.
+    /// limit del login, che partiziona proprio su questo valore. Si prende l'ultimo anello
+    /// rimasto dopo aver scartato quelli che appartengono all'infrastruttura.
     /// </para>
     /// <para>
-    /// Catena osservata in produzione il 07/09/2026:
+    /// V2-008 — catena osservata su Azure App Service l'08/10/2026 (endpoint diagnostico):
     /// <code>
-    /// X-Forwarded-For: 87.15.141.109, 79.127.178.81
-    ///                  ^ client        ^ proxy di frontiera
-    /// Connection.RemoteIpAddress: 100.64.0.4   (rete interna, ultimo hop)
+    /// X-Forwarded-For: 79.30.166.123:64673            (richiesta normale)
+    /// X-Forwarded-For: 1.2.3.4, 79.30.166.123:51750   (client che si inventa "1.2.3.4")
+    ///                           ^ client, scritto da Azure, con la porta
+    /// Connection.RemoteIpAddress: ::ffff:169.254.129.1   (rete interna, uguale per tutti)
     /// </code>
-    /// Si scarta quindi <see cref="AnelliDaScartare"/> anello in fondo e si prende quello che
-    /// resta per ultimo. La proprieta' di sicurezza regge: se un client inviasse una catena
-    /// inventata, l'header diventerebbe <c>fake, 87.15.141.109, 79.127.178.81</c> e scartando
-    /// l'ultimo si otterrebbe comunque l'indirizzo vero.
+    /// Azure aggiunge un solo anello, ed e' gia' il client: <see cref="AnelliDaScartare"/> vale 0.
+    /// La proprieta' di sicurezza regge: l'elemento inventato finisce davanti, l'ultimo lo scrive
+    /// Azure. Su Railway (misura del 07/09/2026) gli anelli erano due e se ne scartava uno: dopo il
+    /// passaggio ad Azure quel valore faceva ricadere tutti sull'indirizzo interno (rate limit del
+    /// login di fatto globale) e accettava l'indirizzo inventato.
     /// </para>
     /// <para>
-    /// ⚠️ <b>Se un domani la piattaforma cambia il numero di proxy, questo valore va rimisurato</b>
-    /// con l'endpoint diagnostico: leggere l'header <b>prima</b> che qualcuno lo consumi. E' su
-    /// questo che ho sbagliato la prima diagnosi — <c>UseForwardedHeaders</c> rimuove l'anello
-    /// che elabora, quindi guardando l'header a valle sembrava esserci un solo proxy.
+    /// ⚠️ <b>Se un domani la piattaforma cambia, questo valore va rimisurato</b> con l'endpoint
+    /// diagnostico (<c>GET api/LogActivity/diagnostica-inoltro</c>, una richiesta normale e una con
+    /// un <c>X-Forwarded-For</c> inventato), leggendo l'header <b>prima</b> che qualcuno lo
+    /// consumi: <c>UseForwardedHeaders</c> rimuove l'anello che elabora, quindi guardando l'header
+    /// a valle la catena sembra piu' corta.
     /// </para>
     /// </summary>
     public static class IndirizzoClient
@@ -51,9 +53,9 @@ namespace GestoraWebApi.Common
 
         /// <summary>
         /// Quanti anelli in fondo alla catena appartengono all'infrastruttura e non al client.
-        /// Misurato in produzione: il proxy di frontiera ne aggiunge uno.
+        /// Misurato su Azure l'08/10/2026: nessuno, l'unico anello aggiunto e' il client (V2-008).
         /// </summary>
-        private const int AnelliDaScartare = 1;
+        private const int AnelliDaScartare = 0;
 
         /// <summary>
         /// Indirizzo del chiamante, o <c>null</c> se non determinabile.
@@ -83,9 +85,8 @@ namespace GestoraWebApi.Common
                 if (!string.IsNullOrWhiteSpace(indirizzo))
                     return Normalizza(indirizzo);
 
-                // Catena piu' corta del previsto: manca un anello rispetto a quanto misurato.
-                // Si ricade sull'indirizzo della connessione invece di restituire il proxy, che
-                // sarebbe un dato sbagliato travestito da buono.
+                // Header presente ma vuoto (o piu' corto degli anelli da scartare): si ricade
+                // sull'indirizzo della connessione invece di restituire un dato inventato.
             }
 
             return context.Connection.RemoteIpAddress?.ToString();

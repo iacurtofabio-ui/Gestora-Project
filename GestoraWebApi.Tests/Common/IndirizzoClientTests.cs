@@ -33,53 +33,34 @@ public class IndirizzoClientTests
         Assert.Equal("10.0.0.5", IndirizzoClient.Ottieni(Richiesta()));
     }
 
-    // La catena esatta osservata in produzione il 07/09/2026: il client, poi il proxy di
-    // frontiera che aggiunge il proprio anello. La connessione arriva dalla rete interna.
+    // V2-008 — la catena esatta osservata su Azure l'08/10/2026: un solo anello, il client con
+    // la porta, scritto da Azure. La connessione arriva dalla rete interna, uguale per tutti.
     [Fact]
-    public void CatenaRealeDiProduzione_RestituisceIlClient()
+    public void CatenaRealeDiAzure_RestituisceIlClientSenzaPorta()
     {
-        var context = Richiesta("100.64.0.4", "87.15.141.109, 79.127.178.81");
+        var context = Richiesta("169.254.129.1", "79.30.166.123:64673");
 
-        Assert.Equal("87.15.141.109", IndirizzoClient.Ottieni(context));
-    }
-
-    // Se la catena e' piu' corta del previsto manca un anello rispetto a quanto misurato:
-    // restituire l'unico valore presente significherebbe registrare il proxy come se fosse il
-    // client, cioe' un dato sbagliato travestito da buono.
-    [Fact]
-    public void ConUnSoloAnello_RicadeSullaConnessione()
-    {
-        Assert.Equal("10.0.0.5", IndirizzoClient.Ottieni(Richiesta("10.0.0.5", "79.127.178.81")));
+        Assert.Equal("79.30.166.123", IndirizzoClient.Ottieni(context));
     }
 
     // Il punto di sicurezza dell'intera soluzione: il primo elemento della catena può essere
     // stato scritto dal client, l'ultimo no. Prendendo l'ultimo, un client che si inventa
     // l'header non riesce a falsificare l'indirizzo nell'audit trail né ad aggirare il rate
-    // limit del login, che partiziona su questo valore.
+    // limit del login, che partiziona su questo valore. Catena reale misurata su Azure
+    // l'08/10/2026 inviando "X-Forwarded-For: 1.2.3.4": prima di V2-008 vinceva "1.2.3.4".
     [Fact]
     public void ConCatenaFalsificataDalClient_IgnoraIlValoreInventato()
     {
-        // Il client invia "1.2.3.4" sperando di farsi registrare con quell'indirizzo. Gli anelli
-        // veri vengono aggiunti dopo, quindi scartando quello dell'infrastruttura si ottiene
-        // comunque il suo indirizzo reale.
-        var context = Richiesta("100.64.0.4", "1.2.3.4, 87.15.141.109, 79.127.178.81");
+        var context = Richiesta("169.254.129.1", "1.2.3.4, 79.30.166.123:51750");
 
-        Assert.Equal("87.15.141.109", IndirizzoClient.Ottieni(context));
-    }
-
-    [Fact]
-    public void ScartaSoloLAnelloDellInfrastruttura_NonDiPiu()
-    {
-        var context = Richiesta("10.0.0.1", "87.15.141.109, 203.0.113.7, 198.51.100.4");
-
-        Assert.Equal("203.0.113.7", IndirizzoClient.Ottieni(context));
+        Assert.Equal("79.30.166.123", IndirizzoClient.Ottieni(context));
     }
 
     // L'header può arrivare come più righe distinte invece che come una sola lista.
     [Fact]
-    public void ConHeaderSuPiuRighe_LeAppiattiscePrimaDiContareGliAnelli()
+    public void ConHeaderSuPiuRighe_PrendeLUltimoAnelloComplessivo()
     {
-        var context = Richiesta("10.0.0.1", "1.2.3.4", "87.15.141.109, 203.0.113.7");
+        var context = Richiesta("10.0.0.1", "1.2.3.4", "5.6.7.8, 87.15.141.109");
 
         Assert.Equal("87.15.141.109", IndirizzoClient.Ottieni(context));
     }
@@ -87,7 +68,7 @@ public class IndirizzoClientTests
     [Fact]
     public void IgnoraGliSpaziEIValoriVuoti()
     {
-        var context = Richiesta("10.0.0.1", "  1.2.3.4 ,  87.15.141.109  , 79.127.178.81 , ");
+        var context = Richiesta("10.0.0.1", "  1.2.3.4 ,  87.15.141.109  , ");
 
         Assert.Equal("87.15.141.109", IndirizzoClient.Ottieni(context));
     }
@@ -106,20 +87,20 @@ public class IndirizzoClientTests
     [Fact]
     public void ConPortaSuIPv4_TieneSoloLIndirizzo()
     {
-        Assert.Equal("87.15.141.109", IndirizzoClient.Ottieni(Richiesta("10.0.0.1", "87.15.141.109:54321, 79.127.178.81")));
+        Assert.Equal("87.15.141.109", IndirizzoClient.Ottieni(Richiesta("10.0.0.1", "87.15.141.109:54321")));
     }
 
     [Fact]
     public void ConIPv6TraParentesiEPorta_TieneSoloLIndirizzo()
     {
-        Assert.Equal("2001:db8::1", IndirizzoClient.Ottieni(Richiesta("10.0.0.1", "[2001:db8::1]:54321, 79.127.178.81")));
+        Assert.Equal("2001:db8::1", IndirizzoClient.Ottieni(Richiesta("10.0.0.1", "[2001:db8::1]:54321")));
     }
 
     // Un IPv6 nudo contiene due punti ovunque: non va scambiato per "indirizzo con porta".
     [Fact]
     public void ConIPv6SenzaPorta_RestaIntatto()
     {
-        Assert.Equal("2001:db8::1", IndirizzoClient.Ottieni(Richiesta("10.0.0.1", "2001:db8::1, 79.127.178.81")));
+        Assert.Equal("2001:db8::1", IndirizzoClient.Ottieni(Richiesta("10.0.0.1", "2001:db8::1")));
     }
 
     [Fact]
