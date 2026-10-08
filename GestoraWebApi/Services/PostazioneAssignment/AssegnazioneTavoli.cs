@@ -8,9 +8,6 @@ namespace GestoraWebApi.Services.PostazioneAssignment
     /// </summary>
     public static class AssegnazioneTavoli
     {
-        /// <summary>Numero massimo di tavoli che si possono unire in una singola prenotazione.</summary>
-        public const int MaxTavoliPerUnione = 4;
-
         /// <summary>
         /// Posti guadagnati sulle testate quando si accostano più tavoli da 2.
         /// Vale solo per unioni composte esclusivamente da tavoli da 2 posti: in ogni altra
@@ -38,7 +35,8 @@ namespace GestoraWebApi.Services.PostazioneAssignment
 
         /// <summary>
         /// Trova la migliore assegnazione possibile per i coperti richiesti, valutando insieme
-        /// tavoli singoli e unioni fino a <see cref="MaxTavoliPerUnione"/> tavoli della stessa zona.
+        /// tavoli singoli e unioni di quanti tavoli servono, sempre della stessa zona (V2-007: non c'è
+        /// più il limite di 4 tavoli; il gruppo è già limitato dal tetto dei coperti per prenotazione).
         /// Criteri, in ordine: meno posti sprecati, poi meno tavoli occupati.
         /// Restituisce null se nessuna combinazione è sufficiente.
         /// </summary>
@@ -121,7 +119,7 @@ namespace GestoraWebApi.Services.PostazioneAssignment
 
             List<int>? capienzeMigliori = null;
 
-            foreach (var combinazione in GeneraCombinazioniDiCapienze(capienzeDistinte, tavoliPerCapienza, MaxTavoliPerUnione))
+            foreach (var combinazione in GeneraCombinazioniDiCapienze(capienzeDistinte, tavoliPerCapienza, numeroCoperti))
             {
                 var capienza = CalcolaCapienzaDaValori(combinazione);
 
@@ -161,13 +159,20 @@ namespace GestoraWebApi.Services.PostazioneAssignment
         }
 
         /// <summary>
-        /// Genera tutte le combinazioni di capienze (con ripetizione, entro le quantità realmente
-        /// disponibili) da 1 a <paramref name="maxTavoli"/> elementi.
+        /// Genera le combinazioni di capienze (con ripetizione, entro le quantità realmente
+        /// disponibili), in ordine crescente di capienza.
+        ///
+        /// V2-007 — criterio di arresto al posto del vecchio limite di 4 tavoli: una combinazione
+        /// che copre già <paramref name="numeroCoperti"/> non viene allungata. È sicuro perché,
+        /// generando le capienze in ordine crescente, aggiungere un tavolo non abbassa MAI la
+        /// capienza dell'unione, nemmeno col bonus testate (a un'unione di soli tavoli da 2 si
+        /// aggiunge solo un tavolo da 2 o più grande): le unioni più lunghe sprecherebbero di più.
+        /// Così le combinazioni da valutare restano poche anche con molti tavoli in sala.
         /// </summary>
         private static IEnumerable<List<int>> GeneraCombinazioniDiCapienze(
             List<int> capienzeDistinte,
             Dictionary<int, List<Postazione>> tavoliPerCapienza,
-            int maxTavoli)
+            int numeroCoperti)
         {
             var corrente = new List<int>();
 
@@ -185,7 +190,7 @@ namespace GestoraWebApi.Services.PostazioneAssignment
                     // Copia difensiva: `corrente` viene mutata dalla ricorsione subito dopo.
                     yield return new List<int>(corrente);
 
-                    if (corrente.Count < maxTavoli)
+                    if (CalcolaCapienzaDaValori(corrente) < numeroCoperti)
                     {
                         foreach (var risultato in Ricorsione(i))
                             yield return risultato;

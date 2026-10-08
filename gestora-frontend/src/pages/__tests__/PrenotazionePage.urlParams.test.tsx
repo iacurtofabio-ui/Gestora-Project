@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import PrenotazionePage from '@/pages/PrenotazionePage'
 import { usePrenotazioni } from '@/hooks/usePrenotazioni'
@@ -24,8 +24,13 @@ vi.mock('@/hooks/usePrenotazioni', () => ({
   useDeletePrenotazione: () => ({ mutate: vi.fn(), isPending: false }),
 }))
 
+// Il modal vero non serve: basta tenere le props per chiamare onCreata come farebbe lui.
+const modal = vi.hoisted(() => ({ onCreata: undefined as ((data: string) => void) | undefined }))
 vi.mock('@/components/PrenotazioneModal', () => ({
-  default: () => null,
+  default: (props: { onCreata?: (data: string) => void }) => {
+    modal.onCreata = props.onCreata
+    return null
+  },
 }))
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -64,6 +69,25 @@ describe('PrenotazionePage - filtri nell URL', () => {
     expect(prenotazioniMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: undefined,
+        stato: undefined,
+        fasciaOrariaId: undefined,
+        page: 1,
+      })
+    )
+  })
+
+  it('dopo una creazione va al giorno della prenotazione, togliendo gli altri filtri', () => {
+    render(
+      <MemoryRouter initialEntries={['/prenotazioni?stato=Annullata&fascia=3&pagina=4']}>
+        <PrenotazionePage />
+      </MemoryRouter>
+    )
+
+    act(() => modal.onCreata?.('2026-11-10'))
+
+    expect(prenotazioniMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: '2026-11-10',
         stato: undefined,
         fasciaOrariaId: undefined,
         page: 1,

@@ -9,6 +9,7 @@ using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Postazioni.DTOs;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
+using GestoraWebApi.Services.Sala;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Diagnostics.Eventing.Reader;
@@ -27,12 +28,14 @@ namespace GestoraWebApi.Services.Postazioni
         private readonly ILogActivityService _logActivity;
         private readonly IClock _clock;
         private readonly IEsecutoreTransazione _transazione;
+        private readonly ICoerenzaSalaService _coerenzaSala;
 
         public PostazioneService(IPostazioneRepository postazioneRepository, IMapper mapper, IZonaRepository zonaRepository,
                                   IMemoryCache cache, IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
                                   IFasciaOrariaRepository fasciaOrariaRepository, IClock clock,
-                                  IEsecutoreTransazione transazione)
+                                  IEsecutoreTransazione transazione, ICoerenzaSalaService coerenzaSala)
         {
+            _coerenzaSala = coerenzaSala;
             _postazioneRepository = postazioneRepository;
             _zonaRepository = zonaRepository;
             _fasciaOrariaRepository = fasciaOrariaRepository;
@@ -72,6 +75,9 @@ namespace GestoraWebApi.Services.Postazioni
             // prenotazione resta.
             if (await _postazioneRepository.HasPrenotazioniViveAsync(postazioneId))
                 throw new ConflictException($"Impossibile eliminare il tavolo {postazione.Numero}: ha prenotazioni attive o in corso.");
+
+            // V2-007: togliere il tavolo non deve portare i posti sotto il tetto di una fascia attiva.
+            await _coerenzaSala.VerificaModificaSalaAsync(tavoli => tavoli.Where(t => t.Id != postazioneId));
 
             await _transazione.EseguiAsync(async () =>
             {
@@ -152,6 +158,15 @@ namespace GestoraWebApi.Services.Postazioni
             var zona = await _zonaRepository.GetByIdAsync(dto.ZonaId);
             if (zona == null)
                 throw new ArgumentException("La zona specificata per la postazione non esiste.");
+
+            // V2-007: capienza ridotta, tavolo disattivato o spostato in una zona spenta non devono
+            // portare i posti sotto il tetto di una fascia attiva. Si confronta la sala com'è con
+            // quella dopo la modifica, prima di toccare l'entità.
+            await _coerenzaSala.VerificaModificaSalaAsync(tavoli =>
+            {
+                var dopo = tavoli.Where(t => t.Id != dto.Id);
+                return dto.Attiva ? dopo.Append(new TavoloSala(dto.Id, dto.ZonaId, dto.CapienzaMassima)) : dopo;
+            });
 
             // Mappaggio dei campi consentiti con AutoMapper
             _mapper.Map(dto, postazione);
@@ -234,6 +249,29 @@ namespace GestoraWebApi.Services.Postazioni
             }).ToList();
         }
 
+        /// <summary>
+        /// V2-007: l'elenco della pagina Tavoli. A differenza di <see cref="GetPostazioniPerZonaAsync"/>
+        /// mostra anche i tavoli disattivati e funziona anche su una zona spenta: altrimenti un
+        /// tavolo disattivato spariva e non si poteva più riattivare dall'interfaccia.
+        /// Senza PrenotazioneId: alla pagina non serve.
+        /// </summary>
+        public async Task<List<PostazioneDTO>> GetTavoliZonaPerGestioneAsync(long zonaId)
+        {
+            if (await _zonaRepository.GetByIdAsync(zonaId) == null)
+                throw new NotFoundException($"La zona con ID {zonaId} non esiste.");
+
+            var postazioni = await _postazioneRepository.GetTuttePostazioniPerZonaAsync(zonaId);
+
+            return postazioni.Select(p => new PostazioneDTO
+            {
+                Id = p.Id,
+                Numero = p.Numero,
+                CapienzaMassima = p.CapienzaMassima,
+                Attiva = p.Attiva,
+                ZonaId = p.ZonaId
+            }).ToList();
+        }
+
         public async Task<RiepilogoSalaDTO> GetRiepilogoSalaAsync()
         {
             var zoneAttiveIds = (await _zonaRepository.GetAllZoneAttiveAsync()).Select(z => z.Id).ToHashSet();
@@ -242,7 +280,9 @@ namespace GestoraWebApi.Services.Postazioni
                 .Where(p => zoneAttiveIds.Contains(p.ZonaId))
                 .ToList();
 
-            var postiTotali = tavoli.Sum(t => t.CapienzaMassima);
+            // V2-007: stesso conteggio dei controlli di coerenza su fasce, tavoli e zone.
+            var postiTotali = CapienzaSala.Posti(
+                tavoli.Select(t => new TavoloSala(t.Id, t.ZonaId, t.CapienzaMassima)), zoneAttiveIds);
 
             var fasce = await _fasciaOrariaRepository.GetFasceAttiveAsync();
             var cultureIt = new System.Globalization.CultureInfo("it-IT");

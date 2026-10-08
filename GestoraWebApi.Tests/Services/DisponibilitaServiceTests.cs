@@ -284,4 +284,75 @@ public class DisponibilitaServiceTests
 
         Assert.True(Fascia(res, 1).DisponibilePerRichiesta);
     }
+
+    // ── V2-007 — il motivo come codice, per la pagina pubblica ───────────────
+
+    private Task<DisponibilitaResponseDTO> Verifica(int coperti) =>
+        CreateService().CheckDisponibilitaAsync(new CheckDisponibilitaDTO { DataPrenotazione = Lunedi, NumeroCoperti = coperti });
+
+    [Fact]
+    public async Task Motivo_Libera_QuandoTettoETavoliBastano()
+    {
+        Setup(fasce: new[] { Fascia(1, maxCoperti: 20) }, postazioniAttive: new[] { Tavolo(1, 4) },
+              prenotazioni: Array.Empty<Prenotazione>());
+
+        var fascia = Fascia(await Verifica(4), 1);
+
+        Assert.True(fascia.DisponibilePerRichiesta);
+        Assert.Equal(MotivoDisponibilita.Libera, fascia.Motivo);
+    }
+
+    [Fact]
+    public async Task Motivo_Terminata_VinceSuOgniAltroMotivo()
+    {
+        // Fascia finita E tetto esaurito: per il cliente conta che il turno è concluso.
+        Setup(fasce: new[] { Fascia(1, maxCoperti: 4) }, postazioniAttive: new[] { Tavolo(1, 4) },
+              prenotazioni: new[] { Prenotazione(fasciaId: 1, coperti: 4, (1, 4)) });
+        _clock.UtcNow = new DateTime(2026, 9, 7, 20, 0, 0, DateTimeKind.Utc); // 22:00 a Roma, fascia 19-21
+
+        Assert.Equal(MotivoDisponibilita.Terminata, Fascia(await Verifica(2), 1).Motivo);
+    }
+
+    [Fact]
+    public async Task Motivo_TettoEsaurito_QuandoNonRestaNessunCoperto()
+    {
+        Setup(fasce: new[] { Fascia(1, maxCoperti: 4) }, postazioniAttive: new[] { Tavolo(1, 4), Tavolo(2, 4) },
+              prenotazioni: new[] { Prenotazione(fasciaId: 1, coperti: 4, (1, 4)) });
+
+        Assert.Equal(MotivoDisponibilita.TettoEsaurito, Fascia(await Verifica(2), 1).Motivo);
+    }
+
+    [Fact]
+    public async Task Motivo_PostiInsufficienti_QuandoRestanoMenoCopertiDiQuelliRichiesti()
+    {
+        Setup(fasce: new[] { Fascia(1, maxCoperti: 10) }, postazioniAttive: new[] { Tavolo(1, 8), Tavolo(2, 8) },
+              prenotazioni: new[] { Prenotazione(fasciaId: 1, coperti: 7, (1, 7)) });
+
+        var fascia = Fascia(await Verifica(4), 1);
+
+        Assert.Equal(MotivoDisponibilita.PostiInsufficienti, fascia.Motivo);
+        Assert.Equal(3, fascia.PostiResiduiFascia);
+    }
+
+    [Fact]
+    public async Task Motivo_TavoliInsufficienti_IlCasoDelBugSegnalato()
+    {
+        // Il caso di V2-007: tetto 60, in sala solo 2 tavoli da 2, richiesta di 50 persone.
+        Setup(fasce: new[] { Fascia(1, maxCoperti: 60) }, postazioniAttive: new[] { Tavolo(1, 2), Tavolo(2, 2) },
+              prenotazioni: Array.Empty<Prenotazione>());
+
+        var fascia = Fascia(await Verifica(50), 1);
+
+        Assert.False(fascia.DisponibilePerRichiesta);
+        Assert.Equal(MotivoDisponibilita.TavoliInsufficienti, fascia.Motivo);
+    }
+
+    [Fact]
+    public void Motivo_NelJsonArrivaComeTesto_NonComeNumero()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(
+            new FasciaDisponibilitaDTO { Motivo = MotivoDisponibilita.TavoliInsufficienti });
+
+        Assert.Contains("\"Motivo\":\"TavoliInsufficienti\"", json);
+    }
 }

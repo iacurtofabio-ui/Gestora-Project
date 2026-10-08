@@ -8,6 +8,7 @@ using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Postazioni;
 using GestoraWebApi.Services.Postazioni.DTOs;
+using GestoraWebApi.Services.Sala;
 using MockQueryable.Moq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -27,6 +28,7 @@ public class PostazioneServiceTests
     private readonly Mock<IFasciaOrariaRepository> _fasciaRepoMock;
     private readonly TestClock _clock;
     private readonly EsecutoreTransazioneFinto _transazione;
+    private readonly Mock<ICoerenzaSalaService> _coerenzaSala = new();
     private readonly PostazioneService _service;
 
     public PostazioneServiceTests()
@@ -46,7 +48,7 @@ public class PostazioneServiceTests
         _transazione = new EsecutoreTransazioneFinto();
         _service = new PostazioneService(_postazioneRepoMock.Object, _mapperMock.Object, _zonaRepoMock.Object, _cache,
                                           _httpContextAccessorMock.Object, _logActivityMock.Object, _fasciaRepoMock.Object,
-                                          _clock, _transazione);
+                                          _clock, _transazione, _coerenzaSala.Object);
     }
 
     // CACHE-001: AssociaPostazioneAZonaAsync cambia ZonaId ma non invalidava la cache
@@ -289,5 +291,119 @@ public class PostazioneServiceTests
 
         Assert.Equal(1, riepilogo.TavoliAttivi);
         Assert.Equal(4, riepilogo.PostiTotali);
+    }
+
+    // ─── V2-007 — elenco della pagina Tavoli ──────────────────────────────────
+
+    [Fact]
+    public async Task GetTavoliZonaPerGestione_MostraAncheIDisattivati_AncheSuZonaSpenta()
+    {
+        // Un tavolo disattivato deve restare in elenco, altrimenti non si può più riattivare.
+        _zonaRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Zona { Id = 10, Nome = "Dehors", Attiva = false });
+        _postazioneRepoMock.Setup(r => r.GetTuttePostazioniPerZonaAsync(10))
+                            .ReturnsAsync(new List<Postazione>
+                            {
+                                new() { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 10 },
+                                new() { Id = 2, Numero = 2, CapienzaMassima = 2, Attiva = false, ZonaId = 10 }
+                            });
+
+        var tavoli = await _service.GetTavoliZonaPerGestioneAsync(10);
+
+        Assert.Equal(new[] { true, false }, tavoli.Select(t => t.Attiva));
+        _postazioneRepoMock.Verify(r => r.GetPostazioniPerZonaAsync(It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetTavoliZonaPerGestione_ZonaInesistente_NotFound()
+    {
+        _zonaRepoMock.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((Zona?)null);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => _service.GetTavoliZonaPerGestioneAsync(999));
+    }
+
+    // ─── V2-007 — modifiche ai tavoli e tetto delle fasce ─────────────────────
+
+    private PostazioneUpdateDTO PreparaUpdate(int nuovaCapienza, bool attiva)
+    {
+        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1))
+                           .ReturnsAsync(new Postazione { Id = 1, Numero = 5, CapienzaMassima = 6, Attiva = true, ZonaId = 10 });
+        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome)).ReturnsAsync(false);
+        _postazioneRepoMock.Setup(r => r.GetAllQueryable())
+                           .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+        _zonaRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Zona { Id = 10, Nome = "Sala", Attiva = true });
+        return new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = nuovaCapienza, ZonaId = 10, Attiva = attiva };
+    }
+
+    private void SalaSottoIlTetto() =>
+        _coerenzaSala.Setup(c => c.VerificaModificaSalaAsync(It.IsAny<Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>>(),
+                                                              It.IsAny<Func<IReadOnlySet<long>, IEnumerable<long>>?>()))
+                     .ThrowsAsync(new ConflictException("sotto il tetto"));
+
+    /// <summary>Esegue la modifica e restituisce la sala "dopo" che il service ha passato al controllo.</summary>
+    private async Task<List<TavoloSala>> SalaDopo(Func<Task> azione)
+    {
+        Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>? tavoliDopo = null;
+        _coerenzaSala.Setup(c => c.VerificaModificaSalaAsync(It.IsAny<Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>>(),
+                                                              It.IsAny<Func<IReadOnlySet<long>, IEnumerable<long>>?>()))
+                     .Callback<Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>, Func<IReadOnlySet<long>, IEnumerable<long>>?>((t, _) => tavoliDopo = t)
+                     .Returns(Task.CompletedTask);
+
+        await azione();
+
+        Assert.NotNull(tavoliDopo);
+        var salaOggi = new List<TavoloSala> { new(1, 10, 6), new(2, 10, 4) };
+        return tavoliDopo!(salaOggi).OrderBy(t => t.Id).ToList();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CapienzaRidotta_ControllaLaSalaConLaNuovaCapienza()
+    {
+        var dto = PreparaUpdate(nuovaCapienza: 2, attiva: true);
+
+        var dopo = await SalaDopo(() => _service.UpdateAsync(dto));
+
+        Assert.Equal(new[] { new TavoloSala(1, 10, 2), new TavoloSala(2, 10, 4) }, dopo);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_TavoloDisattivato_EsceDallaSalaDopo()
+    {
+        var dto = PreparaUpdate(nuovaCapienza: 6, attiva: false);
+
+        var dopo = await SalaDopo(() => _service.UpdateAsync(dto));
+
+        Assert.Equal(new[] { new TavoloSala(2, 10, 4) }, dopo);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SalaSottoIlTettoDiUnaFascia_NonSalva()
+    {
+        var dto = PreparaUpdate(nuovaCapienza: 2, attiva: true);
+        SalaSottoIlTetto();
+
+        await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateAsync(dto));
+        _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_TogliIlTavoloDallaSalaDopo()
+    {
+        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new Postazione { Id = 1, Numero = 5, Attiva = true });
+        _postazioneRepoMock.Setup(r => r.HasPrenotazioniViveAsync(1)).ReturnsAsync(false);
+
+        var dopo = await SalaDopo(() => _service.DeleteAsync(1));
+
+        Assert.Equal(new[] { new TavoloSala(2, 10, 4) }, dopo);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_SalaSottoIlTettoDiUnaFascia_NonElimina()
+    {
+        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(new Postazione { Id = 1, Numero = 5, Attiva = true });
+        _postazioneRepoMock.Setup(r => r.HasPrenotazioniViveAsync(1)).ReturnsAsync(false);
+        SalaSottoIlTetto();
+
+        await Assert.ThrowsAsync<ConflictException>(() => _service.DeleteAsync(1));
+        _postazioneRepoMock.Verify(r => r.DeleteAsync(It.IsAny<Postazione>()), Times.Never);
     }
 }

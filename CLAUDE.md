@@ -5,27 +5,36 @@
 
 ---
 
-## 1. Stato — aggiornato al 05/10/2026
+## 1. Stato — aggiornato al 07/10/2026
 
-**Gestora v2 in corso** dal 05/10/2026. Gestora viene usata in un locale vero, durante i turni di
-servizio: le segnalazioni che arrivano da lì, insieme alle nuove richieste, sono il lavoro della
+**Gestora v2 in corso** dal 05/10/2026. Gestora è pensata per un locale vero, nei turni di
+servizio: le segnalazioni che arriveranno da lì, insieme alle nuove richieste, sono il lavoro della
 v2 (vedi §4).
+
+**Produzione pronta ma non ancora in uso**: al 07/10/2026 il primo avvio (`/setup`) non è stato
+fatto (`GET api/Setup/stato` → `setupCompletato: false`) e su Neon non ci sono zone, tavoli, fasce
+né prenotazioni.
 
 | | |
 |---|---|
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 7 migration EF + tabelle Quartz |
-| Test | **294** backend (xUnit) + **64** frontend (Vitest), tutti verdi |
+| Test | **338** backend (xUnit) + **74** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7, applicate in locale e su Neon (elenco nel foglio *BE · Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione |
 
 **Ultima cosa fatta** (06/10/2026): `V2-002` — tetto dei coperti per prenotazione spostato in
 configurazione (`Prenotazioni:MaxCopertiPerPrenotazione`, 50), letto dai validatori e dalla pagina
-pubblica tramite `GET limiti-prenotazione`. Sviluppata da Fabio, guidato. Per andare in
-produzione: merge `v2` → `main` (`RUNBOOK.md` §5); `dev` non si usa più. **Prossimo passo**:
-le segnalazioni dal locale; `V2-007` è analizzato ma rimandato (soluzioni in `BACKLOG.md`).
+pubblica tramite `GET limiti-prenotazione`. Sviluppata da Fabio, guidato. **Non ancora in
+produzione**: serve il merge `v2` → `main` (`RUNBOOK.md` §5); `dev` non si usa più.
+
+**In corso** (dal 07/10/2026): `V2-007` — coerenza fra fasce, tavoli e prenotazioni. Analisi di
+Fabio guidato (T01–T03), sviluppo e verifica di Claude su richiesta di Fabio (T04–T22): codice,
+test e documenti fatti. Variabili Azure controllate (T23, nessuna da impostare). Dai test visivi di
+Fabio dell'08/10 tre correzioni di Claude (T26–T28), verificate a vista. **Restano** il
+rilascio (T24) e la chiusura (T25), di Fabio. Avanzamento nel foglio *Task* del tracker.
 
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.
 
@@ -108,8 +117,9 @@ e `limiti-prenotazione`.
 Cambiare `.env.local` non ha nessun effetto sulla produzione. Aprire `localhost:5173` mostra
 sempre i dati del database locale: è voluto.
 
-⚠️ La produzione ora ha **dati veri del locale**: niente reset del database di produzione e
-niente prove "sporche" su Neon senza averlo deciso insieme.
+⚠️ La produzione non è ancora in uso (vedi §1), ma il locale può fare il primo avvio in qualsiasi
+momento e da lì i dati sono veri: niente reset del database di produzione e niente prove "sporche"
+su Neon senza averlo deciso insieme.
 
 ---
 
@@ -162,15 +172,22 @@ originale con le motivazioni è in `docs/archivio/`.
 3. **Bonus dei posti di testata solo per unioni di soli tavoli da 2** (2 tavoli = 6 posti,
    3 tavoli = 8). Per qualsiasi unione mista, capienza = somma semplice
 4. **Vince sempre la combinazione con meno posti sprecati**, tavolo singolo o unione che sia.
-   Massimo 4 tavoli per unione, tutti della stessa zona
+   Si uniscono quanti tavoli servono (nessun limite dal 07/10/2026, `V2-007`), tutti della stessa
+   zona; a parità di spreco, meno tavoli
 5. **La capienza di un tavolo è un numero qualsiasi da 1 in su**
 6. **Il primo amministratore si crea da una schermata di primo avvio**, non da un endpoint pubblico
 7. **I tavoli si creano a mano** dall'Admin (la creazione automatica è un'idea in `BACKLOG.md`)
-8. **È il tetto della fascia a decidere quando è esaurita**, non il numero di tavoli. I tavoli
-   servono solo ad assegnare fisicamente il posto
+8. **È il tetto della fascia a decidere quando è esaurita**, non il numero di tavoli. Ma il tetto
+   di una fascia attiva **non può superare i posti della sala** (tavoli attivi nelle zone attive,
+   somma semplice senza bonus testate): si controlla salvando o attivando una fascia e modificando
+   tavoli o zone, e la modifica che porterebbe i posti sotto un tetto è bloccata. Quindi prima i
+   tavoli, poi le fasce (`V2-007`)
 9. **La pagina Postazioni mostra in cima il riepilogo della sala**: è solo informativo
 10. **"Una prenotazione al giorno" per il Cliente è un controllo dell'applicazione**, non un
     vincolo del database
+11. **Online si prenota fino a 20 persone** (Cliente e pagina pubblica): oltre, «contatta
+    direttamente il ristorante». Lo Staff, che prende anche le tavolate al telefono, arriva al
+    limite tecnico di 50. Entrambi in configurazione (`V2-007`)
 
 ---
 

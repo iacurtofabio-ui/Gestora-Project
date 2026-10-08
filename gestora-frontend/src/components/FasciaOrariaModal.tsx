@@ -3,12 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import type { FasciaOrariaDTO } from '@/types/fasciaOraria'
 import { useCreaFasciaOraria, useUpdateFasciaOraria } from '@/hooks/useFasceOrarie'
+import { useRiepilogoSala } from '@/hooks/usePostazioni'
 import { GIORNI_SETTIMANA_DA_LUNEDI } from '@/lib/giorni'
 import { interoObbligatorio } from '@/lib/validazioni'
 
@@ -43,6 +44,7 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
     handleSubmit,
     formState: { errors },
     reset,
+    control,
   } = useForm<FasciaOrariaFormDTO>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -69,6 +71,18 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
   // il pulsante si riabilitava mentre la richiesta era ancora in volo, quindi un secondo clic
   // partiva davvero e creava un doppione.
   const inCorso = creaFascia.isPending || updateFascia.isPending
+
+  // V2-007: il tetto di una fascia attiva non può superare i posti della sala (tavoli attivi in
+  // zone attive, somma semplice). Lo decide il backend; qui lo si dice prima di salvare.
+  const riepilogo = useRiepilogoSala({ enabled: isOpen })
+  const postiSala = riepilogo.data?.postiTotali
+  const maxCopertiScelto = useWatch({ control, name: 'maxCoperti' })
+  const attivaScelta = useWatch({ control, name: 'attiva' })
+  const tettoOltreIPosti =
+    postiSala !== undefined &&
+    attivaScelta &&
+    Number.isFinite(maxCopertiScelto) &&
+    maxCopertiScelto > postiSala
 
   function onSubmit(data: FasciaOrariaFormDTO) {
     if (fascia) {
@@ -135,6 +149,24 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
             {errors.maxCoperti && (
               <p className="text-nota text-destructive">{errors.maxCoperti.message}</p>
             )}
+            {postiSala === 0 ? (
+              <p className="text-nota text-warning">
+                In sala non ci sono ancora tavoli attivi: crea prima le zone e i tavoli, poi le
+                fasce orarie.
+              </p>
+            ) : tettoOltreIPosti ? (
+              <p className="text-nota text-destructive">
+                Supera i posti della sala ({postiSala}): abbassa il tetto oppure aggiungi prima i
+                tavoli.
+              </p>
+            ) : (
+              postiSala !== undefined && (
+                <p className="text-nota text-muted-foreground">
+                  Posti in sala: {postiSala} (tavoli attivi nelle zone attive). Il tetto non può
+                  superarli.
+                </p>
+              )
+            )}
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -152,7 +184,7 @@ export default function FasciaOrariaModal({ isOpen, onClose, fascia }: Props) {
             <Button type="button" variant="ghost" onClick={onClose}>
               Annulla
             </Button>
-            <Button type="submit" disabled={inCorso}>
+            <Button type="submit" disabled={inCorso || tettoOltreIPosti}>
               {inCorso ? 'Salvataggio…' : fascia ? 'Salva modifiche' : 'Crea fascia'}
             </Button>
           </div>

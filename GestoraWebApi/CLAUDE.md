@@ -77,7 +77,7 @@ ruolo, come array se ne ha più di uno — il frontend normalizza sempre a array
 ## Assegnazione tavoli
 
 `Services/PostazioneAssignment/AssegnazioneTavoli.cs` — motore **puro e statico**, nessuna
-dipendenza da repository o DbContext, testato direttamente (`AssegnazioneTavoliTests`, 15 test).
+dipendenza da repository o DbContext, testato direttamente (`AssegnazioneTavoliTests`, 19 test).
 `PostazioneAssignmentService` legge solo i dati (tavoli attivi, tavoli occupati) e delega al
 motore. **Non rimettere logica di scelta dentro il service**: rendeva l'algoritmo precedente non
 testabile.
@@ -85,16 +85,39 @@ testabile.
 Regole (decisioni di prodotto, vedi `CLAUDE.md` di radice §4 — non riaprirle):
 - capienza di un'unione = somma delle capienze, **+2 (`BonusTestate`) solo se composta
   esclusivamente da tavoli da 2 posti** e almeno 2 tavoli; ogni altra combinazione = somma semplice
-- si uniscono al massimo **4 tavoli** (`MaxTavoliPerUnione`), sempre **della stessa zona**
+- si uniscono **quanti tavoli servono** (nessun limite dal `V2-007`), sempre **della stessa zona**
 - vince la combinazione con **meno posti sprecati**; a parità, quella con meno tavoli
 - nessun vincolo sulle capienze ammesse (qualsiasi numero da 1 in su)
 
 Le combinazioni si generano sulle **capienze distinte**, non sui singoli tavoli: il costo non
-cresce col numero di tavoli in sala.
+cresce col numero di tavoli in sala. Al posto del vecchio limite di 4 tavoli c'è un **criterio di
+arresto**: un'unione che copre già il gruppo non viene allungata. È corretto perché le capienze si
+generano in ordine crescente, quindi aggiungere un tavolo non abbassa mai la capienza (nemmeno col
+bonus: a soli tavoli da 2 si aggiunge un 2 o più). **Non togliere il criterio**: senza, con molti
+tavoli il numero di combinazioni esplode.
 
 `DisponibilitaService` chiama lo stesso motore (`TrovaMigliorCombinazione`) usato
 dall'assegnazione reale — non un algoritmo parallelo. Basa i posti residui sul tetto della fascia
-(`MaxCoperti`, decisione 8), esclude tavoli in zone disattivate.
+(`MaxCoperti`, decisione 8), esclude tavoli in zone disattivate. Per ogni fascia scrive il
+**motivo** due volte, negli stessi rami: `Messaggio` (testo per lo Staff, lo usa
+`PrenotazioneModal`) e `Motivo` (`Enums/MotivoDisponibilita`: `Libera`, `Terminata`,
+`TettoEsaurito`, `PostiInsufficienti`, `TavoliInsufficienti`, nel JSON come testo) da cui la pagina
+pubblica sceglie la propria frase. Non far interpretare `Messaggio` al frontend.
+
+## Coerenza fra fasce e sala (`Services/Sala/`)
+
+Il tetto di una fascia **attiva** non può superare i posti della sala (decisione 8):
+- `CapienzaSala.Posti` — **unico** punto in cui si contano i posti: tavoli attivi in zone attive,
+  somma semplice **senza** bonus testate. Lo usa anche il riepilogo della pagina Postazioni.
+- `CoerenzaSalaService.VerificaTettoFasciaAsync` — da `FasciaOrariaService` su creazione e modifica
+  di una fascia attiva e sulla sua riattivazione. Sala vuota → «crea prima le zone e i tavoli».
+- `CoerenzaSalaService.VerificaModificaSalaAsync` — da `PostazioneService` (modifica, eliminazione)
+  e `ZonaService` (spegnimento): riceve la sala **come sarà dopo** la modifica e dà 409 nominando
+  le fasce se i posti scendono sotto un tetto (fino a 3, poi «e altre N»). Va chiamato **prima** di
+  toccare l'entità. Una modifica che non toglie posti passa sempre, anche su dati già incoerenti
+  (è il modo di sistemarli).
+- Il seed di sviluppo scrive senza passare dai service: per questo `VerificaCoerenzaAsync` rifà il
+  controllo e si ferma se un tetto supera i posti.
 
 ## Stati di una prenotazione (`Enums/StatoPrenotazione.cs`)
 
@@ -189,6 +212,13 @@ fisso).
   in testa/coda né doppi (`RegoleUsername`). Errori di Identity in italiano
   (`IdentityErrorDescriberItaliano`) e sempre restituiti con `ErroriIdentity.ComeValidationException`,
   mai `BadRequest(result.Errors)`: il frontend non saprebbe leggerli.
+- **Due elenchi dei tavoli di una zona**: `get-postazioni-per-zona` dà solo i tavoli attivi di una
+  zona attiva; `get-tavoli-zona-gestione` (Admin/Staff, `V2-007`) li dà tutti, anche su zona spenta,
+  ed è quello della pagina Tavoli. Non far tornare la pagina sul primo: un tavolo disattivato
+  sparirebbe e non si potrebbe più riattivare.
+- **Elenco prenotazioni senza filtri** (`get-all-prenotazioni`): prima oggi e i giorni a venire,
+  poi il passato dal più recente, infine `Id` (`V2-007`). Non tornare all'ordine di data puro: la
+  prima pagina sarebbe lo storico più vecchio.
 - **Elenco tavoli attivi**: non espone `PrenotazioneId` (starebbe in cache, quindi vecchio, e
   sarebbe visibile al Cliente). Non reintrodurlo.
 - **Email unica**: `RequireUniqueEmail = true` in `AuthenticationExtensions`. Il login
@@ -198,12 +228,18 @@ fisso).
 - **Avvio**: `Program.cs` valida la configurazione **prima** di registrare i servizi (fail-fast):
   se manca `ConnectionStrings:DefaultConnection`/`JwtSettings:Secret`, o il segreto è più corto di
   32 caratteri, l'app si ferma con un messaggio esplicito. **Non rimuovere quei controlli.**
-- **Tetto dei coperti per prenotazione**: non è nel codice ma in configurazione,
-  `Prenotazioni:MaxCopertiPerPrenotazione` (`Common/PrenotazioniSettings`, oggi 50; su Azure
-  `Prenotazioni__MaxCopertiPerPrenotazione`). Controllato all'avvio (`ValidateOnStart`, deve
-  essere > 0). Lo leggono i due validatori (`PrenotazioneCreateDTOValidator`,
-  `CheckDisponibilitaDTOValidator`, sempre lo stesso valore) e `GET limiti-prenotazione`, che lo
-  passa al frontend. Non riscrivere il numero a mano da nessuna parte.
+- **Tetto dei coperti per prenotazione**: non è nel codice ma in configurazione
+  (`Common/PrenotazioniSettings`), con **due valori** (`V2-007`):
+  - `Prenotazioni:MaxCopertiPerPrenotazione` — limite **tecnico**, oggi 50, per tutti i ruoli. Lo
+    applicano i due validatori (`PrenotazioneCreateDTOValidator`, `CheckDisponibilitaDTOValidator`).
+  - `Prenotazioni:MaxCopertiPrenotazioneOnline` — limite **online**, oggi 20, solo per il Cliente
+    in self-service (`PrenotazioniService.GuardLimiteOnline`, in creazione e modifica: 409 «contatta
+    direttamente il ristorante»). Lo Staff al telefono non lo subisce.
+
+  Su Azure: `Prenotazioni__MaxCopertiPerPrenotazione` e `Prenotazioni__MaxCopertiPrenotazioneOnline`.
+  Controllati all'avvio (`ValidateOnStart`): entrambi > 0 e online ≤ tecnico, altrimenti l'app non
+  parte. `GET limiti-prenotazione` li passa entrambi al frontend. Non riscrivere i numeri a mano
+  da nessuna parte.
 - **Connessione DB**: `EnableRetryOnFailure` attivo (5 tentativi/10s). Le transazioni esplicite
   vanno dentro `CreateExecutionStrategy().ExecuteAsync(...)` — usare l'helper
   `EseguiInTransazioneAsync`, non aprire transazioni a mano.
@@ -233,7 +269,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **294 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **338 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

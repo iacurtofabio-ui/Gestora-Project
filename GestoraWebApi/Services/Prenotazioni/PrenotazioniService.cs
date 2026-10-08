@@ -13,6 +13,7 @@ using GestoraWebApi.Services.PostazioneAssignment;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using GestoraWebApi.Services.PrenotazioniPostazioni;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using GestoraWebApi.Infrastructure.Exceptions;
 
 namespace GestoraWebApi.Services.Prenotazioni
@@ -29,6 +30,7 @@ namespace GestoraWebApi.Services.Prenotazioni
         private readonly ILogger<PrenotazioniService> _logger;
         private readonly ILogActivityService _logActivity;
         private readonly IClock _clock;
+        private readonly PrenotazioniSettings _impostazioni;
 
         /// <summary>REV-061: retention delle prenotazioni completate, prima un -6 hardcoded in mezzo al metodo.</summary>
         private const int MesiRetentionCompletate = 6;
@@ -42,8 +44,10 @@ namespace GestoraWebApi.Services.Prenotazioni
                                    IZonaRepository zonaRepository,
                                    ILogger<PrenotazioniService> logger,
                                    ILogActivityService logActivity,
-                                   IClock clock)
+                                   IClock clock,
+                                   IOptions<PrenotazioniSettings> impostazioni)
         {
+            _impostazioni = impostazioni.Value;
             _prenotazioniRepository = prenotazioniRepository;
             _postazioneAssignmentService = postazioneAssignmentService;
             _fasciaOrariaRepository = fasciaOrariaRepository;
@@ -72,7 +76,10 @@ namespace GestoraWebApi.Services.Prenotazioni
                 var selfService = IsSelfServiceCliente();
 
                 if (selfService)
+                {
+                    GuardLimiteOnline(dto.NumeroCoperti);
                     await GuardUnaPrenotazioneAlGiornoAsync(userId, dto.DataPrenotazione);
+                }
 
                 var postazioniAssegnate = await _postazioneAssignmentService.AssegnaPostazioneDisponibileAsync(dto);
 
@@ -166,6 +173,7 @@ namespace GestoraWebApi.Services.Prenotazioni
                         throw new ForbiddenException("Non hai i permessi per modificare questa prenotazione.");
 
                     GuardCutoffAsync(prenotazione);
+                    GuardLimiteOnline(dto.NumeroCoperti);
                 }
 
                 // CAP-001: la verifica del tetto stava fuori dalla transazione, quindi il lock
@@ -377,8 +385,14 @@ namespace GestoraWebApi.Services.Prenotazioni
             // mostrate. Id come ultimo criterio rende l'ordine totale e quindi deterministico.
             // L'ordinamento va applicato dopo i Where: prima veniva riapplicato dentro ogni
             // ramo del filtro, il che lo faceva ripartire da capo perdendo i criteri successivi.
+            // V2-007: prima oggi e i giorni a venire (dal più vicino), poi il passato (dal più
+            // recente). In ordine di data puro la prima pagina era lo storico più vecchio e chi
+            // lavora in sala doveva sfogliare tutto per arrivare al turno di oggi.
+            var oggi = _clock.TodayInRome;
             var items = await queryable
-                .OrderBy(p => p.DataPrenotazione)
+                .OrderBy(p => p.DataPrenotazione < oggi)
+                .ThenBy(p => p.DataPrenotazione >= oggi ? p.DataPrenotazione : oggi)
+                .ThenByDescending(p => p.DataPrenotazione)
                 .ThenBy(p => p.Id)
                 .Include(p => p.User)
                 .Include(p => p.FasciaOraria)
@@ -556,6 +570,16 @@ namespace GestoraWebApi.Services.Prenotazioni
                 throw new ConflictException(
                     $"Non è più possibile modificare o annullare autonomamente questa prenotazione: mancano meno di " +
                     $"{CutoffOreClienteSelfService} ore dall'orario prenotato. Contatta il locale per assistenza.");
+        }
+
+        // V2-007: chi prenota da solo arriva fino al limite online; oltre, si parla col locale.
+        // Staff/Admin restano al limite tecnico, già applicato dai validatori.
+        private void GuardLimiteOnline(int numeroCoperti)
+        {
+            var limite = _impostazioni.MaxCopertiPrenotazioneOnline;
+            if (numeroCoperti > limite)
+                throw new ConflictException(
+                    $"Per prenotazioni superiori a {limite} persone contatta direttamente il ristorante.");
         }
 
         private async Task GuardUnaPrenotazioneAlGiornoAsync(string userId, DateOnly data, long? excludePrenotazioneId = null)

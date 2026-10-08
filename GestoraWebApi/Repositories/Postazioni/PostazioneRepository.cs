@@ -103,6 +103,14 @@ namespace GestoraWebApi.Repositories.Postazioni
                    .ToListAsync();
         }
 
+        public async Task<List<Postazione>> GetTuttePostazioniPerZonaAsync(long zonaId)
+        {
+            return await _dbSet
+                   .Where(p => p.ZonaId == zonaId)
+                   .OrderBy(p => p.Numero)
+                   .ToListAsync();
+        }
+
         public async Task DeleteAsync(Postazione postazione)
         {
             _context.Remove(postazione);

@@ -105,13 +105,65 @@ public class AssegnazioneTavoliTests
         Assert.Equal(4, risultato!.Count);
     }
 
+    // --- V2-007: niente più limite di 4 tavoli per unione ---
+
     [Fact]
-    public void TrovaMigliorCombinazione_NonSuperaIlLimiteDiQuattroTavoli()
+    public void TrovaMigliorCombinazione_UnisceAncheCinqueTavoli()
     {
-        // Cinque tavoli da 2 servirebbero, ma il limite è 4 (che valgono 10 coperti).
+        // Prima il limite era 4 (10 coperti): ora per 11 persone si uniscono 5 tavoli da 2 (12).
         var postazioni = Enumerable.Range(1, 5).Select(i => Tavolo(i, 2)).ToList();
 
         var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 11);
+
+        Assert.NotNull(risultato);
+        Assert.Equal(5, risultato!.Count);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_GruppoDiVentiSuSoliTavoliDa2()
+    {
+        // Il gruppo più grande che si può prenotare online: 9 tavoli da 2 = 18 + 2 di testate.
+        var postazioni = Enumerable.Range(1, 15).Select(i => Tavolo(i, 2)).ToList();
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 20);
+
+        Assert.NotNull(risultato);
+        Assert.Equal(9, risultato!.Count);
+        Assert.Equal(20, AssegnazioneTavoli.CalcolaCapienza(risultato));
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_NonAllungaUnUnioneCheBastaGia()
+    {
+        // Per 6: due tavoli da 2 (6 con le testate) bastano. Unirne altri sprecherebbe posti.
+        var postazioni = Enumerable.Range(1, 8).Select(i => Tavolo(i, 2)).ToList();
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 6);
+
+        Assert.NotNull(risultato);
+        Assert.Equal(2, risultato!.Count);
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_SalaGrandeConCapienzeMiste_TrovaLaSoluzioneSenzaSpreco()
+    {
+        // 60 tavoli di 6 capienze diverse: senza limite di tavoli il calcolo deve restare
+        // immediato (criterio di arresto) e trovare comunque l'unione esatta.
+        var capienze = new[] { 1, 2, 3, 4, 6, 8 };
+        var postazioni = Enumerable.Range(1, 60).Select(i => Tavolo(i, capienze[i % capienze.Length])).ToList();
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 50);
+
+        Assert.NotNull(risultato);
+        Assert.Equal(50, AssegnazioneTavoli.CalcolaCapienza(risultato!));
+    }
+
+    [Fact]
+    public void TrovaMigliorCombinazione_TuttiITavoliDellaZonaNonBastano_RestituisceNull()
+    {
+        var postazioni = Enumerable.Range(1, 6).Select(i => Tavolo(i, 4)).ToList(); // 24 posti
+
+        var risultato = AssegnazioneTavoli.TrovaMigliorCombinazione(postazioni, numeroCoperti: 25);
 
         Assert.Null(risultato);
     }

@@ -2,6 +2,7 @@ using AutoMapper;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.LogActivity;
+using GestoraWebApi.Services.Sala;
 using GestoraWebApi.Services.Zone;
 using GestoraWebApi.Services.Zone.DTOs;
 using Microsoft.AspNetCore.Http;
@@ -20,6 +21,7 @@ public class ZonaServiceTests
     private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
     private readonly Mock<ILogActivityService> _logActivityMock;
     private readonly EsecutoreTransazioneFinto _transazione;
+    private readonly Mock<ICoerenzaSalaService> _coerenzaSala = new();
     private readonly ZonaService _service;
 
     public ZonaServiceTests()
@@ -36,7 +38,7 @@ public class ZonaServiceTests
         _transazione = new EsecutoreTransazioneFinto();
         _service     = new ZonaService(_repoMock.Object, _mapperMock.Object, _cache,
                                         _httpContextAccessorMock.Object, _logActivityMock.Object,
-                                        _transazione);
+                                        _transazione, _coerenzaSala.Object);
     }
 
     [Fact]
@@ -150,5 +152,75 @@ public class ZonaServiceTests
         await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(new ZonaDTO { Nome = "Sala" }));
 
         Assert.Equal(0, _transazione.Chiamate);
+    }
+
+    // ─── V2-007 — spegnere una zona toglie i suoi tavoli dai posti della sala ──
+
+    private void SalaSottoIlTetto() =>
+        _coerenzaSala.Setup(c => c.VerificaModificaSalaAsync(It.IsAny<Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>>(),
+                                                              It.IsAny<Func<IReadOnlySet<long>, IEnumerable<long>>?>()))
+                     .ThrowsAsync(new ConflictException("sotto il tetto"));
+
+    private void NessunControllo() =>
+        _coerenzaSala.Verify(c => c.VerificaModificaSalaAsync(It.IsAny<Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>>(),
+                                                              It.IsAny<Func<IReadOnlySet<long>, IEnumerable<long>>?>()), Times.Never);
+
+    [Fact]
+    public async Task UpdateStatoZonaAsync_Disattivare_ControllaLaSalaSenzaLaZona()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        Func<IReadOnlySet<long>, IEnumerable<long>>? zoneDopo = null;
+        _coerenzaSala.Setup(c => c.VerificaModificaSalaAsync(It.IsAny<Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>>(),
+                                                              It.IsAny<Func<IReadOnlySet<long>, IEnumerable<long>>?>()))
+                     .Callback<Func<IReadOnlyList<TavoloSala>, IEnumerable<TavoloSala>>, Func<IReadOnlySet<long>, IEnumerable<long>>?>((_, z) => zoneDopo = z)
+                     .Returns(Task.CompletedTask);
+
+        await _service.UpdateStatoZonaAsync(2, false);
+
+        Assert.NotNull(zoneDopo);
+        Assert.Equal(new long[] { 1, 3 }, zoneDopo!(new HashSet<long> { 1, 2, 3 }).OrderBy(x => x));
+    }
+
+    [Fact]
+    public async Task UpdateStatoZonaAsync_Disattivare_SottoIlTetto_NonSalva()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        SalaSottoIlTetto();
+
+        await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateStatoZonaAsync(2, false));
+        _repoMock.Verify(r => r.UpdateStatoZonaAsync(It.IsAny<long>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateStatoZonaAsync_Riattivare_NessunControllo()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = false });
+
+        await _service.UpdateStatoZonaAsync(2, true);
+
+        NessunControllo();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DisattivaLaZona_SottoIlTetto_NonSalva()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        _repoMock.Setup(r => r.GetByNameAsync("Dehors")).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        SalaSottoIlTetto();
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            _service.UpdateAsync(new ZonaDTO { Id = 2, Nome = "Dehors", Attiva = false }));
+        _repoMock.Verify(r => r.UpdateAsync(It.IsAny<Zona>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SoloNome_NessunControllo()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        _repoMock.Setup(r => r.GetByNameAsync("Terrazza")).ReturnsAsync((Zona?)null);
+
+        await _service.UpdateAsync(new ZonaDTO { Id = 2, Nome = "Terrazza", Attiva = true });
+
+        NessunControllo();
     }
 }

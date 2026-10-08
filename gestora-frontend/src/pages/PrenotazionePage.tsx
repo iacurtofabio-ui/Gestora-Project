@@ -119,6 +119,13 @@ export default function PrenotazionePage() {
     })
   }
 
+  // V2-007: dopo una creazione lo Staff va al giorno della prenotazione. Senza, la nuova riga
+  // poteva finire in fondo a molte pagine e sembrava non salvata. Via anche stato e fascia, che
+  // potrebbero nasconderla.
+  function mostraGiorno(data: string) {
+    setSearchParams({ data })
+  }
+
   function azzeraFiltri() {
     setSearchParams({})
   }
@@ -431,6 +438,7 @@ export default function PrenotazionePage() {
         isOpen={isModalOpen}
         onClose={chiudiModal}
         prenotazione={prenotazioneDaModificare}
+        onCreata={isStaff ? mostraGiorno : undefined}
       />
 
       {/* Il dialogo di conferma resta riservato alle sole azioni che non si possono rifare.

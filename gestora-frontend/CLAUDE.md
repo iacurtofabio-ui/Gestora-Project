@@ -15,7 +15,7 @@ logout + redirect su 401).
 
 ```
 npm run lint      # zero errori
-npm test          # 64 test, Vitest + Testing Library
+npm test          # 74 test, Vitest + Testing Library
 npm run build     # controlla i tipi — npm test NON lo fa (vedi sezione Test)
 ```
 Se hai toccato un componente/pagina visibile e non hai verificato a mano nel browser, dillo
@@ -101,10 +101,15 @@ in `components/ThemeToggle.tsx`, ricordato in `localStorage`. Tre stati: **chiar
 
 > ⚠️ **In quella pagina non c'è nessun token.** Gli unici endpoint chiamabili sono
 > `check-disponibilita` e `limiti-prenotazione` (il tetto dei coperti per il campo «Persone», hook
-> `useLimitiPrenotazione`: oltre il tetto compare l'invito a contattare il ristorante).
+> `useLimitiPrenotazione`: si usa `maxCopertiPrenotazioneOnline`, 20, e oltre compare l'invito a
+> contattare il ristorante; `maxCopertiPerPrenotazione` è il limite tecnico dello Staff).
 > `get-zone-attive`, `get-all-fasce` e tutto il resto **richiedono
 > l'accesso**: chiamarli da lì produce un 401. Per questo le zone in vetrina sono testo scritto
 > nella pagina, non dati del database.
+
+Una fascia non prenotabile mostra **un solo stato**, scelto da `motivo` (`V2-007`): «Turno
+concluso», «Pieno», «Restano N posti», «Pieno per N persone». Non mostrare `messaggio` (è scritto
+per lo Staff) e non rimettere i posti residui accanto a «Pieno»: era il bug.
 
 Due condizioni attive sulla radice: `SetupGuard` (senza un Admin si va a `/setup`) e
 `RedirectSeAutenticato` (chi ha sessione aperta va alla sua pagina, non alla vetrina).
@@ -205,11 +210,13 @@ l'etichetta è `sr-only` (design con segnaposto).
 
 ## Test
 
-**64 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5 + 5 del login + 1 per campo), regole di nome utente e campi numerici (8),
-`ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), azioni
+**74 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5 + 5 del login + 1 per campo), regole di nome utente e campi numerici (8),
+`ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), limite
+online dei coperti in `PrenotazioneModal` (3), stato delle fasce e limite online nella pagina
+pubblica `VerificaDisponibilita` (6), azioni
 di riga e tastiera in `AzioniPrenotazione` (16, incluso l'eliminazione solo sulle annullate e niente Conferma/Annulla fuori tempo), scelta della
 pagina di casa per ruolo (5), navigazione per giorno della Dashboard (1), filtri nell'URL di
-`PrenotazionePage` (2).
+`PrenotazionePage` e salto al giorno dopo una creazione (3).
 
 > ⚠️ `npm test` **non controlla i tipi**. Serve anche `npm run build`.
 >

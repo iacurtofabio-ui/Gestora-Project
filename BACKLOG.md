@@ -1,6 +1,6 @@
 # Gestora v2 — cosa resta da fare
 
-Aggiornato il **05/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **07/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -54,7 +54,8 @@ Modello da copiare:
 | `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
-| `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli (analizzato) | — | da fare |
+| `V2-006` | richiesta | Gestire il tetto di 100 coperti e renderlo raggiungibile | — | scartato (06/10/2026) |
+| `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli | io + Claude | in corso (manca il rilascio) |
 
 ### `V2-002` — tetto dei coperti per prenotazione configurabile ✅
 Scelta la strada A: il tetto sta in configurazione (`Prenotazioni:MaxCopertiPerPrenotazione` in
@@ -70,11 +71,11 @@ Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter preno
 esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
 collega all'idea *Email di conferma e promemoria* qui sotto.
 
-### `V2-007` — messaggio senza senso quando mancano i tavoli
+### `V2-007` — coerenza fra fasce, tavoli e prenotazioni 🔄
 Segnalato il 06/10/2026 provando la pagina pubblica. Esempio: 50 persone, fascia con tetto 60
 coperti, in sala solo 2 tavoli da 2 posti. L'utente legge «Disponibilità residua: 58 coperti» e
-accanto «Pieno»: i due dati si contraddicono. **Analisi fatta, correzione rimandata per scelta**
-(più ampia del previsto).
+accanto «Pieno»: i due dati si contraddicono. Ripreso il 07/10/2026: riprodotto in locale con il
+seed di sviluppo (anche la fascia già finita compare come «Pieno»).
 
 **Causa.** Il backend (`DisponibilitaService.CheckDisponibilitaAsync`) distingue già 4 motivi di
 fascia non prenotabile — terminata, tetto esaurito, posti residui meno di quelli chiesti, tavoli
@@ -85,19 +86,39 @@ stata sostituita nel restyle (commit `a211a8b`), il commento sopra è rimasto. S
 una fascia già finita, che compare come «Pieno». I testi di `messaggio` sono pensati per lo Staff
 (li usa `PrenotazioneModal`), troppo tecnici per un cliente.
 
-**Soluzioni valutate** (da scegliere quando si riprende):
-1. **Blocco sulla fascia** (proposta di Fabio): creando o modificando una fascia, il tetto
-   `MaxCoperti` non può superare i posti totali della sala (somma delle capienze dei tavoli
-   attivi in zone attive; **non** il motore `TrovaMigliorCombinazione`, che vale per un gruppo
-   solo e unisce al massimo 4 tavoli). Toglie il caso segnalato, ma **cambia la decisione di
-   prodotto 8** (da scrivere in `CLAUDE.md` §5) e impone di creare i tavoli prima delle fasce.
-   Non copre: gruppo più grande di 4 tavoli, tavoli liberi sparsi in zone diverse, sala ridotta
-   dopo la creazione della fascia (zona o tavoli disattivati).
-2. **Motivo vero nella pagina pubblica**: un campo `motivo` nel `FasciaDisponibilitaDTO` del
-   backend (+ test) e un testo per il cliente per ognuno. Unico testo già deciso: posti
-   insufficienti → «Restano N posti». Proposti per gli altri: «Turno concluso», «Pieno», «Per N
-   persone contattaci».
-3. Entrambe (consigliato): la 1 evita le configurazioni incoerenti, la 2 copre i casi rimanenti.
+**Soluzione scelta** (07/10/2026, idea di Fabio, sviluppa Fabio guidato):
+1. **Motivo vero nella pagina pubblica**: campo `Motivo` in `FasciaDisponibilitaDTO` (Libera,
+   Terminata, TettoEsaurito, PostiInsufficienti, TavoliInsufficienti) e un solo stato per riga.
+   Serve comunque: un tavolo va sempre intero a un gruppo, quindi anche con una sala coerente
+   possono restare posti sotto il tetto senza un tavolo che li accolga. Da solo chiude il bug.
+2. **Limite online di 20 persone** per il Cliente e la pagina pubblica (oltre: «contatta il
+   ristorante»); lo Staff resta a un limite tecnico di 50.
+3. **Tetto della fascia ≤ posti della sala** (tavoli attivi in zone attive, somma semplice, senza
+   bonus testate): controllato salvando o attivando una fascia **e** modificando tavoli e zone (la
+   modifica che porterebbe i posti sotto un tetto è bloccata). Prima i tavoli, poi le fasce.
+4. **Niente più limite di 4 tavoli per unione** (sempre nella stessa zona): il motore smette di
+   aggiungere tavoli appena l'unione copre il gruppo.
+
+Cambiano le decisioni di prodotto 4 e 8 e se ne aggiunge una (limite online): si scrivono in
+`CLAUDE.md` §5 a lavoro finito. Produzione ancora vuota (setup non fatto): nessun dato da
+correggere. Dettaglio e avanzamento: task `V2-007-T01`…`T28` nel foglio *Task* del tracker.
+
+**Stato al 08/10/2026.** Analisi di Fabio, guidato (T01–T03). Sviluppo, test e documenti di Claude,
+su richiesta di Fabio (T04–T22), tutto verificato anche dal vivo in locale. Decisioni di prodotto 4
+e 8 riscritte e aggiunta la 11 in `CLAUDE.md` §5. Variabili Azure controllate da Fabio: nessuna da
+impostare (T23).
+
+**Dai test visivi di Fabio (08/10/2026)**, corretti da Claude dentro questa voce:
+- T26 — nuovo testo del blocco su tavoli e zone («Errore: i posti della sala non possono scendere
+  sotto il tetto delle fasce…»), con l'elenco delle fasce che bloccano;
+- T27 — un tavolo disattivato spariva dalla pagina Tavoli e non si poteva più riattivare: nuovo
+  elenco per la gestione con anche i tavoli disattivati (`get-tavoli-zona-gestione`);
+- T28 — l'elenco prenotazioni partiva dallo storico più vecchio: ora prima oggi e il futuro, poi il
+  passato; dopo una creazione lo Staff va al giorno della prenotazione.
+
+Non erano difetti: il Cliente che vede 33 prenotazioni (il seed gliele assegna davvero) e il filtro
+per data (prova errata). 338 test backend e 74 frontend verdi. **Restano a Fabio**: rilascio con
+merge `v2` → `main` (T24) e chiusura della voce (T25). T26–T28 verificate a vista da Fabio.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare

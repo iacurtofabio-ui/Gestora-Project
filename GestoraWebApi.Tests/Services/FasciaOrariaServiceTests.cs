@@ -4,6 +4,7 @@ using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Services.FasciaOrarie;
 using GestoraWebApi.Services.FasciaOrarie.DTOs;
 using GestoraWebApi.Services.LogActivity;
+using GestoraWebApi.Services.Sala;
 using MockQueryable.Moq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -27,6 +28,7 @@ namespace GestoraWebApi.Tests.Services
         private readonly Mock<ILogActivityService> _logActivityMock;
         private readonly EsecutoreTransazioneFinto _transazione;
         private readonly TestClock _clock;
+        private readonly Mock<ICoerenzaSalaService> _coerenzaSala = new();
         private readonly FasciaOrariaService _service;
 
         public FasciaOrariaServiceTests()
@@ -44,7 +46,7 @@ namespace GestoraWebApi.Tests.Services
             _clock = new TestClock(new DateTime(2026, 9, 4, 10, 0, 0, DateTimeKind.Utc));
             _service = new FasciaOrariaService(_repoMock.Object,
             _mapperMock.Object, _cache, _httpContextAccessorMock.Object, _logActivityMock.Object,
-            _transazione, _clock);
+            _transazione, _clock, _coerenzaSala.Object);
         }
 
         [Fact]
@@ -423,6 +425,97 @@ namespace GestoraWebApi.Tests.Services
             }));
 
             _repoMock.Verify(r => r.UpdateAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+        // --- V2-007: il tetto di una fascia attiva non supera i posti della sala ---
+
+        private static FasciaOrariaDTO NuovaFascia(bool attiva, int maxCoperti = 80) => new()
+        {
+            GiornoSettimana = DayOfWeek.Friday,
+            OrarioInizio = "19:00",
+            OrarioFine = "23:00",
+            MaxCoperti = maxCoperti,
+            Attiva = attiva
+        };
+
+        private void NessunaSovrapposizione() =>
+            _repoMock.Setup(r => r.GetAllQueryable())
+                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+
+        private void SalaTroppoPiccola() =>
+            _coerenzaSala.Setup(c => c.VerificaTettoFasciaAsync(It.IsAny<int>()))
+                         .ThrowsAsync(new ConflictException("tetto oltre i posti"));
+
+        [Fact]
+        public async Task AddAsync_FasciaAttiva_ControllaIlTettoControIPostiDellaSala()
+        {
+            NessunaSovrapposizione();
+
+            await _service.AddAsync(NuovaFascia(attiva: true, maxCoperti: 80));
+
+            _coerenzaSala.Verify(c => c.VerificaTettoFasciaAsync(80), Times.Once);
+        }
+
+        [Fact]
+        public async Task AddAsync_TettoOltreIPosti_NonSalva()
+        {
+            NessunaSovrapposizione();
+            SalaTroppoPiccola();
+
+            await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(NuovaFascia(attiva: true)));
+            _repoMock.Verify(r => r.AddAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task AddAsync_FasciaNonAttiva_NonControllaIlTetto()
+        {
+            // Una fascia spenta non promette posti a nessuno: il controllo arriva quando la si attiva.
+            NessunaSovrapposizione();
+            SalaTroppoPiccola();
+
+            await _service.AddAsync(NuovaFascia(attiva: false));
+
+            _repoMock.Verify(r => r.AddAsync(It.IsAny<FasciaOraria>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_TettoOltreIPosti_NonSalva()
+        {
+            var fascia = FasciaSabatoSera();
+            PreparaUpdate(fascia, prenotazioniFuture: false);
+            SalaTroppoPiccola();
+
+            await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateAsync(new FasciaOrariaDTO
+            {
+                Id = 7, GiornoSettimana = DayOfWeek.Saturday, MaxCoperti = 500, Attiva = true,
+                OrarioInizio = "19:00", OrarioFine = "23:00"
+            }));
+            _repoMock.Verify(r => r.UpdateAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateStatoAsync_Riattivare_ControllaIlTettoDellaFascia()
+        {
+            var fascia = FasciaSabatoSera();
+            fascia.Attiva = false;
+            PreparaUpdate(fascia, prenotazioniFuture: false);
+            SalaTroppoPiccola();
+
+            await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateStatoAsync(7, true));
+            _coerenzaSala.Verify(c => c.VerificaTettoFasciaAsync(40), Times.Once);
+            _repoMock.Verify(r => r.UpdateAsync(It.IsAny<FasciaOraria>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateStatoAsync_Disattivare_SempreAmmesso()
+        {
+            var fascia = FasciaSabatoSera();
+            PreparaUpdate(fascia, prenotazioniFuture: false);
+            SalaTroppoPiccola();
+
+            await _service.UpdateStatoAsync(7, false);
+
+            Assert.False(fascia.Attiva);
+            _coerenzaSala.Verify(c => c.VerificaTettoFasciaAsync(It.IsAny<int>()), Times.Never);
         }
     }
 }

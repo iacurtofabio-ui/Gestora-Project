@@ -7,6 +7,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import type { FasciaDisponibilitaDTO } from '@/types/disponibilita'
+
+/**
+ * V2-007 — cosa legge il cliente su una fascia non prenotabile. Una sola informazione per riga,
+ * scelta dal motivo che manda il backend: prima la riga mostrava sempre «Disponibilità residua: N»
+ * accanto a «Pieno», e i due dati si contraddicevano quando a mancare erano i tavoli.
+ * `messaggio` non si usa qui: è scritto per lo Staff.
+ */
+function statoFasciaNonLibera(fascia: FasciaDisponibilitaDTO, persone: number): string {
+  switch (fascia.motivo) {
+    case 'Terminata':
+      return 'Turno concluso'
+    case 'PostiInsufficienti':
+      return fascia.postiResiduiFascia === 1
+        ? 'Resta 1 posto'
+        : `Restano ${fascia.postiResiduiFascia} posti`
+    case 'TavoliInsufficienti':
+      return `Pieno per ${persone} persone`
+    default:
+      return 'Pieno'
+  }
+}
 
 /**
  * Fase 13 — verifica della disponibilità aperta a chiunque, senza account.
@@ -34,7 +56,8 @@ export function VerificaDisponibilita() {
   // c'è (o se fallisce) il campo resta senza massimo: il controllo vero lo fa comunque il backend.
   const limiti = useLimitiPrenotazione()
 
-  const maxCoperti = limiti.data?.maxCopertiPerPrenotazione
+  // V2-007: chi prenota da solo ha il limite online, non quello tecnico dello Staff.
+  const maxCoperti = limiti.data?.maxCopertiPrenotazioneOnline
   // Gruppo troppo grande per la prenotazione online: lo diciamo subito, mentre si scrive.
   const troppiCoperti = maxCoperti !== undefined && Number(coperti) > maxCoperti
 
@@ -47,6 +70,8 @@ export function VerificaDisponibilita() {
 
   const fasce = disponibilita.data?.fasce ?? []
   const almenoUnaLibera = fasce.some((f) => f.disponibilePerRichiesta)
+  // Oggi, dopo l'ultimo turno: non è "siamo al completo", sono i turni a essere finiti.
+  const tutteConcluse = fasce.length > 0 && fasce.every((f) => f.motivo === 'Terminata')
 
   return (
     <Card className="w-full max-w-2xl">
@@ -135,20 +160,12 @@ export function VerificaDisponibilita() {
                           Libero
                         </span>
                       ) : (
-                        <span className="flex min-w-0 items-baseline justify-end gap-2 text-right">
-                          {/* Il motivo arriva già scritto dal backend e distingue "tetto coperti
-                              esaurito" da "nessun tavolo abbastanza grande": è più utile di un
-                              generico "non disponibile". */}
-                          <span className="text-nota hidden min-w-0 text-muted-foreground sm:inline">
-                            Disponibilità residua: {f.postiResiduiFascia} {f.postiResiduiFascia === 1 ? 'coperto' : 'coperti'}
-                          </span>
-                          <span className="text-corpo inline-flex shrink-0 items-center gap-2 text-muted-foreground">
-                            <span
-                              aria-hidden="true"
-                              className="size-1.5 rounded-full bg-muted-foreground/50"
-                            />
-                            Pieno
-                          </span>
+                        <span className="text-corpo inline-flex shrink-0 items-center gap-2 text-right text-muted-foreground">
+                          <span
+                            aria-hidden="true"
+                            className="size-1.5 rounded-full bg-muted-foreground/50"
+                          />
+                          {statoFasciaNonLibera(f, ricerca.coperti)}
                         </span>
                       )}
                     </li>
@@ -164,6 +181,10 @@ export function VerificaDisponibilita() {
                       <Link to="/register">Prenota ora</Link>
                     </Button>
                   </div>
+                ) : tutteConcluse ? (
+                  <p className="text-corpo text-muted-foreground pt-1">
+                    I turni di oggi sono conclusi. Prova con un altro giorno.
+                  </p>
                 ) : (
                   <p className="text-corpo text-muted-foreground pt-1">
                     Quel giorno siamo al completo. Prova con un altro giorno o con un numero diverso

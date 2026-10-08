@@ -40,6 +40,8 @@ export const Endpoints = {
   },
   postazione: {
     perZona: (zonaId: number) => `/Postazione/get-postazioni-per-zona?zonaId=${zonaId}`,
+    /** Anche i tavoli disattivati: per la pagina Tavoli (V2-007). */
+    perZonaGestione: (zonaId: number) => `/Postazione/get-tavoli-zona-gestione?zonaId=${zonaId}`,
     riepilogoSala: '/Postazione/riepilogo-sala',
     crea: '/Postazione/crea-postazione',
     update: '/Postazione/update-postazione',

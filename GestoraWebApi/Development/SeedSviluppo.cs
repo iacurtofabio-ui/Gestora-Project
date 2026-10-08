@@ -3,6 +3,7 @@ using GestoraWebApi.Common;
 using GestoraWebApi.Context;
 using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
+using GestoraWebApi.Services.Sala;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -506,6 +507,23 @@ namespace GestoraWebApi.Development
         private static async Task VerificaCoerenzaAsync(
             GestoraContext db, ILogger logger, bool statoIncoerente)
         {
+            // V2-007: nessuna fascia attiva puo' promettere piu' coperti dei posti della sala.
+            // Passando dai service e' vietato (CoerenzaSalaService); qui si scrive diretto, quindi
+            // lo si ricontrolla. Vale anche con --stato-incoerente, che riguarda solo le prenotazioni.
+            var zoneAttive = await db.Zone.Where(z => z.Attiva).Select(z => z.Id).ToListAsync();
+            var postiSala = CapienzaSala.Posti(
+                await db.Postazioni.Where(p => p.Attiva)
+                    .Select(p => new TavoloSala(p.Id, p.ZonaId, p.CapienzaMassima)).ToListAsync(),
+                zoneAttive.ToHashSet());
+            var tettoMassimo = await db.FasciaOrarie.Where(f => f.Attiva).MaxAsync(f => (int?)f.MaxCoperti) ?? 0;
+            if (tettoMassimo > postiSala)
+            {
+                throw new InvalidOperationException(
+                    $"Il seed ha una fascia attiva con tetto {tettoMassimo} ma la sala ha {postiSala} posti: " +
+                    "e' uno stato che l'applicazione vieta. Correggere il seed.");
+            }
+            logger.LogInformation("Controllo di coerenza: tetto massimo {Tetto} entro i {Posti} posti della sala.", tettoMassimo, postiSala);
+
             var sforamenti = await db.Prenotazioni
                 .Where(p => p.Stato != StatoPrenotazione.Annullata)
                 .GroupBy(p => new { p.DataPrenotazione, p.FasciaOrariaId })

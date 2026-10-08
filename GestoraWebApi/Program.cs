@@ -98,6 +98,10 @@ builder.Services.AddOptions<PrenotazioniSettings>()
     .Bind(builder.Configuration.GetSection(PrenotazioniSettings.Sezione))
     .Validate(s => s.MaxCopertiPerPrenotazione > 0,
         "Configurazione non valida: Prenotazioni:MaxCopertiPerPrenotazione deve essere maggiore di zero.")
+    .Validate(s => s.MaxCopertiPrenotazioneOnline > 0,
+        "Configurazione non valida: Prenotazioni:MaxCopertiPrenotazioneOnline deve essere maggiore di zero.")
+    .Validate(s => s.MaxCopertiPrenotazioneOnline <= s.MaxCopertiPerPrenotazione,
+        "Configurazione non valida: Prenotazioni:MaxCopertiPrenotazioneOnline non può superare MaxCopertiPerPrenotazione.")
     .ValidateOnStart();
 
 // Json Serializza TimeSpan come stringa "HH:mm"
@@ -244,6 +248,7 @@ builder.Services.AddScoped<IPrenotazioniService, PrenotazioniService>();
 builder.Services.AddScoped<IPostazioneAssignmentService, PostazioneAssignmentService>();
 builder.Services.AddScoped<IDisponibilitaService, DisponibilitaService>();
 builder.Services.AddScoped<IZonaService, ZonaService>();
+builder.Services.AddScoped<GestoraWebApi.Services.Sala.ICoerenzaSalaService, GestoraWebApi.Services.Sala.CoerenzaSalaService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 var app = builder.Build();

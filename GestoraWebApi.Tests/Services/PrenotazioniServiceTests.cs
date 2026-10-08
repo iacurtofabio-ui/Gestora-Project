@@ -18,6 +18,8 @@ using MockQueryable;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using GestoraWebApi.Infrastructure.Exceptions;
+using GestoraWebApi.Common;
+using Microsoft.Extensions.Options;
 
 namespace GestoraWebApi.Tests.Services;
 
@@ -33,6 +35,10 @@ public class PrenotazioniServiceTests
     private readonly GestoraContext _context;
     private readonly PrenotazioniService _service;
     private readonly Mock<ILogActivityService> _logActivityMock;
+
+    // V2-007: limite tecnico 50 (validatori), limite online 20 (Cliente in self-service).
+    private static readonly IOptions<PrenotazioniSettings> Limiti =
+        Options.Create(new PrenotazioniSettings { MaxCopertiPerPrenotazione = 50, MaxCopertiPrenotazioneOnline = 20 });
 
     public PrenotazioniServiceTests()
     {
@@ -91,7 +97,8 @@ public class PrenotazioniServiceTests
             _zonaRepoMock.Object,
             _loggerMock.Object,
             _logActivityMock.Object,
-            new TestClock());
+            new TestClock(),
+            Limiti);
 
     }
 
@@ -620,6 +627,57 @@ public class PrenotazioniServiceTests
         await _service.UpdateAsync(1, dto);
 
         Assert.Equal("Bianchi", prenotazione.NomeCliente);
+    }
+
+    // --- V2-007 - limite online: il Cliente fino a 20, lo Staff fino al limite tecnico ---
+
+    [Fact]
+    public async Task AddAsync_ClienteOltreIlLimiteOnline_RifiutataConInvitoAContattareIlLocale()
+    {
+        SetUserAsCliente("user-test-123");
+        var dto = ArrangeAddValido();
+        dto.NumeroCoperti = 21;
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() => _service.AddAsync(dto));
+
+        Assert.Contains("contatta direttamente il ristorante", ex.Message);
+        _prenotazioniRepoMock.Verify(r => r.AddAsync(It.IsAny<Prenotazione>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AddAsync_ClienteAlLimiteOnline_Ammessa()
+    {
+        SetUserAsCliente("user-test-123");
+        var dto = ArrangeAddValido();
+        dto.NumeroCoperti = 20;
+
+        await _service.AddAsync(dto);
+
+        _prenotazioniRepoMock.Verify(r => r.AddAsync(It.IsAny<Prenotazione>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task AddAsync_StaffOltreIlLimiteOnline_Ammessa()
+    {
+        // principal di default = Staff: la tavolata presa al telefono passa.
+        var dto = ArrangeAddValido();
+        dto.NumeroCoperti = 21;
+
+        await _service.AddAsync(dto);
+
+        _prenotazioniRepoMock.Verify(r => r.AddAsync(It.IsAny<Prenotazione>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ClienteOltreIlLimiteOnline_Rifiutata()
+    {
+        SetUserAsCliente("proprietario");
+        var (_, dto) = ArrangeUpdateValido(ownerUserId: "proprietario");
+        dto.NumeroCoperti = 21;
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateAsync(1, dto));
+
+        Assert.Contains("contatta direttamente il ristorante", ex.Message);
     }
 
     // ══ REV-051 — il flusso di prenotazione: creazione e modifica ═════════════
@@ -1159,7 +1217,8 @@ public class PrenotazioniServiceTests
             _zonaRepoMock.Object,
             _loggerMock.Object,
             _logActivityMock.Object,
-            new TestClock(utcNow));
+            new TestClock(utcNow),
+            Limiti);
 
     // 15/06/2026 12:00 UTC == 14:00 a Roma (CEST). "Oggi" = 15/06/2026, ora attuale 14:00.
     private static readonly DateTime IstanteFermo = new(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc);
@@ -1557,6 +1616,29 @@ public class PrenotazioniServiceTests
         var visti = pagina1.Items.Concat(pagina2.Items).Select(i => i.Id).ToList();
         Assert.Equal(4, visti.Distinct().Count());
         Assert.Equal(4, pagina1.TotalCount);
+    }
+
+    /// <summary>
+    /// V2-007: senza filtri la prima pagina è il turno di oggi, non lo storico più vecchio.
+    /// Prima oggi e i giorni a venire (dal più vicino), poi il passato (dal più recente).
+    /// </summary>
+    [Fact]
+    public async Task GetAllPrenotazioniAsync_SenzaFiltri_PrimaOggiEIlFuturoPoiIlPassato()
+    {
+        var oggi = new TestClock().TodayInRome;
+        Prenotazione Del(long id, int giorni) =>
+            new() { Id = id, DataPrenotazione = oggi.AddDays(giorni), UserId = "u", FasciaOrariaId = 1, NumeroCoperti = 2 };
+        var prenotazioni = new List<Prenotazione> { Del(1, -10), Del(2, -1), Del(3, 0), Del(4, 5), Del(5, 1) };
+
+        _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
+                             .Returns(prenotazioni.AsQueryable().BuildMock());
+        _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
+                   .Returns((object src) => ((IEnumerable<Prenotazione>)src)
+                                            .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());
+
+        var risultato = await _service.GetAllPrenotazioniAsync(new PrenotazioniQueryParams());
+
+        Assert.Equal(new long[] { 3, 5, 4, 2, 1 }, risultato.Items.Select(i => i.Id));
     }
 
     /// <summary>FASE 7: filtro per fascia, usato dal clic su una riga della dashboard.</summary>

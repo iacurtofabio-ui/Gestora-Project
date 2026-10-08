@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using GestoraWebApi.Enums;
+
 namespace GestoraWebApi.Services.PrenotazioniPostazioni
 {
     public class FasciaDisponibilitaDTO
@@ -23,6 +26,12 @@ namespace GestoraWebApi.Services.PrenotazioniPostazioni
         // Spiega perché la richiesta non è soddisfabile, distinguendo "tetto esaurito" da
         // "tetto libero ma nessuna combinazione di tavoli liberi sufficiente".
         public string? Messaggio { get; set; }
+
+        // V2-007: lo stesso motivo come codice fisso, per chi deve scegliere una frase propria
+        // (la pagina pubblica). Nel JSON arriva come testo ("Terminata"), non come numero: il
+        // convertitore sta solo qui per non cambiare il formato delle altre risposte.
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public MotivoDisponibilita Motivo { get; set; }
 
         public List<PostazioneDisponibilitaDTO> Postazioni { get; set; } = new();
     }

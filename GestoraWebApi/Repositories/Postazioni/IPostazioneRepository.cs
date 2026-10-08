@@ -16,6 +16,8 @@ namespace GestoraWebApi.Repositories.Postazioni
         Task<List<Postazione>> GetPostazioniDisponibiliAsync();
         Task<Postazione> GetByIdAsync(long id);
         Task<List<Postazione>> GetPostazioniPerZonaAsync(long zonaId);
+        /// <summary>Tutti i tavoli della zona, attivi e non: per la pagina di gestione (V2-007).</summary>
+        Task<List<Postazione>> GetTuttePostazioniPerZonaAsync(long zonaId);
         /// <summary>
         /// REV-099: dice se la postazione e' impegnata da <paramref name="daData"/> in poi.
         /// Sostituisce il vecchio HasPrenotazioniAsync, che guardava l'intero storico.

@@ -1,4 +1,5 @@
 using GestoraWebApi.Common;
+using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Prenotazioni;
@@ -86,20 +87,35 @@ namespace GestoraWebApi.Services.Disponibilita
                     DisponibilePerRichiesta = tettoSufficiente && tavoliSufficienti
                 };
 
+                // V2-007: Motivo e Messaggio nascono negli stessi rami, così non possono divergere.
+                // Messaggio è per lo Staff; Motivo serve alla pagina pubblica per la sua frase.
                 if (fasciaFinita)
                 {
+                    fasciaDto.Motivo = MotivoDisponibilita.Terminata;
                     fasciaDto.Messaggio = "La fascia oraria è già terminata.";
                 }
                 else if (!tettoSufficiente)
                 {
-                    fasciaDto.Messaggio = postiResidui <= 0
-                        ? "La fascia oraria ha raggiunto la capienza massima: nessun coperto disponibile."
-                        : $"La fascia oraria ha ancora {postiResidui} coperti disponibili, non sufficienti per i {richiesti} richiesti.";
+                    if (postiResidui <= 0)
+                    {
+                        fasciaDto.Motivo = MotivoDisponibilita.TettoEsaurito;
+                        fasciaDto.Messaggio = "La fascia oraria ha raggiunto la capienza massima: nessun coperto disponibile.";
+                    }
+                    else
+                    {
+                        fasciaDto.Motivo = MotivoDisponibilita.PostiInsufficienti;
+                        fasciaDto.Messaggio = $"La fascia oraria ha ancora {postiResidui} coperti disponibili, non sufficienti per i {richiesti} richiesti.";
+                    }
                 }
                 else if (!tavoliSufficienti)
                 {
+                    fasciaDto.Motivo = MotivoDisponibilita.TavoliInsufficienti;
                     fasciaDto.Messaggio =
                         $"Il tetto della fascia lascerebbe spazio ({postiResidui} coperti), ma nessuna combinazione di tavoli liberi copre {richiesti} persone.";
+                }
+                else
+                {
+                    fasciaDto.Motivo = MotivoDisponibilita.Libera;
                 }
 
                 if (tavoliSufficienti)

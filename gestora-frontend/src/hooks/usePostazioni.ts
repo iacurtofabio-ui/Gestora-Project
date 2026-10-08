@@ -9,7 +9,8 @@ import { invalidaVisteDellaSala } from '@/lib/invalidazioni'
 export function usePostazioni(zonaId: number, options?: { enabled?: boolean }) {
   return useQuery<PostazioneDTO[]>({
     queryKey: ['postazioni', zonaId],
-    queryFn: () => apiClient.get(Endpoints.postazione.perZona(zonaId)).then((r) => r.data),
+    // V2-007: anche i tavoli disattivati, altrimenti sparivano e non si potevano riattivare.
+    queryFn: () => apiClient.get(Endpoints.postazione.perZonaGestione(zonaId)).then((r) => r.data),
     enabled: options?.enabled ?? true,
   })
 }

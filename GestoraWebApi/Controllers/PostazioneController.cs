@@ -87,6 +87,17 @@ namespace GestoraWebApi.Controllers
             return Ok(postazioni);
         }
 
+        /// <summary>Tutti i tavoli di una zona, anche quelli disattivati, per la pagina di
+        /// gestione della sala (V2-007). Solo Admin e Staff.</summary>
+        [Authorize(Roles = Roles.AdminOrStaff)]
+        [HttpGet("get-tavoli-zona-gestione")]
+        public async Task<IActionResult> GetTavoliZonaPerGestioneAsync(long zonaId)
+        {
+            var postazioni = await _postazioneService.GetTavoliZonaPerGestioneAsync(zonaId);
+
+            return Ok(postazioni);
+        }
+
         /// <summary>Aggiorna i dati di una postazione esistente. Solo Admin.</summary>
         [Authorize(Roles = Roles.Admin)]
         [HttpPut("update-postazione")]

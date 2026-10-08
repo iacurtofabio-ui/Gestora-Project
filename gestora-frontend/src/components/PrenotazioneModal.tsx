@@ -16,7 +16,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { useFascePerGiorno } from '@/hooks/useFasceOrarie'
 import { useZoneAttive } from '@/hooks/useZone'
 import { useCreaPrenotazione, useModificaPrenotazione } from '@/hooks/usePrenotazioni'
-import { useCheckDisponibilita } from '@/hooks/useDisponibilita'
+import { useCheckDisponibilita, useLimitiPrenotazione } from '@/hooks/useDisponibilita'
 import { useAuth } from '@/hooks/useAuth'
 import type { PrenotazioneDTO } from '@/types/prenotazione'
 import { interoObbligatorio } from '@/lib/validazioni'
@@ -48,6 +48,8 @@ type Props = {
    * del POST. Assente (creazione) e' il comportamento storico.
    */
   prenotazione?: PrenotazioneDTO
+  /** V2-007: chiamata dopo una creazione riuscita, con la data scelta (la pagina ci si sposta). */
+  onCreata?: (dataPrenotazione: string) => void
 }
 
 const VALORI_VUOTI: FormValues = {
@@ -59,7 +61,7 @@ const VALORI_VUOTI: FormValues = {
   nomeCliente: '',
 }
 
-export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Props) {
+export default function PrenotazioneModal({ isOpen, onClose, prenotazione, onCreata }: Props) {
   const { user } = useAuth()
   const isStaff = user?.roles.includes('Admin') || user?.roles.includes('Staff')
   const zone = useZoneAttive()
@@ -104,6 +106,15 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
     (disponibilita.data?.fasce ?? []).map((f) => [f.fasciaOrariaId, f])
   )
   const disponibilitaFasciaScelta = disponibilitaPerFascia.get(fasciaOrariaIdScelta)
+
+  // V2-007: il Cliente prenota da solo fino al limite online; oltre, lo diciamo subito invece di
+  // aspettare il rifiuto del backend. Lo Staff (anche al telefono) resta al limite tecnico.
+  const limiti = useLimitiPrenotazione()
+  const limiteOnline = isStaff ? undefined : limiti.data?.maxCopertiPrenotazioneOnline
+  const oltreLimiteOnline =
+    limiteOnline !== undefined &&
+    Number.isFinite(numeroCopertiScelto) &&
+    numeroCopertiScelto > limiteOnline
 
   // Le due select dipendono da liste caricate in modo asincrono: impostarne il valore prima che
   // le <option> esistano lo farebbe cadere a vuoto. Si precompilano quindi in un secondo
@@ -173,7 +184,12 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
       modificaPrenotazione.mutate({ id: prenotazione.id, data: payload }, { onSuccess: onClose })
       return
     }
-    creaPrenotazione.mutate(payload, { onSuccess: onClose })
+    creaPrenotazione.mutate(payload, {
+      onSuccess: () => {
+        onCreata?.(payload.dataPrenotazione)
+        onClose()
+      },
+    })
   }
 
   const inCorso = creaPrenotazione.isPending || modificaPrenotazione.isPending
@@ -294,6 +310,12 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
             {errors.numeroCoperti && (
               <p className="text-nota text-destructive">{errors.numeroCoperti.message}</p>
             )}
+            {oltreLimiteOnline && (
+              <p className="text-nota text-destructive">
+                Per prenotazioni superiori a {limiteOnline} persone contatta direttamente il
+                ristorante.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -313,7 +335,7 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione }: Pro
             <Button type="button" variant="ghost" onClick={onClose}>
               Annulla
             </Button>
-            <Button type="submit" disabled={inCorso}>
+            <Button type="submit" disabled={inCorso || oltreLimiteOnline}>
               {inCorso
                 ? 'Salvataggio…'
                 : inModifica

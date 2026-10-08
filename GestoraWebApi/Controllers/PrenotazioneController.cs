@@ -180,7 +180,8 @@ namespace GestoraWebApi.Controllers
         {
             return Ok(new LimitiPrenotazioneDTO
             {
-                MaxCopertiPerPrenotazione = _impostazioni.MaxCopertiPerPrenotazione
+                MaxCopertiPerPrenotazione = _impostazioni.MaxCopertiPerPrenotazione,
+                MaxCopertiPrenotazioneOnline = _impostazioni.MaxCopertiPrenotazioneOnline
             });
         }
     }

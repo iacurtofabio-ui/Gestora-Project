@@ -4,6 +4,7 @@ using GestoraWebApi.Extensions;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.LogActivity;
+using GestoraWebApi.Services.Sala;
 using GestoraWebApi.Services.Zone.DTOs;
 using Microsoft.Extensions.Caching.Memory;
 using GestoraWebApi.Infrastructure.Exceptions;
@@ -18,14 +19,17 @@ namespace GestoraWebApi.Services.Zone
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogActivityService _logActivity;
         private readonly IEsecutoreTransazione _transazione;
+        private readonly ICoerenzaSalaService _coerenzaSala;
 
         public ZonaService(IZonaRepository zonaRepository,
                             IMapper mapper,
                             IMemoryCache cache,
                             IHttpContextAccessor httpContextAccessor,
                             ILogActivityService logActivity,
-                            IEsecutoreTransazione transazione)
+                            IEsecutoreTransazione transazione,
+                            ICoerenzaSalaService coerenzaSala)
         {
+            _coerenzaSala = coerenzaSala;
             _zonaRepository = zonaRepository;
             _mapper = mapper;
             _cache = cache;
@@ -133,6 +137,10 @@ namespace GestoraWebApi.Services.Zone
             if (zonaWithSameName != null && zonaWithSameName.Id != entity.Id)
                 throw new ConflictException("Esiste già una zona con questo nome.");
 
+            // V2-007: spegnere una zona toglie i suoi tavoli dai posti della sala.
+            if (existingZona.Attiva && !entity.Attiva)
+                await VerificaDisattivazioneAsync(entity.Id);
+
             existingZona.Nome = entity.Nome;
             existingZona.Attiva = entity.Attiva;
 
@@ -152,6 +160,9 @@ namespace GestoraWebApi.Services.Zone
             if (zona == null)
                 throw new KeyNotFoundException($"Zona con ID {zonaId} non trovata.");
 
+            if (!attiva)
+                await VerificaDisattivazioneAsync(zonaId);
+
             await _transazione.EseguiAsync(async () =>
             {
                 await _zonaRepository.UpdateStatoZonaAsync(zonaId, attiva);
@@ -161,6 +172,13 @@ namespace GestoraWebApi.Services.Zone
 
             InvalidateZoneCache();
         }
+
+        /// <summary>
+        /// V2-007: la zona spenta non deve portare i posti della sala sotto il tetto di una fascia
+        /// attiva. Riattivare una zona aggiunge posti: si controlla solo lo spegnimento.
+        /// </summary>
+        private Task VerificaDisattivazioneAsync(long zonaId) =>
+            _coerenzaSala.VerificaModificaSalaAsync(tavoli => tavoli, zone => zone.Where(id => id != zonaId));
 
         private void InvalidateZoneCache()
         {

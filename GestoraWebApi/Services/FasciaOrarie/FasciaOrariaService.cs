@@ -8,6 +8,7 @@ using GestoraWebApi.Repositories.Prenotazioni;
 using GestoraWebApi.Services.FasciaOrarie.DTOs;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Postazioni.DTOs;
+using GestoraWebApi.Services.Sala;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using GestoraWebApi.Infrastructure.Exceptions;
@@ -23,11 +24,14 @@ namespace GestoraWebApi.Services.FasciaOrarie
         private readonly ILogActivityService _logActivity;
         private readonly IEsecutoreTransazione _transazione;
         private readonly IClock _clock;
+        private readonly ICoerenzaSalaService _coerenzaSala;
 
         public FasciaOrariaService(IFasciaOrariaRepository fasciaRepository, IMapper mapper, IMemoryCache cache,
                                     IHttpContextAccessor httpContextAccessor, ILogActivityService logActivity,
-                                    IEsecutoreTransazione transazione, IClock clock)
+                                    IEsecutoreTransazione transazione, IClock clock,
+                                    ICoerenzaSalaService coerenzaSala)
         {
+            _coerenzaSala = coerenzaSala;
             _fasciaRepository = fasciaRepository;
             _mapper = mapper;
             _cache = cache;
@@ -47,6 +51,10 @@ namespace GestoraWebApi.Services.FasciaOrarie
             // inserita, la cui chiave la genera il database. È usato solo in UpdateAsync, dove
             // escludere dal confronto la fascia che si sta modificando è corretto.
             await GuardSovrapposizioneAsync(0, dto.GiornoSettimana, orarioInizio, orarioFine);
+
+            // V2-007: una fascia attiva non promette più coperti di quanti posti abbia la sala.
+            if (dto.Attiva)
+                await _coerenzaSala.VerificaTettoFasciaAsync(dto.MaxCoperti);
 
             var fascia = new FasciaOraria
             {
@@ -247,6 +255,10 @@ namespace GestoraWebApi.Services.FasciaOrarie
 
             await GuardSovrapposizioneAsync(dto.Id, dto.GiornoSettimana, orarioInizio, orarioFine);
 
+            // V2-007: vale per ogni salvataggio di una fascia attiva, anche senza cambiare il tetto.
+            if (dto.Attiva)
+                await _coerenzaSala.VerificaTettoFasciaAsync(dto.MaxCoperti);
+
             var giornoPrecedente = existing.GiornoSettimana;
 
             // Applico le modifiche sull'entità esistente
@@ -289,6 +301,9 @@ namespace GestoraWebApi.Services.FasciaOrarie
             {
                 await GuardSovrapposizioneAsync(id, fascia.GiornoSettimana,
                     fascia.OrarioInizio.ToTimeSpan(), fascia.OrarioFine.ToTimeSpan());
+
+                // V2-007: riattivare una fascia con un tetto oltre i posti la renderebbe incoerente.
+                await _coerenzaSala.VerificaTettoFasciaAsync(fascia.MaxCoperti);
             }
 
             fascia.Attiva = attiva;

@@ -34,6 +34,7 @@ vi.mock('@/hooks/usePrenotazioni', () => ({
 // che restano confrontabili con il loro testo esatto.
 vi.mock('@/hooks/useDisponibilita', () => ({
   useCheckDisponibilita: () => ({ data: undefined, isLoading: false }),
+  useLimitiPrenotazione: () => ({ data: undefined }),
 }))
 
 vi.mock('@/hooks/useAuth', () => ({

@@ -225,6 +225,27 @@ Poi login dal frontend con i tre ruoli.
 > ```
 > È già successo che un commit lasciasse fuori 12 file nuovi, poi persi.
 
+### I limiti delle prenotazioni su Azure
+
+I due limiti dei coperti per prenotazione stanno in `appsettings.json`, dentro l'immagine:
+`MaxCopertiPerPrenotazione` (limite tecnico, 50, per lo Staff) e `MaxCopertiPrenotazioneOnline`
+(20, per il Cliente e la pagina pubblica). Su Azure **non serve** impostarli: le variabili
+d'ambiente servono solo per cambiare un valore senza un nuovo rilascio.
+
+Se le si usa (*Impostazioni → Variabili di ambiente* dell'App Service, doppio underscore):
+- `Prenotazioni__MaxCopertiPerPrenotazione`
+- `Prenotazioni__MaxCopertiPrenotazioneOnline`
+
+> ⚠️ All'avvio l'app controlla che entrambi siano maggiori di zero e che **l'online non superi il
+> tecnico**: se no **non parte** e `/health` non risponde. Prima di un rilascio, se su Azure esiste
+> già `Prenotazioni__MaxCopertiPerPrenotazione`, controllare che valga almeno 20 (o almeno quanto
+> `MaxCopertiPrenotazioneOnline`, se è stato cambiato).
+
+### Il primo avvio di un locale
+
+Dal `V2-007` il tetto di una fascia non può superare i posti della sala: l'ordine è **zone → tavoli
+→ fasce**. Partendo dalle fasce, il salvataggio è rifiutato con «crea prima le zone e i tavoli».
+
 ---
 
 ## 6. Accedere al database di produzione e fare un backup
