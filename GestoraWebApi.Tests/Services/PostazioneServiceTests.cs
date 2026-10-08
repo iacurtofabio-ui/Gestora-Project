@@ -1,5 +1,6 @@
 using AutoMapper;
 using GestoraWebApi.Common;
+using GestoraWebApi.Enums;
 using GestoraWebApi.Infrastructure.Exceptions;
 using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.FasciaOrarie;
@@ -62,7 +63,7 @@ public class PostazioneServiceTests
 
         _zonaRepoMock.Setup(r => r.GetByIdAsync(20)).ReturnsAsync(nuovaZona);
         _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(postazione);
-        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome)).ReturnsAsync(false);
+        _postazioneRepoMock.Setup(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome)).ReturnsAsync(new List<Prenotazione>());
 
         _cache.Set(CacheKeys.PostazioniAttive, new List<PostazioneDTO> { new PostazioneDTO() });
 
@@ -83,7 +84,7 @@ public class PostazioneServiceTests
         var dto = new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = 4, ZonaId = 999 };
 
         _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(postazione);
-        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome)).ReturnsAsync(false);
+        _postazioneRepoMock.Setup(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome)).ReturnsAsync(new List<Prenotazione>());
         _postazioneRepoMock.Setup(r => r.GetAllQueryable())
                             .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
         _zonaRepoMock.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((Zona?)null);
@@ -167,64 +168,169 @@ public class PostazioneServiceTests
         Assert.True(riepilogo.Fasce.Single(f => f.FasciaOrariaId == 10).TettoCoperto);   // 10 >= 8
         Assert.False(riepilogo.Fasce.Single(f => f.FasciaOrariaId == 11).TettoCoperto);  // 10 < 20
     }
-    // ─── REV-099 — un tavolo usato una volta non era piu' modificabile ────────
+    // ─── V2-009 — un tavolo con prenotazioni future si modifica, se non le danneggia ─────
     //
-    // Il controllo guardava l'intero storico di PrenotazioniPostazioni: dopo la prima
-    // prenotazione conclusa il tavolo diventava immutabile per sempre (niente rinomina, niente
-    // cambio zona, niente disattivazione). In un locale reale ci si arriva in pochi giorni.
-    // Ora si guardano solo gli impegni da oggi in avanti.
+    // Prima (REV-099) bastava una prenotazione da oggi in poi, anche gia' conclusa, per bloccare
+    // qualsiasi modifica: in un locale aperto quasi ogni tavolo ne ha sempre una. Ora contano
+    // solo le prenotazioni ancora da servire, e solo se la modifica le danneggia.
+
+    /// <summary>Prenotazione di sabato 05/09/2026, 20:00-22:00 (il clock dei test e' venerdi' 04/09).</summary>
+    private static Prenotazione Impegno(int coperti, params (long Id, int Capienza, int Posti)[] tavoli) => new()
+    {
+        Id = 100,
+        NumeroCoperti = coperti,
+        DataPrenotazione = new DateOnly(2026, 9, 5),
+        Stato = StatoPrenotazione.Attiva,
+        FasciaOraria = new FasciaOraria
+        {
+            GiornoSettimana = DayOfWeek.Saturday,
+            OrarioInizio = new TimeOnly(20, 0),
+            OrarioFine = new TimeOnly(22, 0)
+        },
+        PrenotazioniPostazioni = tavoli.Select(t => new PrenotazionePostazione
+        {
+            PostazioneId = t.Id,
+            NumeroPosti = t.Posti,
+            Postazione = new Postazione { Id = t.Id, CapienzaMassima = t.Capienza, ZonaId = 10 }
+        }).ToList()
+    };
+
+    /// <summary>Tavolo 5 (Id 1) in zona 10, con gli impegni indicati. Il DTO di partenza non cambia niente.</summary>
+    private PostazioneUpdateDTO PreparaTavoloImpegnato(int capienzaAttuale, params Prenotazione[] impegni)
+    {
+        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(
+            new Postazione { Id = 1, Numero = 5, CapienzaMassima = capienzaAttuale, Attiva = true, ZonaId = 10 });
+        _postazioneRepoMock.Setup(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome)).ReturnsAsync(impegni.ToList());
+        _postazioneRepoMock.Setup(r => r.GetAllQueryable())
+                           .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+        _zonaRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Zona { Id = 10, Nome = "Sala", Attiva = true });
+        _zonaRepoMock.Setup(r => r.GetByIdAsync(20)).ReturnsAsync(new Zona { Id = 20, Nome = "Terrazza", Attiva = true });
+
+        return new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = capienzaAttuale, ZonaId = 10, Attiva = true };
+    }
+
+    private void VerificaSalvato() =>
+        _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Once);
+
+    private async Task<ConflictException> VerificaRifiutato(Func<Task> azione)
+    {
+        var ex = await Assert.ThrowsAsync<ConflictException>(azione);
+        _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Never);
+        return ex;
+    }
 
     [Fact]
-    public async Task UpdateAsync_Consentito_QuandoLaPostazioneHaSoloPrenotazioniPassate()
+    public async Task UpdateAsync_CambiaIlNumero_ConPrenotazioniFuture_Salva()
     {
-        // Arrange: il repository risponde "nessuna prenotazione da oggi in poi", che e'
-        // esattamente la situazione di un tavolo con solo storico alle spalle.
-        var postazione = new Postazione { Id = 1, Numero = 5, Attiva = true, ZonaId = 10 };
-        var dto = new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = 4, ZonaId = 10 };
+        var dto = PreparaTavoloImpegnato(4, Impegno(4, (1, 4, 4)));
+        dto.Numero = 7;
 
-        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(postazione);
-        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome))
-                            .ReturnsAsync(false);
-        _postazioneRepoMock.Setup(r => r.GetAllQueryable())
-                            .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
-        _zonaRepoMock.Setup(r => r.GetByIdAsync(10))
-                     .ReturnsAsync(new Zona { Id = 10, Nome = "Sala", Attiva = true });
-
-        // Act
         await _service.UpdateAsync(dto);
 
-        // Assert
-        _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Once);
+        VerificaSalvato();
+        // Una modifica innocua non deve nemmeno andare a leggere le prenotazioni.
+        _postazioneRepoMock.Verify(r => r.GetImpegniFuturiAsync(It.IsAny<long>(), It.IsAny<DateOnly>()), Times.Never);
     }
 
     [Fact]
-    public async Task UpdateAsync_Rifiutato_QuandoLaPostazioneHaPrenotazioniFuture()
+    public async Task UpdateAsync_AumentaIPosti_ConPrenotazioniFuture_Salva()
     {
-        var postazione = new Postazione { Id = 1, Numero = 5, Attiva = true, ZonaId = 10 };
-        var dto = new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = 4, ZonaId = 10 };
+        var dto = PreparaTavoloImpegnato(4, Impegno(4, (1, 4, 4)));
+        dto.CapienzaMassima = 6;
 
-        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(postazione);
-        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome))
-                            .ReturnsAsync(true);
+        await _service.UpdateAsync(dto);
 
-        await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateAsync(dto));
-        _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Never);
+        VerificaSalvato();
     }
 
     [Fact]
-    public async Task AssociaPostazioneAZonaAsync_Rifiutato_QuandoCiSonoPrenotazioniFuture()
+    public async Task UpdateAsync_RiduceIPosti_LaPrenotazioneCiStaAncora_Salva()
     {
-        // Spostare di zona un tavolo gia' promesso a qualcuno resta vietato: chi ha prenotato
-        // si aspetta il tavolo dove gli e' stato detto.
-        _zonaRepoMock.Setup(r => r.GetByIdAsync(20))
-                     .ReturnsAsync(new Zona { Id = 20, Nome = "Terrazza", Attiva = true });
-        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1))
-                            .ReturnsAsync(new Postazione { Id = 1, Attiva = true, ZonaId = 10 });
-        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome))
-                            .ReturnsAsync(true);
+        var dto = PreparaTavoloImpegnato(6, Impegno(4, (1, 6, 4)));
+        dto.CapienzaMassima = 4;
 
-        await Assert.ThrowsAsync<ConflictException>(() => _service.AssociaPostazioneAZonaAsync(1, 20));
-        _postazioneRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Postazione>()), Times.Never);
+        await _service.UpdateAsync(dto);
+
+        VerificaSalvato();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RiduceIPosti_LaPrenotazioneNonCiStaPiu_RifiutaENominaLaPrenotazione()
+    {
+        var dto = PreparaTavoloImpegnato(6, Impegno(4, (1, 6, 4)));
+        dto.CapienzaMassima = 3;
+
+        var ex = await VerificaRifiutato(() => _service.UpdateAsync(dto));
+
+        Assert.Contains("tavolo 5 a 3", ex.Message);
+        Assert.Contains("sabato 05/09/2026, 20:00-22:00 (4 persone)", ex.Message);
+    }
+
+    // Due tavoli da 2 uniti fanno 6 posti grazie alle testate: un tavolo che scende a 1 rompe
+    // l'unione, anche se a guardarlo da solo sembra una riduzione da poco.
+    [Fact]
+    public async Task UpdateAsync_RiduceIPosti_UnioneDiTavoliDa2CheNonTienePiu_Rifiuta()
+    {
+        var dto = PreparaTavoloImpegnato(2, Impegno(6, (1, 2, 3), (2, 2, 3)));
+        dto.CapienzaMassima = 1;
+
+        await VerificaRifiutato(() => _service.UpdateAsync(dto));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RiduceIPosti_ConPiuPrenotazioni_ContaLeAltreNelMessaggio()
+    {
+        var dto = PreparaTavoloImpegnato(6, Impegno(5, (1, 6, 5)), Impegno(6, (1, 6, 6)), Impegno(2, (1, 6, 2)));
+        dto.CapienzaMassima = 4;
+
+        var ex = await VerificaRifiutato(() => _service.UpdateAsync(dto));
+
+        // Bloccano solo le due da 5 e 6 persone: quella da 2 ci sta.
+        Assert.Contains("(5 persone) e ad altre 1", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Disattiva_ConPrenotazioniFuture_Rifiuta()
+    {
+        var dto = PreparaTavoloImpegnato(4, Impegno(4, (1, 4, 4)));
+        dto.Attiva = false;
+
+        var ex = await VerificaRifiutato(() => _service.UpdateAsync(dto));
+
+        Assert.Contains("disattivare il tavolo 5", ex.Message);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_CambiaZona_ConPrenotazioniFuture_Rifiuta()
+    {
+        var dto = PreparaTavoloImpegnato(4, Impegno(4, (1, 4, 4)));
+        dto.ZonaId = 20;
+
+        var ex = await VerificaRifiutato(() => _service.UpdateAsync(dto));
+
+        Assert.Contains("spostare di zona il tavolo 5", ex.Message);
+    }
+
+    [Fact]
+    public async Task AssociaPostazioneAZonaAsync_ConPrenotazioniFuture_Rifiuta()
+    {
+        PreparaTavoloImpegnato(4, Impegno(4, (1, 4, 4)));
+
+        await VerificaRifiutato(() => _service.AssociaPostazioneAZonaAsync(1, 20));
+    }
+
+    // Senza prenotazioni ancora da servire (solo storico, o nessuna) si puo' fare di tutto.
+    [Fact]
+    public async Task UpdateAsync_SenzaPrenotazioniDaServire_DisattivaRiduceESposta()
+    {
+        var dto = PreparaTavoloImpegnato(6);
+        dto.Attiva = false;
+        dto.CapienzaMassima = 2;
+        dto.ZonaId = 20;
+
+        await _service.UpdateAsync(dto);
+
+        VerificaSalvato();
     }
 
     // La data passata al repository deve essere "oggi" secondo l'orologio del locale, non quello
@@ -232,20 +338,12 @@ public class PostazioneServiceTests
     [Fact]
     public async Task UpdateAsync_ChiedeLePrenotazioniFuture_APartireDaOggiInItalia()
     {
-        var postazione = new Postazione { Id = 1, Numero = 5, Attiva = true, ZonaId = 10 };
-        var dto = new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = 4, ZonaId = 10 };
-
-        _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(postazione);
-        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(It.IsAny<long>(), It.IsAny<DateOnly>()))
-                            .ReturnsAsync(false);
-        _postazioneRepoMock.Setup(r => r.GetAllQueryable())
-                            .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
-        _zonaRepoMock.Setup(r => r.GetByIdAsync(10))
-                     .ReturnsAsync(new Zona { Id = 10, Nome = "Sala", Attiva = true });
+        var dto = PreparaTavoloImpegnato(6);
+        dto.CapienzaMassima = 4;
 
         await _service.UpdateAsync(dto);
 
-        _postazioneRepoMock.Verify(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome), Times.Once);
+        _postazioneRepoMock.Verify(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome), Times.Once);
     }
     // ─── REV-023 — lo storico non si carica nel percorso caldo ───────────────
 
@@ -327,7 +425,7 @@ public class PostazioneServiceTests
     {
         _postazioneRepoMock.Setup(r => r.GetByIdAsync(1))
                            .ReturnsAsync(new Postazione { Id = 1, Numero = 5, CapienzaMassima = 6, Attiva = true, ZonaId = 10 });
-        _postazioneRepoMock.Setup(r => r.HasPrenotazioniFutureAsync(1, _clock.TodayInRome)).ReturnsAsync(false);
+        _postazioneRepoMock.Setup(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome)).ReturnsAsync(new List<Prenotazione>());
         _postazioneRepoMock.Setup(r => r.GetAllQueryable())
                            .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
         _zonaRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Zona { Id = 10, Nome = "Sala", Attiva = true });

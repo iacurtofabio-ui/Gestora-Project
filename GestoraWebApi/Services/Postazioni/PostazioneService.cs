@@ -6,6 +6,7 @@ using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Zone;
+using GestoraWebApi.Services.PostazioneAssignment;
 using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.Postazioni.DTOs;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
@@ -142,9 +143,7 @@ namespace GestoraWebApi.Services.Postazioni
             if (postazione == null)
                 throw new KeyNotFoundException($"Postazione con ID {dto.Id} non trovata.");
 
-            // Controllo prenotazioni (REV-099: solo quelle da oggi in avanti, non lo storico)
-            if (await _postazioneRepository.HasPrenotazioniFutureAsync(dto.Id, _clock.TodayInRome))
-                throw new ConflictException("Impossibile aggiornare la postazione: esistono prenotazioni future associate.");
+            await GuardImpegniFuturiAsync(postazione, dto.CapienzaMassima, dto.ZonaId, dto.Attiva);
 
             // Controllo numero duplicato
             var existingPostazione = await _postazioneRepository
@@ -308,6 +307,76 @@ namespace GestoraWebApi.Services.Postazioni
             };
         }
 
+        private static readonly System.Globalization.CultureInfo Italiano = new("it-IT");
+
+        /// <summary>
+        /// V2-009: una modifica al tavolo si blocca solo se danneggia una prenotazione ancora da
+        /// servire. Numero e aumento dei posti passano sempre. Disattivarlo o spostarlo di zona no,
+        /// se qualcuno lo ha prenotato: chi ha prenotato si aspetta quel tavolo, in quella zona.
+        /// Ridurre i posti si', se ogni prenotazione ci sta ancora.
+        /// </summary>
+        private async Task GuardImpegniFuturiAsync(Postazione postazione, int nuovaCapienza, long nuovaZonaId, bool attiva)
+        {
+            var spegne = postazione.Attiva && !attiva;
+            var sposta = nuovaZonaId != postazione.ZonaId;
+            var riduce = nuovaCapienza < postazione.CapienzaMassima;
+
+            if (!spegne && !sposta && !riduce)
+                return;
+
+            var impegni = await _postazioneRepository.GetImpegniFuturiAsync(postazione.Id, _clock.TodayInRome);
+            if (impegni.Count == 0)
+                return;
+
+            if (spegne || sposta)
+            {
+                var azione = spegne ? "disattivare" : "spostare di zona";
+                throw new ConflictException(
+                    $"Impossibile {azione} il tavolo {postazione.Numero}: è assegnato " +
+                    $"{DescriviImpegni(impegni)}. Sposta o annulla prima quelle prenotazioni.");
+            }
+
+            var nonCiStanno = impegni.Where(p => !CiStaAncora(p, postazione.Id, nuovaCapienza)).ToList();
+            if (nonCiStanno.Count > 0)
+                throw new ConflictException(
+                    $"Impossibile ridurre i posti del tavolo {postazione.Numero} a {nuovaCapienza}: non ci " +
+                    $"starebbe più {DescriviImpegni(nonCiStanno)}. Sposta o annulla prima quelle prenotazioni.");
+        }
+
+        /// <summary>
+        /// Due condizioni: il tavolo tiene ancora le persone che gli sono state assegnate, e
+        /// l'unione intera (con le regole delle testate, che si perdono se un tavolo non e' piu'
+        /// da 2) tiene ancora tutto il gruppo.
+        /// </summary>
+        private static bool CiStaAncora(Prenotazione prenotazione, long postazioneId, int nuovaCapienza)
+        {
+            var righe = prenotazione.PrenotazioniPostazioni;
+            if (righe.Any(pp => pp.PostazioneId == postazioneId && pp.NumeroPosti > nuovaCapienza))
+                return false;
+
+            var tavoliDopo = righe
+                .Select(pp => pp.PostazioneId == postazioneId
+                    ? new Postazione { Id = postazioneId, CapienzaMassima = nuovaCapienza }
+                    : pp.Postazione)
+                .ToList();
+
+            return AssegnazioneTavoli.CalcolaCapienza(tavoliDopo) >= prenotazione.NumeroCoperti;
+        }
+
+        /// <summary>"alla prenotazione di sabato 10/10/2026, 20:00-22:00 (4 persone) e ad altre 2".</summary>
+        private static string DescriviImpegni(IReadOnlyList<Prenotazione> impegni)
+        {
+            var prima = impegni[0];
+            var giorno = Italiano.DateTimeFormat.GetDayName(prima.DataPrenotazione.DayOfWeek);
+            var fascia = prima.FasciaOraria == null
+                ? ""
+                : $", {prima.FasciaOraria.OrarioInizio:HH\\:mm}-{prima.FasciaOraria.OrarioFine:HH\\:mm}";
+            var altre = impegni.Count > 1 ? $" e ad altre {impegni.Count - 1}" : "";
+
+            return $"alla prenotazione di {giorno} {prima.DataPrenotazione.ToString("dd/MM/yyyy", Italiano)}{fascia} " +
+                   $"({prima.NumeroCoperti} persone){altre}";
+        }
+
         public async Task AssociaPostazioneAZonaAsync(long postazioneId, long zonaId)
         {
             #region Validazioni
@@ -325,13 +394,7 @@ namespace GestoraWebApi.Services.Postazioni
             if (!postazione.Attiva)
                 throw new ConflictException($"Impossibile associare: il tavolo {postazione.Numero} non è attivo.");
 
-            // REV-099: come sopra, spostare di zona un tavolo va impedito solo se ha impegni
-            // ancora da onorare - chi ha prenotato si aspetta il tavolo dove gli e' stato detto.
-            // Una prenotazione gia' conclusa non e' un motivo per congelare il tavolo per sempre.
-            if (await _postazioneRepository.HasPrenotazioniFutureAsync(postazioneId, _clock.TodayInRome))
-                throw new ConflictException(
-                    $"Impossibile associare! Esistono prenotazioni future associate al tavolo {postazione.Numero}."
-                );
+            await GuardImpegniFuturiAsync(postazione, postazione.CapienzaMassima, zonaId, postazione.Attiva);
             #endregion
 
             postazione.ZonaId = zonaId;

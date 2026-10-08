@@ -56,7 +56,8 @@ Modello da copiare:
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
 | `V2-006` | richiesta | Gestire il tetto di 100 coperti e renderlo raggiungibile | — | scartato (06/10/2026) |
 | `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli | io + Claude | fatto (08/10/2026), su `v2` |
-| `V2-008` | bug (sicurezza) | Su Azure l'indirizzo del client è sbagliato: rate limit del login globale e aggirabile | Claude | in corso (manca il rilascio) |
+| `V2-008` | bug (sicurezza) | Su Azure l'indirizzo del client è sbagliato: rate limit del login globale e aggirabile | Claude | fatto (08/10/2026), in produzione con `v2.0.0` |
+| `V2-009` | bug | Un tavolo con una qualsiasi prenotazione futura non si può modificare in nessun modo | Claude | fatto (08/10/2026), su `v2` |
 
 ### `V2-002` — tetto dei coperti per prenotazione configurabile ✅
 Scelta la strada A: il tetto sta in configurazione (`Prenotazioni:MaxCopertiPerPrenotazione` in
@@ -120,13 +121,14 @@ impostare (T23).
 Non erano difetti: il Cliente che vede 33 prenotazioni (il seed gliele assegna davvero) e il filtro
 per data (prova errata). 338 test backend e 74 frontend verdi. T26–T28 verificate a vista da Fabio.
 
-**Chiusa l'08/10/2026** (commit `a0b6bc2` su `v2`). **Rilascio rimandato per scelta**: `main` resta
+**Chiusa l'08/10/2026** (commit `a0b6bc2` su `v2`), **in produzione con `v2.0.0`** (08/10/2026,
+insieme a `V2-002` e `V2-008`). Nota storica: il rilascio era stato rimandato, `main` restava
 fermo finché il locale non comincia a usare Gestora; il merge `v2` → `main` (T24) si fa quando lo
 decide Fabio e porterà insieme `V2-002` e `V2-007`.
 
-### `V2-008` — indirizzo del client su Azure 🔄
+### `V2-008` — indirizzo del client su Azure ✅
 Emerso dalla code review dell'08/10/2026 e verificato lo stesso giorno in produzione con
-`GET api/LogActivity/diagnostica-inoltro` (Admin di prova creato per la verifica, da rimuovere dopo). `IndirizzoClient` era
+`GET api/LogActivity/diagnostica-inoltro` (Admin di prova creato per la verifica, da rimuovere: task `V2-008-T05`). `IndirizzoClient` era
 calibrato su Railway (due anelli in `X-Forwarded-For`, se ne scartava uno); Azure ne aggiunge uno
 solo, il client con la porta. Effetti: richiesta normale → indirizzo interno `169.254.129.1`, uguale
 per tutti (rate limit del login di fatto globale: 5 accessi al minuto per l'intero locale, audit
@@ -135,8 +137,44 @@ limit aggirabile).
 
 **Correzione** (sviluppa Claude): anelli da scartare 1 → 0, commento e test riscritti sulle catene
 reali di Azure. 336 test backend (−2: tolti quelli che descrivevano la catena di Railway).
-**Da fare dopo il rilascio:** rifare le due richieste diagnostiche (normale e con indirizzo
-inventato): in entrambe deve comparire l'IP pubblico vero.
+**Chiusa l'08/10/2026**: commit `3821c87`, rilasciata con il tag `v2.0.0`. Verificata in
+produzione con le due richieste diagnostiche (normale e con `X-Forwarded-For: 1.2.3.4`): in
+entrambe l'applicazione usa l'IP pubblico vero.
+
+### `V2-009` — tavoli bloccati da qualsiasi prenotazione futura ✅
+Emerso dalla code review dell'08/10/2026 (punto 2). Modifica del tavolo e spostamento di zona
+erano rifiutati se il tavolo aveva **una qualsiasi** prenotazione da oggi in poi, anche già
+completata o non presentata, e per **qualsiasi** modifica, anche cambiare il numero o aggiungere
+posti. Con il locale aperto quasi ogni tavolo ne ha sempre una: la sala sarebbe rimasta bloccata.
+
+**Correzione** (sviluppa Claude): contano solo le prenotazioni da servire (Attiva, InCorso) da oggi
+in poi, e bloccano solo la modifica che le danneggia.
+- Numero e aumento dei posti: sempre permessi.
+- Disattivare il tavolo o spostarlo di zona: bloccati se il tavolo è prenotato.
+- Ridurre i posti: permesso se ogni prenotazione ci sta ancora, cioè se il tavolo tiene le persone
+  che gli sono assegnate e l'unione tiene tutto il gruppo, testate comprese.
+
+Il messaggio nomina la prima prenotazione che blocca (giorno, data, fascia, persone) e conta le
+altre. `GetImpegniFuturiAsync` sostituisce `HasPrenotazioniFutureAsync`. 345 test backend (+9,
+compresi 2 sul repository con database InMemory). Frontend invariato: mostra già il messaggio.
+
+**Chiusa l'08/10/2026**: prove a vista A–G di Fabio tutte con l'esito atteso. Su `v2`, non ancora
+in produzione: il rilascio (`v2.0.1`) lo decide Fabio (task `V2-009-T06`).
+
+### Code review dell'08/10/2026 — punti ancora da affrontare
+Revisione di Claude su backend e accesso del frontend. I punti 1 e 2 sono diventati `V2-008` e
+`V2-009`. Gli altri si prendono uno alla volta: per ognuno si decide chi sviluppa e diventa una
+voce `V2-xxx`.
+3. **Medio** — la sessione scade dopo 60 minuti senza rinnovo: in servizio lo Staff viene buttato
+   fuori ogni ora e perde quello che stava scrivendo.
+4. **Medio** — registrazione e verifica della disponibilità (pubbliche) senza limite di richieste:
+   account in massa, e il calcolo più pesante dell'applicazione ripetibile all'infinito.
+5. **Medio** — spegnere una zona non controlla le prenotazioni future (per i tavoli sì): restano
+   assegnate a tavoli di una zona spenta, senza avviso.
+6. **Basso** — `NomeCliente` senza limite di lunghezza nel validator: oltre i 200 caratteri del
+   database l'utente vede un «errore interno».
+7. **Basso** — registro attività: eliminazione della prenotazione e sua traccia non nella stessa
+   transazione; la modifica di nome/email di un utente non viene registrata.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare

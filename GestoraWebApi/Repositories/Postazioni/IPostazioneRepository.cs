@@ -19,10 +19,10 @@ namespace GestoraWebApi.Repositories.Postazioni
         /// <summary>Tutti i tavoli della zona, attivi e non: per la pagina di gestione (V2-007).</summary>
         Task<List<Postazione>> GetTuttePostazioniPerZonaAsync(long zonaId);
         /// <summary>
-        /// REV-099: dice se la postazione e' impegnata da <paramref name="daData"/> in poi.
-        /// Sostituisce il vecchio HasPrenotazioniAsync, che guardava l'intero storico.
+        /// V2-009: le prenotazioni ancora da servire (Attiva, InCorso) da <paramref name="daData"/>
+        /// in poi che usano il tavolo, con fascia e tavoli assegnati, dalla piu' vicina.
         /// </summary>
-        Task<bool> HasPrenotazioniFutureAsync(long postazioneId, DateOnly daData);
+        Task<List<Prenotazione>> GetImpegniFuturiAsync(long postazioneId, DateOnly daData);
 
         /// <summary>True se il tavolo e' legato a una prenotazione ancora viva (Attiva o InCorso).</summary>
         Task<bool> HasPrenotazioniViveAsync(long postazioneId);

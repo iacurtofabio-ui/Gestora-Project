@@ -191,9 +191,12 @@ fisso).
 - **Paginazione**: `Page`/`PageSize` fuori range vengono riportati dentro i limiti, non generano
   errore. L'ordinamento delle liste paginate deve sempre essere **totale**
   (`.OrderBy(...).ThenBy(x => x.Id)`), altrimenti pagine duplicate/perse.
-- **Tavoli e prenotazioni future**: `HasPrenotazioniFutureAsync` guarda solo da oggi in avanti.
-  Non reintrodurre controlli sull'intero storico: renderebbe un tavolo immutabile per sempre dopo
-  la prima prenotazione. **Stesso criterio per le fasce**: tetto e stato si cambiano
+- **Tavoli e prenotazioni future** (`V2-009`): contano solo le prenotazioni **da servire**
+  (Attiva, InCorso) da oggi in avanti (`GetImpegniFuturiAsync`), e bloccano solo la modifica che
+  le danneggia. Numero e aumento dei posti passano sempre; disattivare o spostare di zona no, se
+  il tavolo è prenotato; ridurre i posti sì, se ogni prenotazione ci sta ancora (posti assegnati
+  al tavolo e capienza dell'unione, testate comprese). Non reintrodurre un blocco totale: un
+  tavolo di un locale aperto ha quasi sempre una prenotazione futura. **Stesso criterio per le fasce**: tetto e stato si cambiano
   sempre, giorno e orari solo senza prenotazioni future Attive/InCorso.
 - **Fasce dentro un solo giorno**: il dominio calcola la fine come data + `OrarioFine`,
   quindi il validator esige fine > inizio (niente «00:00» come fine, al massimo 23:59).
@@ -269,7 +272,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **336 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **345 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

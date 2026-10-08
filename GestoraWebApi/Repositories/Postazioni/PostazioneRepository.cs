@@ -47,22 +47,24 @@ namespace GestoraWebApi.Repositories.Postazioni
                            .FirstOrDefaultAsync(p => p.Id == id);
         }
 
-        // REV-099: prima questo metodo si chiamava HasPrenotazioniAsync e rispondeva "si'" alla
-        // presenza di una qualsiasi riga in PrenotazioniPostazioni, storico compreso. Il risultato
-        // era che un tavolo, dopo la sua prima prenotazione conclusa, non era piu' rinominabile,
-        // spostabile di zona ne' disattivabile: un locale reale ci arriva in pochi giorni. Cio'
-        // che va protetto sono solo gli impegni ancora da onorare, quindi il filtro e' sulla data.
-        //
-        // Basta la data perche' annullare una prenotazione cancella le sue righe join (REV-003):
-        // le righe presenti appartengono sempre a prenotazioni vive. Si usa la copia
-        // denormalizzata DataPrenotazione sulla riga join, la stessa che regge l'unique index
-        // sullo slot, cosi' il controllo non deve risalire alla prenotazione.
-        public async Task<bool> HasPrenotazioniFutureAsync(long postazioneId, DateOnly daData)
+        // V2-009: sostituisce HasPrenotazioniFutureAsync, che rispondeva solo si'/no e contava
+        // anche le prenotazioni di oggi gia' concluse (Completata, NonPresentata): bastava una di
+        // queste per bloccare qualsiasi modifica al tavolo. Qui contano solo gli impegni ancora da
+        // servire, e tornano con i loro tavoli perche' il service deve poter dire se una
+        // prenotazione ci sta ancora dopo una riduzione dei posti, e quale nominare nel messaggio.
+        public async Task<List<Prenotazione>> GetImpegniFuturiAsync(long postazioneId, DateOnly daData)
         {
-            return await _dbSet
-                .Where(p => p.Id == postazioneId)
-                .SelectMany(p => p.PrenotazioniPostazioni)
-                .AnyAsync(pp => pp.DataPrenotazione >= daData);
+            return await _context.Prenotazioni
+                .AsNoTracking()
+                .Where(p => p.DataPrenotazione >= daData
+                         && (p.Stato == StatoPrenotazione.Attiva || p.Stato == StatoPrenotazione.InCorso)
+                         && p.PrenotazioniPostazioni.Any(pp => pp.PostazioneId == postazioneId))
+                .Include(p => p.FasciaOraria)
+                .Include(p => p.PrenotazioniPostazioni)
+                    .ThenInclude(pp => pp.Postazione)
+                .OrderBy(p => p.DataPrenotazione)
+                .ThenBy(p => p.FasciaOraria.OrarioInizio)
+                .ToListAsync();
         }
 
         // Completata, NonPresentata e Annullata non impegnano piu' il tavolo: chiudono lo storico.

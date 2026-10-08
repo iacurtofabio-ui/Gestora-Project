@@ -204,7 +204,7 @@ resta lo stesso), e viceversa. La catena backend ha due passaggi automatici in s
 webhook Azure): se `/health` non risponde subito dopo il push, aspettare qualche minuto prima di
 sospettare un problema — è la catena che sta ancora girando, non necessariamente un guasto.
 
-**Numerazione:** l'ultimo tag pubblicato è `v1.2.0`; il primo rilascio della v2 sarà `v2.0.0`.
+**Numerazione:** l'ultimo tag pubblicato è `v2.0.0` (08/10/2026, primo rilascio della v2).
 Poi `v2.x.0` per un gruppo di funzionalità o segnalazioni, `v2.x.y` per fix e correzioni. Un
 riordino interno, senza effetti sull'applicazione, può restare **senza tag**.
 
