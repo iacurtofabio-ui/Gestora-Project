@@ -228,6 +228,18 @@ compilano a mano; in *Fix e Bug* si usa la stessa sigla `V2-xxx` di `BACKLOG.md`
 voce è divisa in attività `V2-xxx-Tnn` con categoria, dipendenze, criteri di accettazione e stato. Quando il codice cambia (un
 endpoint, un test, una migration) va aggiornato il foglio corrispondente.
 
+**Cosa vuol dire lo Stato in ogni foglio** (dall'08/10/2026). Una cosa da fare si scrive come
+aperta in **un solo posto**, il foglio *Task*: così riaprendo il file si vede subito cosa manca.
+- **Task**: l'unico foglio che segue il lavoro ancora da fare, rilascio compreso. Ogni passo è
+  un task: *Da fare*, *In corso* o *Fatto*.
+- **Fix e Bug**: *Risolto* quando il difetto è corretto e verificato, anche se è solo su `v2`.
+  Se manca il rilascio lo si scrive nella soluzione, con il task che lo segue (es. «su v2,
+  rilascio nel task V2-009-T07»), non nello stato. *Aperto* = non ancora corretto.
+- **Appunti e Step**: diario di cosa si è fatto quel giorno, quindi la riga è *Fatto*. Quello che
+  resta si legge in «Prossimo passo». *Da fare* solo per un'idea annotata e mai iniziata.
+- **Date** scritte via script: in formato `2026-10-08`. Come testo «08/10/2026» Excel le legge
+  all'americana (10 agosto).
+
 ---
 
 ## 9. Dove sta cosa

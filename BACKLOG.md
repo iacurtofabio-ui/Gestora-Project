@@ -128,7 +128,7 @@ decide Fabio e porterà insieme `V2-002` e `V2-007`.
 
 ### `V2-008` — indirizzo del client su Azure ✅
 Emerso dalla code review dell'08/10/2026 e verificato lo stesso giorno in produzione con
-`GET api/LogActivity/diagnostica-inoltro` (Admin di prova creato per la verifica, da rimuovere: task `V2-008-T05`). `IndirizzoClient` era
+`GET api/LogActivity/diagnostica-inoltro` (Admin di prova creato per la verifica e rimosso da Fabio lo stesso giorno: Neon di nuovo al primo avvio). `IndirizzoClient` era
 calibrato su Railway (due anelli in `X-Forwarded-For`, se ne scartava uno); Azure ne aggiunge uno
 solo, il client con la porta. Effetti: richiesta normale → indirizzo interno `169.254.129.1`, uguale
 per tutti (rate limit del login di fatto globale: 5 accessi al minuto per l'intero locale, audit
@@ -159,7 +159,7 @@ altre. `GetImpegniFuturiAsync` sostituisce `HasPrenotazioniFutureAsync`. 345 tes
 compresi 2 sul repository con database InMemory). Frontend invariato: mostra già il messaggio.
 
 **Chiusa l'08/10/2026**: prove a vista A–G di Fabio tutte con l'esito atteso. Su `v2`, non ancora
-in produzione: il rilascio (`v2.0.1`) lo decide Fabio (task `V2-009-T06`).
+in produzione (commit `b95d108`): il rilascio (`v2.0.1`) lo decide Fabio (task `V2-009-T07`).
 
 ### Code review dell'08/10/2026 — punti ancora da affrontare
 Revisione di Claude su backend e accesso del frontend. I punti 1 e 2 sono diventati `V2-008` e
