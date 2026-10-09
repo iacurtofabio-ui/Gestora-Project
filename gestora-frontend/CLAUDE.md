@@ -15,7 +15,7 @@ logout + redirect su 401).
 
 ```
 npm run lint      # zero errori
-npm test          # 74 test, Vitest + Testing Library
+npm test          # 82 test, Vitest + Testing Library
 npm run build     # controlla i tipi — npm test NON lo fa (vedi sezione Test)
 ```
 Se hai toccato un componente/pagina visibile e non hai verificato a mano nel browser, dillo
@@ -176,6 +176,7 @@ vuoto), valorizzata = edit (form ripopolato via `useEffect` + `reset`).
 | `lib/date.ts` | `oggiInItalia`, `lunediSettimanaCorrenteInItalia`. Fuso `Europe/Rome` fissato nel codice. **Mai** `toISOString()` per una data di calendario |
 | `lib/jwt.ts` | Unico punto che legge il token. È una **lettura**, non una verifica: la firma non è controllabile dal browser |
 | `lib/session.ts` | Ponte fra l'intercettore Axios (fuori da React) e i componenti, per la scadenza sessione senza ricaricare |
+| `lib/rinnovoSessione.ts` | Quando rinnovare il token (`V2-010`): 10 minuti prima della scadenza. Il rinnovo lo fa `AuthProvider` finché la pagina è aperta; si ferma al logout e quando il server non allunga più la scadenza (12 ore dal login) |
 | `lib/giorni.ts` | `GIORNI_SETTIMANA` |
 | `lib/invalidazioni.ts` | `invalidaVisteDellaSala`: Dashboard, disponibilità e riepilogo sala da rinfrescare dopo ogni scrittura su fasce, tavoli e zone |
 | `lib/validazioni.ts` → `interoObbligatorio` | Campo numerico dei form: con `valueAsNumber` un campo vuoto è `NaN` e Zod v4 darebbe un messaggio in inglese. **Non usare `z.number()` nudo** |
@@ -210,7 +211,8 @@ l'etichetta è `sr-only` (design con segnaposto).
 
 ## Test
 
-**74 test** con Vitest + Testing Library: lettura difensiva del token (10), helper errori (5 + 5 del login + 1 per campo), regole di nome utente e campi numerici (8),
+**82 test** con Vitest + Testing Library: lettura difensiva del token (10), rinnovo del token in
+`AuthProvider` (5) e suo momento (3), helper errori (5 + 5 del login + 1 per campo), regole di nome utente e campi numerici (8),
 `ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), limite
 online dei coperti in `PrenotazioneModal` (3), stato delle fasce e limite online nella pagina
 pubblica `VerificaDisponibilita` (6), azioni

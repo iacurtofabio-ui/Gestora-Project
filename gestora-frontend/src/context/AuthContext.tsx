@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { isAxiosError } from 'axios'
 import { AuthContext, type AuthUser } from './auth-context'
 import { decodificaPayloadJwt, tokenScaduto } from '@/lib/jwt'
+import apiClient from '@/lib/axios'
+import { Endpoints } from '@/lib/endpoints'
+import { RIPROVA_RINNOVO_MS, ritardoRinnovo } from '@/lib/rinnovoSessione'
 
 const CLAIM_RUOLO = 'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'
 
@@ -51,6 +55,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!utente) localStorage.removeItem('token')
     return utente
   })
+
+  // V2-010 — rinnovo del token poco prima della scadenza, finche' la pagina e' aperta. Riparte a
+  // ogni token nuovo (login, rinnovo) e si ferma al logout.
+  const token = user?.token
+  useEffect(() => {
+    if (!token) return
+    const scadenza = decodificaPayloadJwt(token)?.exp
+    const ritardo = ritardoRinnovo(scadenza)
+    if (ritardo === null || scadenza === undefined) return
+    const scadenzaAttuale = scadenza
+
+    let annullato = false
+    let timer = setTimeout(rinnova, ritardo)
+
+    async function rinnova() {
+      try {
+        const { data } = await apiClient.post<{ token: string }>(Endpoints.auth.rinnovaToken)
+        if (annullato) return
+        // Al limite delle 12 ore dal login il server non puo' allungare la scadenza: si tiene il
+        // token che c'e' e non si richiede piu'. Alla scadenza si torna al login.
+        const nuovaScadenza = decodificaPayloadJwt(data.token)?.exp
+        if (nuovaScadenza === undefined || nuovaScadenza <= scadenzaAttuale) return
+        const utente = leggiUtenteDalToken(data.token)
+        if (!utente) return
+        localStorage.setItem('token', data.token)
+        setUser(utente)
+      } catch (errore) {
+        // 401 = sessione finita: ci pensa gia' l'intercettore (avviso e ritorno al login).
+        if (annullato || (isAxiosError(errore) && errore.response?.status === 401)) return
+        // Rete o server momentaneamente giu': si riprova, finche' il token vale ancora.
+        if (scadenzaAttuale * 1000 - Date.now() > RIPROVA_RINNOVO_MS) {
+          timer = setTimeout(rinnova, RIPROVA_RINNOVO_MS)
+        }
+      }
+    }
+
+    return () => {
+      annullato = true
+      clearTimeout(timer)
+    }
+  }, [token])
 
   function login(token: string) {
     const utente = leggiUtenteDalToken(token)

@@ -5,13 +5,13 @@
 
 ---
 
-## 1. Stato — aggiornato al 08/10/2026
+## 1. Stato — aggiornato al 09/10/2026
 
 **Gestora v2 in corso** dal 05/10/2026. Gestora è pensata per un locale vero, nei turni di
 servizio: le segnalazioni che arriveranno da lì, insieme alle nuove richieste, sono il lavoro della
 v2 (vedi §4).
 
-**Produzione pronta ma non ancora in uso**: al 07/10/2026 il primo avvio (`/setup`) non è stato
+**Produzione pronta ma non ancora in uso**: al 09/10/2026 il primo avvio (`/setup`) non è stato
 fatto (`GET api/Setup/stato` → `setupCompletato: false`) e su Neon non ci sono zone, tavoli, fasce
 né prenotazioni.
 
@@ -20,17 +20,18 @@ né prenotazioni.
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 7 migration EF + tabelle Quartz |
-| Test | **345** backend (xUnit) + **74** frontend (Vitest), tutti verdi |
+| Test | **351** backend (xUnit) + **82** frontend (Vitest), tutti verdi |
 | Modifiche al database | 7, applicate in locale e su Neon (elenco nel foglio *BE · Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
-| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (tag **`v2.0.0`**) |
+| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; il rilascio del 09/10/2026 è senza tag) |
 
-**Ultima cosa fatta** (08/10/2026): rilascio **`v2.0.0`** in produzione, con `V2-002`, `V2-007` e
-`V2-008` (indirizzo del client su Azure: rate limit del login e registro attività, verificato in
-produzione). Poi `V2-009` (tavoli modificabili anche con prenotazioni future, se non le
-danneggia): sviluppo di Claude, verificato a vista da Fabio, **su `v2`, non ancora in produzione**.
-`V2-008` e `V2-009` sono i punti 1 e 2 della code review dell'08/10/2026; i punti 3–7 sono in
-`BACKLOG.md` e si affrontano uno alla volta, decidendo ogni volta chi sviluppa. I rilasci li
+**Ultima cosa fatta** (09/10/2026): `V2-009` (tavoli modificabili anche con prenotazioni future, se
+non le danneggia) **in produzione**, con il merge `v2` → `main` del 09/10/2026 (commit `d5983aa`,
+senza tag). Prima, l'08/10/2026, il rilascio **`v2.0.0`** con `V2-002`, `V2-007` e `V2-008`.
+`V2-008` e `V2-009` sono i punti 1 e 2 della code review dell'08/10/2026; i punti 3–7 sono diventati
+`V2-010`…`V2-014` in `BACKLOG.md` e si affrontano uno alla volta, decidendo ogni volta chi
+sviluppa. Poi **`V2-010`** (sessione che scade dopo 60 minuti): rinnovo automatico del token fino a
+12 ore dal login, sviluppato da Claude **su `v2`**, manca la prova a vista di Fabio. I rilasci li
 decide Fabio (`RUNBOOK.md` §5); `dev` non si usa più.
 
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.

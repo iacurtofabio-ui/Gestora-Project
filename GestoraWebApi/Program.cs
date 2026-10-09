@@ -92,7 +92,17 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+// V2-010: durata del token e limite della sessione controllati all'avvio. Con MaxSessionHours a
+// zero (variabile dimenticata) ogni login darebbe un token già scaduto.
+builder.Services.AddOptions<JwtSettings>()
+    .Bind(builder.Configuration.GetSection("JwtSettings"))
+    .Validate(s => s.ExpiryMinutes > 0,
+        "Configurazione non valida: JwtSettings:ExpiryMinutes deve essere maggiore di zero.")
+    .Validate(s => s.MaxSessionHours > 0,
+        "Configurazione non valida: JwtSettings:MaxSessionHours deve essere maggiore di zero.")
+    .Validate(s => s.ExpiryMinutes <= s.MaxSessionHours * 60,
+        "Configurazione non valida: JwtSettings:ExpiryMinutes non può superare MaxSessionHours.")
+    .ValidateOnStart();
 
 builder.Services.AddOptions<PrenotazioniSettings>()
     .Bind(builder.Configuration.GetSection(PrenotazioniSettings.Sezione))

@@ -1,6 +1,6 @@
 # Gestora v2 — cosa resta da fare
 
-Aggiornato il **07/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **09/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -49,132 +49,59 @@ Modello da copiare:
 
 | Sigla | Tipo | Cosa | Chi sviluppa | Stato |
 |---|---|---|---|---|
-| `V2-001` | studio | Riallineare documentazione e file di supporto all'avvio della v2 | Claude | fatto (05/10/2026) |
-| `V2-002` | miglioramento | Tetto dei coperti per prenotazione configurabile (strada A) | io | fatto (06/10/2026) |
 | `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
-| `V2-006` | richiesta | Gestire il tetto di 100 coperti e renderlo raggiungibile | — | scartato (06/10/2026) |
-| `V2-007` | bug | Pagina pubblica: «Disponibilità residua: 58 coperti» e insieme «Pieno» quando mancano i tavoli | io + Claude | fatto (08/10/2026), su `v2` |
-| `V2-008` | bug (sicurezza) | Su Azure l'indirizzo del client è sbagliato: rate limit del login globale e aggirabile | Claude | fatto (08/10/2026), in produzione con `v2.0.0` |
-| `V2-009` | bug | Un tavolo con una qualsiasi prenotazione futura non si può modificare in nessun modo | Claude | fatto (08/10/2026), su `v2` |
+| `V2-010` | bug | La sessione scade dopo 60 minuti senza rinnovo: lo Staff viene buttato fuori ogni ora | Claude | in corso: sviluppata, da provare a vista |
+| `V2-011` | bug (sicurezza) | Registrazione e verifica della disponibilità (pubbliche) senza limite di richieste | — | da fare |
+| `V2-012` | bug | Spegnere una zona non controlla le prenotazioni future | — | da fare |
+| `V2-013` | bug | `NomeCliente` senza limite di lunghezza nel validator | — | da fare |
+| `V2-014` | bug | Registro attività: eliminazione non nella stessa transazione, modifica di nome/email non registrata | — | da fare |
 
-### `V2-002` — tetto dei coperti per prenotazione configurabile ✅
-Scelta la strada A: il tetto sta in configurazione (`Prenotazioni:MaxCopertiPerPrenotazione` in
-`appsettings.json`, **50**), controllato all'avvio, letto dai due validatori e passato al
-frontend da `GET api/Prenotazione/limiti-prenotazione` (pubblico). Nella pagina pubblica, oltre il
-tetto, il campo «Persone» resta bloccato dal browser e compare «Per prenotazioni superiori a N
-persone contatta direttamente il ristorante». Per cambiarlo in produzione: variabile d'ambiente di
-Azure `Prenotazioni__MaxCopertiPerPrenotazione` (la mette Fabio), nessun rilascio. 294 test
-backend (+2), 64 frontend.
+Tolte il 09/10/2026, perché chiuse e in produzione: `V2-001`, `V2-002`, `V2-007`, `V2-008`,
+`V2-009`, e `V2-006` scartata. La loro storia resta nel tracker (fogli *Fix e Bug* e *Task*) e
+nella cronologia Git di questo file.
 
 ### `V2-003` — conferma dell'email
 Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter prenotare. Oggi non
 esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
 collega all'idea *Email di conferma e promemoria* qui sotto.
 
-### `V2-007` — coerenza fra fasce, tavoli e prenotazioni ✅
-Segnalato il 06/10/2026 provando la pagina pubblica. Esempio: 50 persone, fascia con tetto 60
-coperti, in sala solo 2 tavoli da 2 posti. L'utente legge «Disponibilità residua: 58 coperti» e
-accanto «Pieno»: i due dati si contraddicono. Ripreso il 07/10/2026: riprodotto in locale con il
-seed di sviluppo (anche la fascia già finita compare come «Pieno»).
+### `V2-010` — la sessione scade dopo 60 minuti
+Punto 3 della code review dell'08/10/2026. Il token valeva 60 minuti e non si rinnovava: in
+servizio lo Staff veniva buttato fuori ogni ora e perdeva il form che stava compilando.
 
-**Causa.** Il backend (`DisponibilitaService.CheckDisponibilitaAsync`) distingue già 4 motivi di
-fascia non prenotabile — terminata, tetto esaurito, posti residui meno di quelli chiesti, tavoli
-che non bastano — e ne scrive uno in `messaggio`. La pagina pubblica
-(`components/landing/VerificaDisponibilita.tsx`, riga della fascia non libera) **ignora il
-motivo** e mostra sempre «Disponibilità residua: N» + «Pieno». La riga che mostrava il motivo è
-stata sostituita nel restyle (commit `a211a8b`), il commento sopra è rimasto. Stesso difetto per
-una fascia già finita, che compare come «Pieno». I testi di `messaggio` sono pensati per lo Staff
-(li usa `PrenotazioneModal`), troppo tecnici per un cliente.
+**Soluzione scelta** (09/10/2026, strada A fra tre, sviluppa Claude): **rinnovo del token**.
+- Backend: nuovo `POST api/AuthenticationUser/rinnova-token`, per qualsiasi utente con un token
+  ancora valido. Rilegge ruoli e security stamp e dà un token nuovo da 60 minuti, **mai oltre 12
+  ore dal login** (`JwtSettings:MaxSessionHours`, in configurazione e controllato all'avvio). Il
+  claim `inizio_sessione` porta l'istante del login da un rinnovo all'altro.
+- Frontend: `AuthProvider` chiede il rinnovo da solo 10 minuti prima della scadenza, finché la
+  pagina è aperta. Se la rete non risponde riprova ogni minuto; al limite delle 12 ore smette, e
+  alla scadenza si torna al login con «Sessione scaduta».
+- Nessuna modifica al database. Il security stamp continua a respingere subito i token di un
+  utente modificato o eliminato.
 
-**Soluzione scelta** (07/10/2026, idea di Fabio, sviluppa Fabio guidato):
-1. **Motivo vero nella pagina pubblica**: campo `Motivo` in `FasciaDisponibilitaDTO` (Libera,
-   Terminata, TettoEsaurito, PostiInsufficienti, TavoliInsufficienti) e un solo stato per riga.
-   Serve comunque: un tavolo va sempre intero a un gruppo, quindi anche con una sala coerente
-   possono restare posti sotto il tetto senza un tavolo che li accolga. Da solo chiude il bug.
-2. **Limite online di 20 persone** per il Cliente e la pagina pubblica (oltre: «contatta il
-   ristorante»); lo Staff resta a un limite tecnico di 50.
-3. **Tetto della fascia ≤ posti della sala** (tavoli attivi in zone attive, somma semplice, senza
-   bonus testate): controllato salvando o attivando una fascia **e** modificando tavoli e zone (la
-   modifica che porterebbe i posti sotto un tetto è bloccata). Prima i tavoli, poi le fasce.
-4. **Niente più limite di 4 tavoli per unione** (sempre nella stessa zona): il motore smette di
-   aggiungere tavoli appena l'unione copre il gruppo.
+Scartate: B, refresh token in una tabella nuova (migration e molto codice per poca sicurezza in
+più, con il token in `localStorage`); C, solo allungare la durata (la scadenza arriverebbe comunque
+a metà turno).
 
-Cambiano le decisioni di prodotto 4 e 8 e se ne aggiunge una (limite online): si scrivono in
-`CLAUDE.md` §5 a lavoro finito. Produzione ancora vuota (setup non fatto): nessun dato da
-correggere. Dettaglio e avanzamento: task `V2-007-T01`…`T28` nel foglio *Task* del tracker.
-
-**Stato al 08/10/2026.** Analisi di Fabio, guidato (T01–T03). Sviluppo, test e documenti di Claude,
-su richiesta di Fabio (T04–T22), tutto verificato anche dal vivo in locale. Decisioni di prodotto 4
-e 8 riscritte e aggiunta la 11 in `CLAUDE.md` §5. Variabili Azure controllate da Fabio: nessuna da
-impostare (T23).
-
-**Dai test visivi di Fabio (08/10/2026)**, corretti da Claude dentro questa voce:
-- T26 — nuovo testo del blocco su tavoli e zone («Errore: i posti della sala non possono scendere
-  sotto il tetto delle fasce…»), con l'elenco delle fasce che bloccano;
-- T27 — un tavolo disattivato spariva dalla pagina Tavoli e non si poteva più riattivare: nuovo
-  elenco per la gestione con anche i tavoli disattivati (`get-tavoli-zona-gestione`);
-- T28 — l'elenco prenotazioni partiva dallo storico più vecchio: ora prima oggi e il futuro, poi il
-  passato; dopo una creazione lo Staff va al giorno della prenotazione.
-
-Non erano difetti: il Cliente che vede 33 prenotazioni (il seed gliele assegna davvero) e il filtro
-per data (prova errata). 338 test backend e 74 frontend verdi. T26–T28 verificate a vista da Fabio.
-
-**Chiusa l'08/10/2026** (commit `a0b6bc2` su `v2`), **in produzione con `v2.0.0`** (08/10/2026,
-insieme a `V2-002` e `V2-008`). Nota storica: il rilascio era stato rimandato, `main` restava
-fermo finché il locale non comincia a usare Gestora; il merge `v2` → `main` (T24) si fa quando lo
-decide Fabio e porterà insieme `V2-002` e `V2-007`.
-
-### `V2-008` — indirizzo del client su Azure ✅
-Emerso dalla code review dell'08/10/2026 e verificato lo stesso giorno in produzione con
-`GET api/LogActivity/diagnostica-inoltro` (Admin di prova creato per la verifica e rimosso da Fabio lo stesso giorno: Neon di nuovo al primo avvio). `IndirizzoClient` era
-calibrato su Railway (due anelli in `X-Forwarded-For`, se ne scartava uno); Azure ne aggiunge uno
-solo, il client con la porta. Effetti: richiesta normale → indirizzo interno `169.254.129.1`, uguale
-per tutti (rate limit del login di fatto globale: 5 accessi al minuto per l'intero locale, audit
-trail senza indirizzi utili); richiesta con `X-Forwarded-For: 1.2.3.4` → usato `1.2.3.4` (rate
-limit aggirabile).
-
-**Correzione** (sviluppa Claude): anelli da scartare 1 → 0, commento e test riscritti sulle catene
-reali di Azure. 336 test backend (−2: tolti quelli che descrivevano la catena di Railway).
-**Chiusa l'08/10/2026**: commit `3821c87`, rilasciata con il tag `v2.0.0`. Verificata in
-produzione con le due richieste diagnostiche (normale e con `X-Forwarded-For: 1.2.3.4`): in
-entrambe l'applicazione usa l'IP pubblico vero.
-
-### `V2-009` — tavoli bloccati da qualsiasi prenotazione futura ✅
-Emerso dalla code review dell'08/10/2026 (punto 2). Modifica del tavolo e spostamento di zona
-erano rifiutati se il tavolo aveva **una qualsiasi** prenotazione da oggi in poi, anche già
-completata o non presentata, e per **qualsiasi** modifica, anche cambiare il numero o aggiungere
-posti. Con il locale aperto quasi ogni tavolo ne ha sempre una: la sala sarebbe rimasta bloccata.
-
-**Correzione** (sviluppa Claude): contano solo le prenotazioni da servire (Attiva, InCorso) da oggi
-in poi, e bloccano solo la modifica che le danneggia.
-- Numero e aumento dei posti: sempre permessi.
-- Disattivare il tavolo o spostarlo di zona: bloccati se il tavolo è prenotato.
-- Ridurre i posti: permesso se ogni prenotazione ci sta ancora, cioè se il tavolo tiene le persone
-  che gli sono assegnate e l'unione tiene tutto il gruppo, testate comprese.
-
-Il messaggio nomina la prima prenotazione che blocca (giorno, data, fascia, persone) e conta le
-altre. `GetImpegniFuturiAsync` sostituisce `HasPrenotazioniFutureAsync`. 345 test backend (+9,
-compresi 2 sul repository con database InMemory). Frontend invariato: mostra già il messaggio.
-
-**Chiusa l'08/10/2026**: prove a vista A–G di Fabio tutte con l'esito atteso. Su `v2`, non ancora
-in produzione (commit `b95d108`): il rilascio (`v2.0.1`) lo decide Fabio (task `V2-009-T07`).
+351 test backend (+6, `JwtTokenGeneratorTests`), 82 frontend (+8). Chiude l'idea *Sessione con
+rinnovo automatico del token*. Manca la prova a vista di Fabio (task `V2-010-T06`).
 
 ### Code review dell'08/10/2026 — punti ancora da affrontare
-Revisione di Claude su backend e accesso del frontend. I punti 1 e 2 sono diventati `V2-008` e
-`V2-009`. Gli altri si prendono uno alla volta: per ognuno si decide chi sviluppa e diventa una
-voce `V2-xxx`.
-3. **Medio** — la sessione scade dopo 60 minuti senza rinnovo: in servizio lo Staff viene buttato
-   fuori ogni ora e perde quello che stava scrivendo.
-4. **Medio** — registrazione e verifica della disponibilità (pubbliche) senza limite di richieste:
-   account in massa, e il calcolo più pesante dell'applicazione ripetibile all'infinito.
-5. **Medio** — spegnere una zona non controlla le prenotazioni future (per i tavoli sì): restano
-   assegnate a tavoli di una zona spenta, senza avviso.
-6. **Basso** — `NomeCliente` senza limite di lunghezza nel validator: oltre i 200 caratteri del
-   database l'utente vede un «errore interno».
-7. **Basso** — registro attività: eliminazione della prenotazione e sua traccia non nella stessa
-   transazione; la modifica di nome/email di un utente non viene registrata.
+Revisione di Claude su backend e accesso del frontend. I punti 1 e 2 sono stati `V2-008` e
+`V2-009`, il punto 3 è `V2-010` (sopra). Gli altri si prendono uno alla volta, decidendo ogni volta
+chi sviluppa.
+- `V2-011` (punto 4, **medio**) — registrazione e verifica della disponibilità (pubbliche) senza
+  limite di richieste: account in massa, e il calcolo più pesante dell'applicazione ripetibile
+  all'infinito.
+- `V2-012` (punto 5, **medio**) — spegnere una zona non controlla le prenotazioni future (per i
+  tavoli sì): restano assegnate a tavoli di una zona spenta, senza avviso.
+- `V2-013` (punto 6, **basso**) — `NomeCliente` senza limite di lunghezza nel validator: oltre i
+  200 caratteri del database l'utente vede un «errore interno».
+- `V2-014` (punto 7, **basso**) — registro attività: eliminazione della prenotazione e sua traccia
+  non nella stessa transazione; la modifica di nome/email di un utente non viene registrata.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare
@@ -207,7 +134,6 @@ nostra le rende utili.
 **Utenti e comunicazione**
 - Email di conferma e promemoria
 - Recupero password autonomo
-- Sessione con rinnovo automatico del token
 - Autenticazione con cookie `HttpOnly` + protezione CSRF, al posto del token in `localStorage`.
   È una riprogettazione, non un fix: il token in `localStorage` non è un bug (vedi `RUNBOOK.md`
   §9), ma un cookie `HttpOnly` toglie anche la possibilità teorica di leggerlo da JavaScript

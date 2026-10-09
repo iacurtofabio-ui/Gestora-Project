@@ -241,6 +241,16 @@ Se le si usa (*Impostazioni → Variabili di ambiente* dell'App Service, doppio 
 > già `Prenotazioni__MaxCopertiPerPrenotazione`, controllare che valga almeno 20 (o almeno quanto
 > `MaxCopertiPrenotazioneOnline`, se è stato cambiato).
 
+### La durata della sessione su Azure
+
+Stessa logica per il token (`V2-010`): `JwtSettings:ExpiryMinutes` (60, durata di un token) e
+`JwtSettings:MaxSessionHours` (12, massimo dal login, rinnovi compresi) stanno in
+`appsettings.json`. Su Azure **non serve** impostarli; se li si usa:
+`JwtSettings__ExpiryMinutes`, `JwtSettings__MaxSessionHours`.
+
+> ⚠️ All'avvio l'app controlla che entrambi siano maggiori di zero e che **un token non duri più
+> della sessione** (`ExpiryMinutes` ≤ `MaxSessionHours` × 60): se no **non parte**.
+
 ### Il primo avvio di un locale
 
 Dal `V2-007` il tetto di una fascia non può superare i posti della sala: l'ordine è **zone → tavoli
@@ -404,7 +414,11 @@ complesso (cookie `HttpOnly` + protezione CSRF, che è un'architettura diversa, 
 a questa). La protezione vera sta in due cose, entrambe già presenti:
 
 1. **La scadenza**, 60 minuti (`JwtSettings:ExpiryMinutes`) — con `ClockSkew = TimeSpan.Zero`
-   scade esattamente a 60 minuti, non a 65.
+   scade esattamente a 60 minuti, non a 65. Dal `V2-010` il frontend lo rinnova da solo 10 minuti
+   prima, finché la pagina è aperta (`POST api/AuthenticationUser/rinnova-token`), ma mai oltre
+   **12 ore dal login** (`JwtSettings:MaxSessionHours`): poi si rifà l'accesso. Un token copiato
+   si potrebbe quindi rinnovare fino a quel limite; a chiudere davvero una sessione resta il
+   security stamp, che respinge subito i token di un utente modificato o eliminato.
 2. **Il logout**, che cancella il token e svuota anche la cache di React Query
    (`AppLayout.handleLogout` e il gestore di sessione scaduta fanno entrambi le due cose insieme),
    così non restano dati del vecchio utente in memoria dopo l'uscita.

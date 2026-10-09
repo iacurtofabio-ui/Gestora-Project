@@ -8,6 +8,7 @@ export const Endpoints = {
   auth: {
     login: '/AuthenticationUser/login',
     register: '/AuthenticationUser/register',
+    rinnovaToken: '/AuthenticationUser/rinnova-token',
     getUsers: '/AuthenticationUser/get-users',
     updateUser: (id: string) => `/AuthenticationUser/update-user/${id}`,
     deleteUser: (id: string) => `/AuthenticationUser/delete-user/${id}`,

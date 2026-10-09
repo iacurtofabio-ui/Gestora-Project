@@ -177,8 +177,8 @@ fisso).
   dell'unique index sullo slot in 409). **La cache si invalida dopo il commit**, mai dentro il
   blocco.
 - **Indirizzo IP reale** — `Common/IndirizzoClient`. **Non usare `Connection.RemoteIpAddress`
-  direttamente**: dietro il proxy è un indirizzo di rete interna, uguale per chiunque. La catena
-  ha due livelli di proxy: l'helper scarta l'ultimo anello e prende quello prima. Non
+  direttamente**: dietro il proxy è un indirizzo di rete interna, uguale per chiunque. Su Azure la
+  catena ha un solo anello, già il client (`V2-008`): l'helper non ne scarta nessuno. Non
   `UseForwardedHeaders` (prende l'anello sbagliato, cioè il proxy). Per rimisurare la catena:
   `GET /api/LogActivity/diagnostica-inoltro` (Admin), con il middleware disattivato (altrimenti
   legge un header già consumato).
@@ -211,6 +211,13 @@ fisso).
 - **Token e security stamp**: il JWT porta il claim `stamp`, confrontato a ogni
   richiesta in `OnTokenValidated`. Chi cambia ruoli o email di un utente deve chiamare
   `UpdateSecurityStampAsync` (già fatto in assign/remove-role e update-user).
+- **Rinnovo del token** (`V2-010`): `POST rinnova-token` (qualsiasi utente autenticato) dà un token
+  nuovo con ruoli e stamp riletti adesso. Il claim `inizio_sessione` (istante del login, secondi
+  Unix) passa invariato da un rinnovo all'altro e la scadenza non va mai oltre
+  `JwtSettings:MaxSessionHours` (12) da lì: oltre, 401 e si rifà il login. La regola sta in
+  `JwtTokenGenerator` (con `IClock`, test in `JwtTokenGeneratorTests`), non nel controller. Il
+  claim ha un nome proprio e non `auth_time`, che il middleware JWT rinominerebbe. Il rinnovo non
+  scrive nel registro attività: sarebbe una riga ogni ora per ogni utente collegato.
 - **Nome utente**: ammessi spazi, apostrofi e lettere accentate (`AllowedUserNameCharacters`), non
   in testa/coda né doppi (`RegoleUsername`). Errori di Identity in italiano
   (`IdentityErrorDescriberItaliano`) e sempre restituiti con `ErroriIdentity.ComeValidationException`,
@@ -230,7 +237,8 @@ fisso).
   `FascePerGiorno+giorno`), non solo quella base.
 - **Avvio**: `Program.cs` valida la configurazione **prima** di registrare i servizi (fail-fast):
   se manca `ConnectionStrings:DefaultConnection`/`JwtSettings:Secret`, o il segreto è più corto di
-  32 caratteri, l'app si ferma con un messaggio esplicito. **Non rimuovere quei controlli.**
+  32 caratteri, l'app si ferma con un messaggio esplicito. Stessa cosa per la durata del token e
+  della sessione (`ValidateOnStart`: entrambe > 0, token non più lungo della sessione). **Non rimuovere quei controlli.**
 - **Tetto dei coperti per prenotazione**: non è nel codice ma in configurazione
   (`Common/PrenotazioniSettings`), con **due valori** (`V2-007`):
   - `Prenotazioni:MaxCopertiPerPrenotazione` — limite **tecnico**, oggi 50, per tutti i ruoli. Lo
@@ -272,7 +280,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **345 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **351 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

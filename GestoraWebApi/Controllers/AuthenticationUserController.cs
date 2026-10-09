@@ -136,6 +136,41 @@ namespace GestoraWebApi.Controllers
             return Ok(new { Email = user.Email, Token = token });
         }
 
+        /// <summary>
+        /// V2-010 — rinnovo del token, per qualsiasi utente con un token ancora valido. Il frontend
+        /// lo chiama da solo poco prima della scadenza, finché la pagina è aperta: lo Staff non viene
+        /// più buttato fuori ogni ora. Il nuovo token conserva l'inizio della sessione, quindi non va
+        /// mai oltre JwtSettings:MaxSessionHours dal login; superato quel limite si rifà il login.
+        /// Ruoli e security stamp sono riletti adesso: un account modificato è già respinto da
+        /// OnTokenValidated prima di arrivare qui. Nessuna riga nel registro attività: sarebbe una
+        /// ogni ora per ogni utente collegato.
+        /// </summary>
+        [Authorize]
+        [HttpPost("rinnova-token")]
+        public async Task<IActionResult> RinnovaToken()
+        {
+            var userId = User.GetAuthenticatedUserId();
+            var inizioSessione = JwtTokenGenerator.LeggiInizioSessione(User);
+
+            if (inizioSessione is null || !_tokenGenerator.SessioneAncoraValida(inizioSessione.Value))
+            {
+                _logger.LogInformation("[{Controller}] - [{Method}]: Rinnovo rifiutato per {UserId}, sessione al limite massimo",
+                    nameof(AuthenticationUserController), nameof(RinnovaToken), userId);
+
+                return Unauthorized("Sessione scaduta. Effettua di nuovo l'accesso.");
+            }
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return Unauthorized("Sessione scaduta. Effettua di nuovo l'accesso.");
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var token = _tokenGenerator.GenerateToken(user.Id, user.Email!, roles,
+                await _userManager.GetSecurityStampAsync(user), inizioSessione.Value);
+
+            return Ok(new { Email = user.Email, Token = token });
+        }
+
         /// <summary>Assegna un ruolo a un utente — solo Admin</summary>
         [Authorize(Roles = Roles.Admin)]
         [HttpPost("assign-role")]
