@@ -1,6 +1,6 @@
 # Gestora v2 — cosa resta da fare
 
-Aggiornato il **09/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **12/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -52,15 +52,15 @@ Modello da copiare:
 | `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
-| `V2-011` | bug (sicurezza) | Registrazione e verifica della disponibilità (pubbliche) senza limite di richieste | Claude | fatto (su v2) |
 | `V2-012` | bug | Spegnere una zona non controlla le prenotazioni future | — | da fare |
 | `V2-013` | bug | `NomeCliente` senza limite di lunghezza nel validator | — | da fare |
 | `V2-014` | bug | Registro attività: eliminazione non nella stessa transazione, modifica di nome/email non registrata | — | da fare |
-| `V2-015` | miglioramento | Pulizia automatica delle utenze mai usate | Claude | in corso (migration da applicare) |
 
-Tolte il 09/10/2026, perché chiuse e in produzione: `V2-001`, `V2-002`, `V2-007`, `V2-008`,
-`V2-009`, `V2-010` (rinnovo del token, sessione fino a 12 ore dal login), e `V2-006` scartata. La loro storia resta nel tracker (fogli *Fix e Bug* e *Task*) e
-nella cronologia Git di questo file.
+Tolte il 12/10/2026, perché chiuse e in produzione (rilascio del 12/10/2026, senza tag):
+`V2-011` (limiti di richieste su registrazione e verifica della disponibilità) e `V2-015`
+(pulizia notturna delle utenze mai usate, migration 8 applicata su Neon). Prima, il 09/10/2026:
+`V2-001`, `V2-002`, `V2-007`, `V2-008`, `V2-009`, `V2-010` e `V2-006` scartata. La loro storia
+resta nel tracker (fogli *Fix e Bug* e *Task*) e nella cronologia Git di questo file.
 
 ### `V2-003` — conferma dell'email
 Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter prenotare. Oggi non
@@ -79,28 +79,15 @@ in `UtenzeSettings`, nessuna migration. Chi ha prenotazioni resta comunque prote
 le prenotazioni concluse spariscono dopo 6 mesi.
 
 ### Code review dell'08/10/2026 — punti ancora da affrontare
-Revisione di Claude su backend e accesso del frontend. I punti 1–3 sono stati `V2-008`, `V2-009`
-e `V2-010`, tutti in produzione. Gli altri si prendono uno alla volta, decidendo ogni volta
-chi sviluppa.
-- `V2-011` (punto 4, **medio**) — registrazione e verifica della disponibilità (pubbliche) senza
-  limite di richieste: account in massa, e il calcolo più pesante dell'applicazione ripetibile
-  all'infinito. **Fatto su v2 il 12/10/2026**: registrazione 10 all'ora per indirizzo (Admin
-  escluso), disponibilità 20 di fila poi 30 al minuto (per utente se ha fatto l'accesso). Numeri
-  in configurazione, sezione `LimitiRichieste`. Manca il rilascio.
+Revisione di Claude su backend e accesso del frontend. I punti 1–4 sono stati `V2-008`, `V2-009`,
+`V2-010` e `V2-011`, tutti in produzione. Gli altri si prendono uno alla volta, decidendo ogni
+volta chi sviluppa.
 - `V2-012` (punto 5, **medio**) — spegnere una zona non controlla le prenotazioni future (per i
   tavoli sì): restano assegnate a tavoli di una zona spenta, senza avviso.
 - `V2-013` (punto 6, **basso**) — `NomeCliente` senza limite di lunghezza nel validator: oltre i
   200 caratteri del database l'utente vede un «errore interno».
 - `V2-014` (punto 7, **basso**) — registro attività: eliminazione della prenotazione e sua traccia
   non nella stessa transazione; la modifica di nome/email di un utente non viene registrata.
-
-### `V2-015` — pulizia delle utenze mai usate
-Nata ragionando su `V2-011`: la registrazione è pubblica e nessuna utenza veniva mai eliminata,
-quindi gli account creati e mai usati (veri o finti) restavano per sempre. Un job notturno (3:00)
-elimina i Clienti mai entrati, senza prenotazioni, creati più di **180 giorni** fa
-(`Utenze:GiorniUtenzaMaiUsata`). Staff e Admin mai. Due colonne nuove sull'utente,
-`DataCreazione` e `UltimoAccesso`: **migration da applicare** (prima in locale, poi su Neon prima
-del deploy del backend).
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare

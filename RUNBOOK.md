@@ -174,6 +174,11 @@ cd "...\GestoraWebApi"; dotnet ef migrations script --idempotent -o Scripts\nome
 > script gira senza transazione**, quindi senza possibilità di annullare se qualcosa va male.
 > È già successo in produzione.
 
+**Senza riga di comando** (la migration 8, il 12/10/2026, è passata dal SQL Editor): backup con un **branch di
+Neon** (*Branches* → *Create branch* dal principale, es. `backup-2026-10-12`), poi il contenuto
+dello script incollato nel **SQL Editor** di Neon. Incollando il testo il problema del BOM non si
+pone. Prima e dopo, controllo su `"__EFMigrationsHistory"`.
+
 > ⚠️ **Se una modifica si applica a mano, usare sempre lo script generato**, non i comandi SQL
 > scritti a mano: lo script include anche la riga che registra la modifica come applicata. Senza
 > quella riga lo schema è giusto ma Entity Framework continua a considerarla da fare, e un futuro
@@ -375,6 +380,13 @@ PowerShell 5.1 lo legge con la codifica sbagliata e gli accenti si rompono.
 - **SCM Basic Auth necessaria per il webhook di distribuzione continua.** Senza, Azure non
   accetta la notifica che arriva da Docker Hub quando c'è una nuova immagine, e il backend resta
   fermo alla versione precedente finché non si riavvia a mano dal pannello.
+- **Vercel può non ripubblicare dopo il push su `main`.** Il 12/10/2026, dopo il merge della PR #4
+  fatto dalla pagina di GitHub, il backend si è aggiornato ma su Vercel non è comparsa nessuna
+  pubblicazione. *Create Deployment* ha poi dato `403 ... secondary rate limit` (un blocco
+  temporaneo di GitHub verso Vercel); dopo circa 15 minuti di attesa è andato. Dopo ogni rilascio
+  che tocca il frontend, controllare in *Deployments* che ci sia una pubblicazione del commit
+  appena mandato su `main`. Se manca: *Deployments* → **⋯** → *Create Deployment* con `main`.
+  Mai *Redeploy* su una pubblicazione vecchia: ricostruisce il codice vecchio.
 
 ### Gli indirizzi degli endpoint
 
