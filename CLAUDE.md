@@ -20,19 +20,19 @@ né prenotazioni.
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 7 migration EF + tabelle Quartz |
-| Test | **351** backend (xUnit) + **82** frontend (Vitest), tutti verdi |
-| Modifiche al database | 7, applicate in locale e su Neon (elenco nel foglio *BE · Migration* del tracker) |
+| Test | **371** backend (xUnit) + **85** frontend (Vitest), tutti verdi |
+| Modifiche al database | 8: le prime 7 applicate in locale e su Neon, l'ottava (`UtenteDataCreazioneEUltimoAccesso`, `V2-015`) da applicare (elenco nel foglio *BE · Migration* del tracker) |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
-| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; il rilascio del 09/10/2026 è senza tag) |
+| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i due rilasci del 09/10/2026 sono senza tag) |
 
-**Ultima cosa fatta** (09/10/2026): `V2-009` (tavoli modificabili anche con prenotazioni future, se
-non le danneggia) **in produzione**, con il merge `v2` → `main` del 09/10/2026 (commit `d5983aa`,
-senza tag). Prima, l'08/10/2026, il rilascio **`v2.0.0`** con `V2-002`, `V2-007` e `V2-008`.
-`V2-008` e `V2-009` sono i punti 1 e 2 della code review dell'08/10/2026; i punti 3–7 sono diventati
-`V2-010`…`V2-014` in `BACKLOG.md` e si affrontano uno alla volta, decidendo ogni volta chi
-sviluppa. Poi **`V2-010`** (sessione che scade dopo 60 minuti): rinnovo automatico del token fino a
-12 ore dal login, sviluppato da Claude **su `v2`**, manca la prova a vista di Fabio. I rilasci li
-decide Fabio (`RUNBOOK.md` §5); `dev` non si usa più.
+**Ultima cosa fatta** (09/10/2026): due rilasci in produzione, entrambi senza tag. Prima `V2-009`
+(tavoli modificabili anche con prenotazioni future, se non le danneggia, commit `d5983aa`), poi
+**`V2-010`** (rinnovo automatico del token, sessione fino a 12 ore dal login, sviluppato da Claude,
+provato a vista da Fabio, commit `9d1de47`). Prima ancora, l'08/10/2026, il rilascio **`v2.0.0`**
+con `V2-002`, `V2-007` e `V2-008`. `V2-008`, `V2-009` e `V2-010` sono i punti 1–3 della code review
+dell'08/10/2026; i punti 4–7 sono `V2-011`…`V2-014` in `BACKLOG.md` e si affrontano uno alla volta,
+decidendo ogni volta chi sviluppa. I rilasci li decide Fabio (`RUNBOOK.md` §5); `dev` non si usa
+più.
 
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.
 
@@ -84,7 +84,7 @@ messi in questa cartella**, nemmeno ignorati da Git.
 ### Backend — ASP.NET Core 9
 
 Entity Framework Core 9 su PostgreSQL, autenticazione con ASP.NET Identity + token JWT.
-In più: **Quartz** per i due lavori notturni programmati, **FluentValidation** per i controlli
+In più: **Quartz** per i tre lavori notturni programmati, **FluentValidation** per i controlli
 sui dati in ingresso, **AutoMapper**, **Serilog** per i log, cache in memoria.
 Test con **xUnit + Moq**. Deploy con **Dockerfile** (immagine su Docker Hub, Azure la scarica da
 solo).

@@ -1,10 +1,12 @@
 using GestoraWebApi.Auth;
+using GestoraWebApi.Infrastructure.RateLimiting;
 using GestoraWebApi.Services.Disponibilita;
 using GestoraWebApi.Services.Prenotazioni;
 using GestoraWebApi.Services.Prenotazioni.DTOs;
 using GestoraWebApi.Services.PrenotazioniPostazioni;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using GestoraWebApi.Common;
 using Microsoft.Extensions.Options;
@@ -160,6 +162,7 @@ namespace GestoraWebApi.Controllers
 
         /// <summary>Endpoint pubblico (no login richiesto). Verifica disponibilità fasce e postazioni per data e numero coperti.</summary>
         [AllowAnonymous]
+        [EnableRateLimiting(LimitiRichieste.Disponibilita)]
         [HttpPost("check-disponibilita")]
         public async Task<IActionResult> CheckDisponibilita([FromBody] CheckDisponibilitaDTO dto)
         {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { AxiosError, AxiosHeaders } from 'axios'
 import { VerificaDisponibilita } from '@/components/landing/VerificaDisponibilita'
 import { useCheckDisponibilita } from '@/hooks/useDisponibilita'
 import type { FasciaDisponibilitaDTO, MotivoDisponibilita } from '@/types/disponibilita'
@@ -121,6 +122,27 @@ describe('VerificaDisponibilita - stato di una fascia non prenotabile', () => {
       screen.getByText('Per prenotazioni superiori a 20 persone contatta direttamente il ristorante.')
     ).toBeInTheDocument()
     expect(campoPersone).toHaveAttribute('max', '20')
+  })
+
+  it('fermato dal limite di richieste (429): dice di aspettare, non che c\'è un guasto', async () => {
+    const errore = new AxiosError('troppe richieste')
+    errore.response = {
+      status: 429,
+      statusText: '',
+      data: {},
+      headers: new AxiosHeaders(),
+      config: { headers: new AxiosHeaders() },
+    }
+    checkDisponibilita.mockReturnValue({
+      isFetching: false,
+      isError: true,
+      error: errore,
+    } as unknown as ReturnType<typeof useCheckDisponibilita>)
+
+    await cerca('2')
+
+    expect(screen.getByText(/Hai fatto molte ricerche di fila/)).toBeInTheDocument()
+    expect(screen.queryByText(/Non riesco a controllare/)).not.toBeInTheDocument()
   })
 
   it('una fascia libera resta «Libero» e propone di prenotare', async () => {

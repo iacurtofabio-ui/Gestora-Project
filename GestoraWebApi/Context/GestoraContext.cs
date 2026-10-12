@@ -29,6 +29,14 @@ namespace GestoraWebApi.Context
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<ApplicationUser>().ToTable("Utenti");
+
+            // V2-015: rete di sicurezza. Se un punto che crea utenti dimentica DataCreazione, il
+            // database scrive l'istante dell'inserimento invece di 0001-01-01, che per la pulizia
+            // notturna sarebbe un'utenza vecchia di duemila anni, da eliminare subito.
+            // Vale anche per le righe gia' presenti quando si applica la migration.
+            modelBuilder.Entity<ApplicationUser>()
+                .Property(u => u.DataCreazione)
+                .HasDefaultValueSql("now()");
             modelBuilder.Entity<IdentityRole>().ToTable("Ruoli");
 
             //POSTAZIONI

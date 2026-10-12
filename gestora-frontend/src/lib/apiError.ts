@@ -94,6 +94,15 @@ export function messaggioErroreLogin(error: unknown): string {
 }
 
 /**
+ * V2-011 — il server ha fermato la richiesta per il limite di richieste (429). Serve dove il
+ * testo è scritto nella pagina e non preso dal server, come la verifica della disponibilità
+ * pubblica: lì «non riesco a controllare» farebbe pensare a un guasto, invece basta aspettare.
+ */
+export function eTroppeRichieste(error: unknown): boolean {
+  return isAxiosError(error) && error.response?.status === 429
+}
+
+/**
  * NEW-006 — stessa idea di `messaggioErrore`, ma per gli errori di *caricamento* (React Query
  * `error` di una query, non di una mutation). Prima ogni pagina mostrava lo stesso testo fisso
  * ("Errore nel caricamento") a prescindere dalla causa: backend spento, permessi mancanti o

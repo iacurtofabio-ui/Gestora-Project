@@ -37,16 +37,19 @@ namespace GestoraWebApi.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ILogActivityService _logActivityService;
         private readonly ILogger<SetupController> _logger;
+        private readonly IClock _clock;
 
         public SetupController(UserManager<ApplicationUser> userManager,
                                RoleManager<IdentityRole> roleManager,
                                ILogActivityService logActivityService,
-                               ILogger<SetupController> logger)
+                               ILogger<SetupController> logger,
+                               IClock clock)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _logActivityService = logActivityService;
             _logger = logger;
+            _clock = clock;
         }
 
         /// <summary>
@@ -77,7 +80,12 @@ namespace GestoraWebApi.Controllers
                     return Conflict("L'installazione e' gia' configurata: esiste gia' un amministratore.");
                 }
 
-                var user = new ApplicationUser { UserName = request.Username, Email = request.Email };
+                var user = new ApplicationUser
+                {
+                    UserName = request.Username,
+                    Email = request.Email,
+                    DataCreazione = _clock.UtcNow
+                };
                 var result = await _userManager.CreateAsync(user, request.Password);
 
                 if (!result.Succeeded)

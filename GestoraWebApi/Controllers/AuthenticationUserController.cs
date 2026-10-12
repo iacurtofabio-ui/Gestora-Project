@@ -3,6 +3,7 @@ using GestoraWebApi.Common;
 using GestoraWebApi.Context;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
+using GestoraWebApi.Infrastructure.RateLimiting;
 using GestoraWebApi.Services.Auth.DTOs;
 using GestoraWebApi.Services.LogActivity;
 using Microsoft.AspNetCore.Authorization;
@@ -24,14 +25,17 @@ namespace GestoraWebApi.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogActivityService _logActivityService;
         private readonly GestoraContext _context;
+        private readonly IClock _clock;
 
         public AuthenticationUserController(IJwtTokenGenerator tokenGenerator,
                                             ILogger<AuthenticationUserController> logger,
                                             UserManager<ApplicationUser> userManager,
                                             SignInManager<ApplicationUser> signInManager,
                                             ILogActivityService logActivityService,
-                                            GestoraContext context)
+                                            GestoraContext context,
+                                            IClock clock)
         {
+            _clock = clock;
             _tokenGenerator = tokenGenerator;
             _logger = logger;
             _userManager = userManager;
@@ -41,10 +45,16 @@ namespace GestoraWebApi.Controllers
         }
 
         /// <summary>Registrazione pubblica — assegna automaticamente il ruolo Cliente</summary>
+        [EnableRateLimiting(LimitiRichieste.Registrazione)]
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDTO request)
         {
-            var user = new ApplicationUser { UserName = request.Username, Email = request.Email };
+            var user = new ApplicationUser
+            {
+                UserName = request.Username,
+                Email = request.Email,
+                DataCreazione = _clock.UtcNow
+            };
             var result = await _userManager.CreateAsync(user, request.Password);
 
             if (!result.Succeeded)
@@ -122,6 +132,19 @@ namespace GestoraWebApi.Controllers
                     nameof(AuthenticationUserController), nameof(Login), user.Id, HttpContext.GetIpAddress());
 
                 return Unauthorized("Credenziali non valide.");
+            }
+
+            // V2-015: un'utenza che ha fatto almeno un login non e' "mai usata" e la pulizia
+            // notturna non la tocca. UpdateAsync non cambia il security stamp: i token gia'
+            // emessi restano validi. Se fallisce si avvisa e si entra lo stesso: un campo di
+            // manutenzione non deve impedire l'accesso.
+            user.UltimoAccesso = _clock.UtcNow;
+            var aggiornamento = await _userManager.UpdateAsync(user);
+            if (!aggiornamento.Succeeded)
+            {
+                _logger.LogWarning("[{Controller}] - [{Method}]: Ultimo accesso non salvato per {UserId} - {Errors}",
+                    nameof(AuthenticationUserController), nameof(Login), user.Id,
+                    string.Join(", ", aggiornamento.Errors.Select(e => e.Description)));
             }
 
             var roles = await _userManager.GetRolesAsync(user);
