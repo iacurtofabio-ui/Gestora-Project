@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
-import { erroriPerCampo, messaggioErrore, messaggioErroreLogin } from '@/lib/apiError'
+import {
+  eTroppeRichieste,
+  erroriPerCampo,
+  messaggioErrore,
+  messaggioErroreLogin,
+} from '@/lib/apiError'
 import type { ApiErrorResponse } from '@/types/apiError'
 
 /**
@@ -71,6 +76,26 @@ describe('messaggioErrore', () => {
 
     expect(messaggioErrore(errore, 'Errore durante la creazione')).toBe(
       'Server non raggiungibile. Controlla la connessione e riprova.'
+    )
+  })
+})
+
+describe('limite di richieste (V2-011)', () => {
+  const troppe = () =>
+    erroreConRisposta(429, {
+      statusCode: 429,
+      message: 'Troppe richieste in poco tempo. Attendi qualche minuto e riprova.',
+    })
+
+  it('riconosce il 429 e solo quello', () => {
+    expect(eTroppeRichieste(troppe())).toBe(true)
+    expect(eTroppeRichieste(erroreConRisposta(500, { statusCode: 500, message: 'x' }))).toBe(false)
+    expect(eTroppeRichieste(new AxiosError('rete assente'))).toBe(false)
+  })
+
+  it('la registrazione mostra il messaggio del server, non il ripiego', () => {
+    expect(messaggioErrore(troppe(), 'Registrazione non riuscita. Riprova.')).toBe(
+      'Troppe richieste in poco tempo. Attendi qualche minuto e riprova.'
     )
   })
 })

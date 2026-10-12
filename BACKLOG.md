@@ -52,14 +52,14 @@ Modello da copiare:
 | `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
-| `V2-010` | bug | La sessione scade dopo 60 minuti senza rinnovo: lo Staff viene buttato fuori ogni ora | Claude | in corso: sviluppata, da provare a vista |
-| `V2-011` | bug (sicurezza) | Registrazione e verifica della disponibilità (pubbliche) senza limite di richieste | — | da fare |
+| `V2-011` | bug (sicurezza) | Registrazione e verifica della disponibilità (pubbliche) senza limite di richieste | Claude | fatto (su v2) |
 | `V2-012` | bug | Spegnere una zona non controlla le prenotazioni future | — | da fare |
 | `V2-013` | bug | `NomeCliente` senza limite di lunghezza nel validator | — | da fare |
 | `V2-014` | bug | Registro attività: eliminazione non nella stessa transazione, modifica di nome/email non registrata | — | da fare |
+| `V2-015` | miglioramento | Pulizia automatica delle utenze mai usate | Claude | in corso (migration da applicare) |
 
 Tolte il 09/10/2026, perché chiuse e in produzione: `V2-001`, `V2-002`, `V2-007`, `V2-008`,
-`V2-009`, e `V2-006` scartata. La loro storia resta nel tracker (fogli *Fix e Bug* e *Task*) e
+`V2-009`, `V2-010` (rinnovo del token, sessione fino a 12 ore dal login), e `V2-006` scartata. La loro storia resta nel tracker (fogli *Fix e Bug* e *Task*) e
 nella cronologia Git di questo file.
 
 ### `V2-003` — conferma dell'email
@@ -67,41 +67,40 @@ Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter preno
 esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
 collega all'idea *Email di conferma e promemoria* qui sotto.
 
-### `V2-010` — la sessione scade dopo 60 minuti
-Punto 3 della code review dell'08/10/2026. Il token valeva 60 minuti e non si rinnovava: in
-servizio lo Staff veniva buttato fuori ogni ora e perdeva il form che stava compilando.
-
-**Soluzione scelta** (09/10/2026, strada A fra tre, sviluppa Claude): **rinnovo del token**.
-- Backend: nuovo `POST api/AuthenticationUser/rinnova-token`, per qualsiasi utente con un token
-  ancora valido. Rilegge ruoli e security stamp e dà un token nuovo da 60 minuti, **mai oltre 12
-  ore dal login** (`JwtSettings:MaxSessionHours`, in configurazione e controllato all'avvio). Il
-  claim `inizio_sessione` porta l'istante del login da un rinnovo all'altro.
-- Frontend: `AuthProvider` chiede il rinnovo da solo 10 minuti prima della scadenza, finché la
-  pagina è aperta. Se la rete non risponde riprova ogni minuto; al limite delle 12 ore smette, e
-  alla scadenza si torna al login con «Sessione scaduta».
-- Nessuna modifica al database. Il security stamp continua a respingere subito i token di un
-  utente modificato o eliminato.
-
-Scartate: B, refresh token in una tabella nuova (migration e molto codice per poca sicurezza in
-più, con il token in `localStorage`); C, solo allungare la durata (la scadenza arriverebbe comunque
-a metà turno).
-
-351 test backend (+6, `JwtTokenGeneratorTests`), 82 frontend (+8). Chiude l'idea *Sessione con
-rinnovo automatico del token*. Manca la prova a vista di Fabio (task `V2-010-T06`).
+**Da riprendere insieme (12/10/2026): eliminazione delle utenze inattive.** Oggi `V2-015`
+elimina solo le utenze *mai usate* (nessun login). Un Cliente entrato almeno una volta resta per
+sempre, anche se non torna da anni. Estendere la pulizia a chi non entra da N mesi (es. 24) è
+la pratica corretta anche per il GDPR, ma va fatto **con un'email di avviso** qualche settimana
+prima («il tuo account verrà eliminato, entra per tenerlo»): senza, un cliente che viene una
+volta l'anno ritrova l'account cancellato. Per questo aspetta l'invio delle email di questa
+voce. Lato codice è piccolo: una condizione in più in
+`UtentiRepository.GetUtenzeMaiUsateAsync` (`UltimoAccesso` più vecchio della soglia) e un valore
+in `UtenzeSettings`, nessuna migration. Chi ha prenotazioni resta comunque protetto dalla FK, e
+le prenotazioni concluse spariscono dopo 6 mesi.
 
 ### Code review dell'08/10/2026 — punti ancora da affrontare
-Revisione di Claude su backend e accesso del frontend. I punti 1 e 2 sono stati `V2-008` e
-`V2-009`, il punto 3 è `V2-010` (sopra). Gli altri si prendono uno alla volta, decidendo ogni volta
+Revisione di Claude su backend e accesso del frontend. I punti 1–3 sono stati `V2-008`, `V2-009`
+e `V2-010`, tutti in produzione. Gli altri si prendono uno alla volta, decidendo ogni volta
 chi sviluppa.
 - `V2-011` (punto 4, **medio**) — registrazione e verifica della disponibilità (pubbliche) senza
   limite di richieste: account in massa, e il calcolo più pesante dell'applicazione ripetibile
-  all'infinito.
+  all'infinito. **Fatto su v2 il 12/10/2026**: registrazione 10 all'ora per indirizzo (Admin
+  escluso), disponibilità 20 di fila poi 30 al minuto (per utente se ha fatto l'accesso). Numeri
+  in configurazione, sezione `LimitiRichieste`. Manca il rilascio.
 - `V2-012` (punto 5, **medio**) — spegnere una zona non controlla le prenotazioni future (per i
   tavoli sì): restano assegnate a tavoli di una zona spenta, senza avviso.
 - `V2-013` (punto 6, **basso**) — `NomeCliente` senza limite di lunghezza nel validator: oltre i
   200 caratteri del database l'utente vede un «errore interno».
 - `V2-014` (punto 7, **basso**) — registro attività: eliminazione della prenotazione e sua traccia
   non nella stessa transazione; la modifica di nome/email di un utente non viene registrata.
+
+### `V2-015` — pulizia delle utenze mai usate
+Nata ragionando su `V2-011`: la registrazione è pubblica e nessuna utenza veniva mai eliminata,
+quindi gli account creati e mai usati (veri o finti) restavano per sempre. Un job notturno (3:00)
+elimina i Clienti mai entrati, senza prenotazioni, creati più di **180 giorni** fa
+(`Utenze:GiorniUtenzaMaiUsata`). Staff e Admin mai. Due colonne nuove sull'utente,
+`DataCreazione` e `UltimoAccesso`: **migration da applicare** (prima in locale, poi su Neon prima
+del deploy del backend).
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare
@@ -130,6 +129,13 @@ nostra le rende utili.
 - Unione e separazione tavoli come azione manuale dello Staff
 - Campo `PostiCapotavola` sul singolo tavolo, se un giorno serve precisione piena sul bonus
   testate anche per le unioni miste
+
+**Crescita del database** (emerse con `V2-011` e `V2-015`)
+- Retention del registro attività (`LogActivities`): oggi cresce a ogni operazione e non si
+  svuota mai. Periodo già scelto: **24 mesi**, nel job notturno
+- Tetto sugli account **creati** (non tentati) dallo stesso indirizzo, es. 3 in 24 ore, contati
+  dal registro attività che salva già l'IP
+- CAPTCHA sulla registrazione (es. Cloudflare Turnstile): l'unica difesa contro chi cambia IP
 
 **Utenti e comunicazione**
 - Email di conferma e promemoria

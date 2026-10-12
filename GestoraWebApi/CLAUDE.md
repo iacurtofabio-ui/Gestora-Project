@@ -54,6 +54,13 @@ liste scritte a mano: invecchiano. Quello che il codice non dice da solo:
   secondi.
 - **`check-disponibilita`** e **`limiti-prenotazione`** (Prenotazione) e **`Setup`** (`GET stato`,
   `POST admin`) sono pubblici, senza auth — necessario per la pagina pubblica e il primo avvio.
+- **Limiti di richieste** (429): `login` e `Setup/admin` 5 al minuto per indirizzo (`LoginPolicy`,
+  in `Program.cs`); `register` e `check-disponibilita` con le regole di
+  `Infrastructure/RateLimiting/LimitiRichieste` (`V2-011`), numeri nella sezione `LimitiRichieste`
+  della configurazione (su Azure `LimitiRichieste__...`). La registrazione non limita l'Admin (crea
+  lì gli account dello Staff); la disponibilità conta per **utente** chi ha fatto l'accesso, per
+  indirizzo gli altri (lo Staff è tutto sullo stesso wifi). Non partizionare per indirizzo gli
+  utenti autenticati. Il 429 ha il corpo `ErrorDetails` e, dove il limitatore lo sa, `Retry-After`.
 - **`JobsController`** (`POST trigger/{jobName}`, solo Admin) è **attivo anche in produzione**,
   nessun filtro per ambiente: forza un job Quartz già registrato senza aspettare il cron.
 - **`update-prenotazione`/`annulla-prenotazione`**: aperte anche al Cliente, ma solo sulla propria
@@ -182,6 +189,14 @@ fisso).
   `UseForwardedHeaders` (prende l'anello sbagliato, cioè il proxy). Per rimisurare la catena:
   `GET /api/LogActivity/diagnostica-inoltro` (Admin), con il middleware disattivato (altrimenti
   legge un header già consumato).
+- **Utenze mai usate** (`V2-015`): `UtenzeInattiveCleanupJob` (ogni notte alle 3:00, dopo i due
+  job delle prenotazioni) elimina fino a 500 utenze per volta che **non hanno ruoli diversi da
+  Cliente**, non hanno mai fatto login (`UltimoAccesso` null), sono state create prima di
+  `Utenze:GiorniUtenzaMaiUsata` (180) giorni e non hanno prenotazioni. La regola sta nella query
+  di `UtentiRepository.GetUtenzeMaiUsateAsync`. Una riga nel registro per ogni eliminata.
+  **Chi crea un utente valorizza `DataCreazione`, chi fa entrare un utente `UltimoAccesso`**
+  (oggi: `register`, `Setup/admin`, `login`). Se `DataCreazione` manca, il default del database
+  (`now()`) evita che l'utenza risulti vecchia di duemila anni ed eliminata subito.
 - **Storico utenti**: FK `Prenotazioni → Utenti` è `Restrict`, non `Cascade`. Un utente con
   prenotazioni **non si elimina** (409): lo storico regge i conteggi.
 - **Quartz e repliche**: scheduler **non** in cluster mode. Con una sola istanza va bene; prima di
@@ -280,7 +295,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **351 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **371 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

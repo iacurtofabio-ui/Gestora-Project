@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Loader2Icon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCheckDisponibilita, useLimitiPrenotazione } from '@/hooks/useDisponibilita'
+import { eTroppeRichieste } from '@/lib/apiError'
 import { oggiInItalia, ultimaDataPrenotabile } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -132,8 +133,9 @@ export function VerificaDisponibilita() {
             senza bloccare la pagina. */}
         {disponibilita.isError && (
           <p className="text-corpo text-destructive">
-            Non riesco a controllare la disponibilità in questo momento. Riprova fra poco, oppure
-            chiamaci: al telefono la prenotazione la prendiamo lo stesso.
+            {eTroppeRichieste(disponibilita.error)
+              ? 'Hai fatto molte ricerche di fila. Attendi un minuto e riprova, oppure chiamaci: al telefono la prenotazione la prendiamo lo stesso.'
+              : 'Non riesco a controllare la disponibilità in questo momento. Riprova fra poco, oppure chiamaci: al telefono la prenotazione la prendiamo lo stesso.'}
           </p>
         )}
 

@@ -8,11 +8,14 @@ using GestoraWebApi.Development;
 using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
 using GestoraWebApi.Infrastructure.Middleware;
+using GestoraWebApi.Infrastructure.RateLimiting;
 using GestoraWebApi.Mappings;
+using GestoraWebApi.Models;
 using GestoraWebApi.Repositories.FasciaOrarie;
 using GestoraWebApi.Repositories.LogActivity;
 using GestoraWebApi.Repositories.Postazioni;
 using GestoraWebApi.Repositories.Prenotazioni;
+using GestoraWebApi.Repositories.Utenti;
 using GestoraWebApi.Repositories.Zone;
 using GestoraWebApi.Services.Dashboard;
 using GestoraWebApi.Services.Disponibilita;
@@ -21,12 +24,14 @@ using GestoraWebApi.Services.LogActivity;
 using GestoraWebApi.Services.PostazioneAssignment;
 using GestoraWebApi.Services.Postazioni;
 using GestoraWebApi.Services.Prenotazioni;
+using GestoraWebApi.Services.Utenti;
 using GestoraWebApi.Services.Zone;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Quartz;
 using Quartz.Impl;
@@ -114,6 +119,22 @@ builder.Services.AddOptions<PrenotazioniSettings>()
         "Configurazione non valida: Prenotazioni:MaxCopertiPrenotazioneOnline non può superare MaxCopertiPerPrenotazione.")
     .ValidateOnStart();
 
+// V2-015: con zero giorni la pulizia notturna eliminerebbe ogni Cliente appena registrato.
+builder.Services.AddOptions<UtenzeSettings>()
+    .Bind(builder.Configuration.GetSection(UtenzeSettings.Sezione))
+    .Validate(s => s.GiorniUtenzaMaiUsata > 0,
+        "Configurazione non valida: Utenze:GiorniUtenzaMaiUsata deve essere maggiore di zero.")
+    .ValidateOnStart();
+
+// V2-011: con un limite a zero (variabile dimenticata) l'endpoint risponderebbe 429 a tutti.
+builder.Services.AddOptions<LimitiRichiesteSettings>()
+    .Bind(builder.Configuration.GetSection(LimitiRichiesteSettings.Sezione))
+    .Validate(s => s.RegistrazioniPerFinestra > 0 && s.RegistrazioneFinestraMinuti > 0,
+        "Configurazione non valida: LimitiRichieste:RegistrazioniPerFinestra e RegistrazioneFinestraMinuti devono essere maggiori di zero.")
+    .Validate(s => s.DisponibilitaRaffica > 0 && s.DisponibilitaAlMinuto > 0,
+        "Configurazione non valida: LimitiRichieste:DisponibilitaRaffica e DisponibilitaAlMinuto devono essere maggiori di zero.")
+    .ValidateOnStart();
+
 // Json Serializza TimeSpan come stringa "HH:mm"
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -151,9 +172,11 @@ builder.Services.AddQuartz(q =>
 
     var jobKey = new JobKey("PrenotazioniJob");
     var jobCleanupKey = new JobKey("PrenotazioniCleanupJob");
+    var jobUtenzeKey = new JobKey("UtenzeInattiveCleanupJob");
 
     q.AddJob<PrenotazioniJob>(opts => opts.WithIdentity(jobKey).StoreDurably());
     q.AddJob<PrenotazioniCleanupJob>(opts => opts.WithIdentity(jobCleanupKey).StoreDurably());
+    q.AddJob<UtenzeInattiveCleanupJob>(opts => opts.WithIdentity(jobUtenzeKey).StoreDurably());
 
     q.AddTrigger(opts => opts
         .ForJob(jobKey)
@@ -166,6 +189,12 @@ builder.Services.AddQuartz(q =>
         .ForJob(jobCleanupKey)
         .WithIdentity("PrenotazioniCleanupJob-trigger")
         .WithCronSchedule("0 30 2 * * ?", x => x.InTimeZone(GestoraWebApi.Common.SystemClock.RomeTimeZone)));
+
+    // V2-015: dopo i due job delle prenotazioni.
+    q.AddTrigger(opts => opts
+        .ForJob(jobUtenzeKey)
+        .WithIdentity("UtenzeInattiveCleanupJob-trigger")
+        .WithCronSchedule("0 0 3 * * ?", x => x.InTimeZone(GestoraWebApi.Common.SystemClock.RomeTimeZone)));
 });
 
 builder.Services.AddQuartzHostedService(q => q.WaitForJobsToComplete = true);
@@ -208,7 +237,38 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+
+    // V2-011: registrazione e verifica della disponibilità, pubbliche. Regole e motivazioni in
+    // LimitiRichieste, numeri in configurazione (sezione LimitiRichieste).
+    options.AddPolicy(LimitiRichieste.Registrazione, httpContext =>
+        LimitiRichieste.PartizioneRegistrazione(httpContext, LimitiDaConfigurazione(httpContext)));
+    options.AddPolicy(LimitiRichieste.Disponibilita, httpContext =>
+        LimitiRichieste.PartizioneDisponibilita(httpContext, LimitiDaConfigurazione(httpContext)));
+
+    // Prima il 429 arrivava senza corpo: il frontend non aveva un messaggio da mostrare e nei log
+    // non restava traccia di chi era stato fermato. Il corpo ha la stessa forma degli altri
+    // errori (ExceptionMiddleware), e Retry-After dice quando riprovare.
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var http = context.HttpContext;
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var attesa))
+            http.Response.Headers.RetryAfter = ((int)Math.Ceiling(attesa.TotalSeconds)).ToString();
+
+        http.RequestServices.GetRequiredService<ILogger<Program>>().LogWarning(
+            "Limite di richieste superato su {Path} da {Ip}",
+            http.Request.Path, GestoraWebApi.Common.IndirizzoClient.Ottieni(http));
+
+        await http.Response.WriteAsJsonAsync(new ErrorDetails
+        {
+            StatusCode = StatusCodes.Status429TooManyRequests,
+            Message = "Troppe richieste in poco tempo. Attendi qualche minuto e riprova."
+        }, cancellationToken);
+    };
 });
+
+static LimitiRichiesteSettings LimitiDaConfigurazione(HttpContext httpContext) =>
+    httpContext.RequestServices.GetRequiredService<IOptions<LimitiRichiesteSettings>>().Value;
 
 var origins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? [];
 
@@ -248,6 +308,7 @@ builder.Services.AddScoped<IPostazioneRepository, PostazioneRepository>();
 builder.Services.AddScoped<IFasciaOrariaRepository, FasciaOrariaRepository>();
 builder.Services.AddScoped<IPrenotazioniRepository, PrenotazioniRepository>();
 builder.Services.AddScoped<IZonaRepository, ZonaRepository>();
+builder.Services.AddScoped<IUtentiRepository, UtentiRepository>();
 
 
 //SERVICES
@@ -260,6 +321,7 @@ builder.Services.AddScoped<IDisponibilitaService, DisponibilitaService>();
 builder.Services.AddScoped<IZonaService, ZonaService>();
 builder.Services.AddScoped<GestoraWebApi.Services.Sala.ICoerenzaSalaService, GestoraWebApi.Services.Sala.CoerenzaSalaService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IUtenzeInattiveService, UtenzeInattiveService>();
 
 var app = builder.Build();
 
