@@ -52,9 +52,11 @@ Modello da copiare:
 | `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
-| `V2-012` | bug | Spegnere una zona non controlla le prenotazioni future | Claude | fatto |
-| `V2-013` | bug | `NomeCliente` senza limite di lunghezza nel validator | — | da fare |
+| `V2-013` | bug | `NomeCliente` senza limite di lunghezza nel validator | Claude | fatto |
 | `V2-014` | bug | Registro attività: eliminazione non nella stessa transazione, modifica di nome/email non registrata | — | da fare |
+
+Tolta il 13/10/2026, perché chiusa e in produzione (rilascio del 13/10/2026, senza tag): `V2-012`
+(blocco dello spegnimento di una zona con prenotazioni da servire).
 
 Tolte il 12/10/2026, perché chiuse e in produzione (rilascio del 12/10/2026, senza tag):
 `V2-011` (limiti di richieste su registrazione e verifica della disponibilità) e `V2-015`
@@ -80,15 +82,13 @@ le prenotazioni concluse spariscono dopo 6 mesi.
 
 ### Code review dell'08/10/2026 — punti ancora da affrontare
 Revisione di Claude su backend e accesso del frontend. I punti 1–4 sono stati `V2-008`, `V2-009`,
-`V2-010` e `V2-011`, tutti in produzione. Gli altri si prendono uno alla volta, decidendo ogni
-volta chi sviluppa.
-- `V2-012` (punto 5, **medio**) — spegnere una zona non controlla le prenotazioni future (per i
-  tavoli sì): restano assegnate a tavoli di una zona spenta, senza avviso. **Sviluppa Claude
-  (13/10/2026)**: scritto e provato con i test (376 verdi), stesso criterio dei tavoli (409 se
-  una prenotazione Attiva/InCorso da oggi ha un tavolo nella zona), provato a vista da Fabio.
-  Mancano il commit e il rilascio; nessuna migration.
+`V2-010` e `V2-011`, il punto 5 è `V2-012`: tutti in produzione. Gli altri si prendono uno alla
+volta, decidendo ogni volta chi sviluppa.
 - `V2-013` (punto 6, **basso**) — `NomeCliente` senza limite di lunghezza nel validator: oltre i
-  200 caratteri del database l'utente vede un «errore interno».
+  200 caratteri del database l'utente vede un «errore interno». **Sviluppa Claude
+  (13/10/2026)**: regola di 200 caratteri nel validator (create e modifica usano lo stesso) e nel
+  form della prenotazione, con il messaggio sotto il campo. Test: backend 379, frontend 87.
+  Mancano la prova a vista di Fabio, il commit e il rilascio; nessuna migration.
 - `V2-014` (punto 7, **basso**) — registro attività: eliminazione della prenotazione e sua traccia
   non nella stessa transazione; la modifica di nome/email di un utente non viene registrata.
 

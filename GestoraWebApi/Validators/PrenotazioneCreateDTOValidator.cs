@@ -29,6 +29,12 @@ namespace GestoraWebApi.Validators
             RuleFor(x => x.Note)
                 .MaximumLength(500).WithMessage("Le note non possono superare 500 caratteri.")
                 .When(x => x.Note != null);
+
+            // V2-013: 200 e' la lunghezza della colonna (GestoraContext). Senza questo controllo
+            // un nome piu' lungo arrivava al database, che lo rifiutava: errore interno.
+            RuleFor(x => x.NomeCliente)
+                .MaximumLength(200).WithMessage("Il nome del cliente non può superare 200 caratteri.")
+                .When(x => x.NomeCliente != null);
         }
     }
 }

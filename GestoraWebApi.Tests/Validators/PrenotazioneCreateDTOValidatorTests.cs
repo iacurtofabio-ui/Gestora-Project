@@ -115,6 +115,35 @@ public class PrenotazioneCreateDTOValidatorTests
         Assert.DoesNotContain(Valida(dto).Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.Note));
     }
 
+    // V2-013: la colonna NomeCliente e' di 200 caratteri.
+    [Fact]
+    public void RifiutaNomeClienteOltreI200Caratteri()
+    {
+        var dto = Valido();
+        dto.NomeCliente = new string('x', 201);
+
+        Assert.Contains(Valida(dto).Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.NomeCliente));
+    }
+
+    [Fact]
+    public void AccettaNomeClienteDi200Caratteri()
+    {
+        var dto = Valido();
+        dto.NomeCliente = new string('x', 200);
+
+        Assert.DoesNotContain(Valida(dto).Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.NomeCliente));
+    }
+
+    /// <summary>Il nome e' facoltativo: la regola sulla lunghezza non deve scattare su null.</summary>
+    [Fact]
+    public void AccettaNomeClienteAssente()
+    {
+        var dto = Valido();
+        dto.NomeCliente = null;
+
+        Assert.DoesNotContain(Valida(dto).Errors, e => e.PropertyName == nameof(PrenotazioneCreateDTO.NomeCliente));
+    }
+
     // Stesso orizzonte di check-disponibilita (365 giorni): oltre, nel form la verifica dei posti
     // falliva in silenzio e le fasce sembravano tutte libere.
     [Fact]

@@ -35,7 +35,7 @@ const schema = z.object({
   zonaId: z.number().nullable().optional(),
   numeroCoperti: interoObbligatorio('Almeno 1 coperto'),
   note: z.string().optional(),
-  nomeCliente: z.string().optional(),
+  nomeCliente: z.string().max(200, 'Il nome non può superare 200 caratteri').optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -297,6 +297,9 @@ export default function PrenotazioneModal({ isOpen, onClose, prenotazione, onCre
                 placeholder="Es. prenotazione presa telefonicamente"
                 {...register('nomeCliente')}
               />
+              {errors.nomeCliente && (
+                <p className="text-nota text-destructive">{errors.nomeCliente.message}</p>
+              )}
             </div>
           )}
 
