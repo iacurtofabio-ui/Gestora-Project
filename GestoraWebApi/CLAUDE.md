@@ -212,7 +212,11 @@ fisso).
   il tavolo è prenotato; ridurre i posti sì, se ogni prenotazione ci sta ancora (posti assegnati
   al tavolo e capienza dell'unione, testate comprese). Non reintrodurre un blocco totale: un
   tavolo di un locale aperto ha quasi sempre una prenotazione futura. **Stesso criterio per le fasce**: tetto e stato si cambiano
-  sempre, giorno e orari solo senza prenotazioni future Attive/InCorso.
+  sempre, giorno e orari solo senza prenotazioni future Attive/InCorso. **Stesso criterio per le
+  zone** (`V2-012`): spegnerne una (`UpdateAsync` o `UpdateStatoZonaAsync`) è un 409 se qualche
+  prenotazione da servire ha un tavolo in quella zona (`ZonaRepository.GetImpegniFuturiAsync`);
+  riattivarla o rinominarla passa sempre. Il testo della prenotazione che blocca è in
+  `Common/DescrizioneImpegni`, condiviso con i tavoli.
 - **Fasce dentro un solo giorno**: il dominio calcola la fine come data + `OrarioFine`,
   quindi il validator esige fine > inizio (niente «00:00» come fine, al massimo 23:59).
 - **Almeno un Admin**: un Admin non può togliersi il ruolo Admin (e già non può
@@ -295,7 +299,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **371 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **376 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

@@ -10,5 +10,6 @@ namespace GestoraWebApi.Repositories.Zone
         Task<bool> IsZonaUsataAsync(long zonaId);
         Task<List<Zona>> GetAllZoneAsync();
         Task UpdateStatoZonaAsync(long zonaId, bool attiva);
+        Task<List<Prenotazione>> GetImpegniFuturiAsync(long zonaId, DateOnly daData);
     }
 }

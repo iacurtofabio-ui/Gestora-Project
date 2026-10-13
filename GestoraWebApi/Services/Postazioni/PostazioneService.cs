@@ -307,8 +307,6 @@ namespace GestoraWebApi.Services.Postazioni
             };
         }
 
-        private static readonly System.Globalization.CultureInfo Italiano = new("it-IT");
-
         /// <summary>
         /// V2-009: una modifica al tavolo si blocca solo se danneggia una prenotazione ancora da
         /// servire. Numero e aumento dei posti passano sempre. Disattivarlo o spostarlo di zona no,
@@ -333,14 +331,14 @@ namespace GestoraWebApi.Services.Postazioni
                 var azione = spegne ? "disattivare" : "spostare di zona";
                 throw new ConflictException(
                     $"Impossibile {azione} il tavolo {postazione.Numero}: è assegnato " +
-                    $"{DescriviImpegni(impegni)}. Sposta o annulla prima quelle prenotazioni.");
+                    $"{DescrizioneImpegni.Descrivi(impegni)}. Sposta o annulla prima quelle prenotazioni.");
             }
 
             var nonCiStanno = impegni.Where(p => !CiStaAncora(p, postazione.Id, nuovaCapienza)).ToList();
             if (nonCiStanno.Count > 0)
                 throw new ConflictException(
                     $"Impossibile ridurre i posti del tavolo {postazione.Numero} a {nuovaCapienza}: non ci " +
-                    $"starebbe più {DescriviImpegni(nonCiStanno)}. Sposta o annulla prima quelle prenotazioni.");
+                    $"starebbe più {DescrizioneImpegni.Descrivi(nonCiStanno)}. Sposta o annulla prima quelle prenotazioni.");
         }
 
         /// <summary>
@@ -361,20 +359,6 @@ namespace GestoraWebApi.Services.Postazioni
                 .ToList();
 
             return AssegnazioneTavoli.CalcolaCapienza(tavoliDopo) >= prenotazione.NumeroCoperti;
-        }
-
-        /// <summary>"alla prenotazione di sabato 10/10/2026, 20:00-22:00 (4 persone) e ad altre 2".</summary>
-        private static string DescriviImpegni(IReadOnlyList<Prenotazione> impegni)
-        {
-            var prima = impegni[0];
-            var giorno = Italiano.DateTimeFormat.GetDayName(prima.DataPrenotazione.DayOfWeek);
-            var fascia = prima.FasciaOraria == null
-                ? ""
-                : $", {prima.FasciaOraria.OrarioInizio:HH\\:mm}-{prima.FasciaOraria.OrarioFine:HH\\:mm}";
-            var altre = impegni.Count > 1 ? $" e ad altre {impegni.Count - 1}" : "";
-
-            return $"alla prenotazione di {giorno} {prima.DataPrenotazione.ToString("dd/MM/yyyy", Italiano)}{fascia} " +
-                   $"({prima.NumeroCoperti} persone){altre}";
         }
 
         public async Task AssociaPostazioneAZonaAsync(long postazioneId, long zonaId)

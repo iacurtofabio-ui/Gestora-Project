@@ -5,13 +5,13 @@
 
 ---
 
-## 1. Stato — aggiornato al 09/10/2026
+## 1. Stato — aggiornato al 12/10/2026
 
 **Gestora v2 in corso** dal 05/10/2026. Gestora è pensata per un locale vero, nei turni di
 servizio: le segnalazioni che arriveranno da lì, insieme alle nuove richieste, sono il lavoro della
 v2 (vedi §4).
 
-**Produzione pronta ma non ancora in uso**: al 09/10/2026 il primo avvio (`/setup`) non è stato
+**Produzione pronta ma non ancora in uso**: al 12/10/2026 il primo avvio (`/setup`) non è stato
 fatto (`GET api/Setup/stato` → `setupCompletato: false`) e su Neon non ci sono zone, tavoli, fasce
 né prenotazioni.
 
@@ -19,19 +19,21 @@ né prenotazioni.
 |---|---|
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
-| Database | PostgreSQL su Neon (gratuito permanente): 7 migration EF + tabelle Quartz |
-| Test | **371** backend (xUnit) + **85** frontend (Vitest), tutti verdi |
-| Modifiche al database | 8: le prime 7 applicate in locale e su Neon, l'ottava (`UtenteDataCreazioneEUltimoAccesso`, `V2-015`) da applicare (elenco nel foglio *BE · Migration* del tracker) |
+| Database | PostgreSQL su Neon (gratuito permanente): 8 migration EF + tabelle Quartz |
+| Test | **376** backend (xUnit) + **85** frontend (Vitest), tutti verdi |
+| Modifiche al database | 8, tutte applicate in locale e su Neon; l'ultima è `UtenteDataCreazioneEUltimoAccesso` (`V2-015`, 12/10/2026). Elenco nel foglio *BE · Migration* del tracker |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
-| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i due rilasci del 09/10/2026 sono senza tag) |
+| Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i rilasci del 09/10 e del 12/10/2026 sono senza tag) |
 
-**Ultima cosa fatta** (09/10/2026): due rilasci in produzione, entrambi senza tag. Prima `V2-009`
-(tavoli modificabili anche con prenotazioni future, se non le danneggia, commit `d5983aa`), poi
-**`V2-010`** (rinnovo automatico del token, sessione fino a 12 ore dal login, sviluppato da Claude,
-provato a vista da Fabio, commit `9d1de47`). Prima ancora, l'08/10/2026, il rilascio **`v2.0.0`**
-con `V2-002`, `V2-007` e `V2-008`. `V2-008`, `V2-009` e `V2-010` sono i punti 1–3 della code review
-dell'08/10/2026; i punti 4–7 sono `V2-011`…`V2-014` in `BACKLOG.md` e si affrontano uno alla volta,
-decidendo ogni volta chi sviluppa. I rilasci li decide Fabio (`RUNBOOK.md` §5); `dev` non si usa
+**Ultima cosa fatta** (12/10/2026): rilascio in produzione, senza tag, di **`V2-011`** (limiti di
+richieste su registrazione e verifica della disponibilità) e **`V2-015`** (pulizia notturna delle
+utenze mai usate), entrambi sviluppati da Claude, commit `73b7a95`, merge con la PR #4
+(`94a9f8e`). Prima la migration 8 su Neon, poi il deploy. Il frontend Vercel è stato pubblicato a
+mano (*Create Deployment*): la pubblicazione automatica non era partita (vedi `RUNBOOK.md` §8).
+Prima ancora, il 09/10/2026, `V2-009` e `V2-010`, e l'08/10/2026 il rilascio **`v2.0.0`**. I
+punti 1–4 della code review dell'08/10/2026 sono `V2-008`…`V2-011`; i punti 5–7 sono
+`V2-012`…`V2-014` in `BACKLOG.md` e si affrontano uno alla volta, decidendo ogni volta chi
+sviluppa. I rilasci li decide Fabio (`RUNBOOK.md` §5); `dev` non si usa
 più.
 
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.

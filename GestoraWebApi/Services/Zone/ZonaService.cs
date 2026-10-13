@@ -20,6 +20,7 @@ namespace GestoraWebApi.Services.Zone
         private readonly ILogActivityService _logActivity;
         private readonly IEsecutoreTransazione _transazione;
         private readonly ICoerenzaSalaService _coerenzaSala;
+        private readonly IClock _clock;
 
         public ZonaService(IZonaRepository zonaRepository,
                             IMapper mapper,
@@ -27,8 +28,10 @@ namespace GestoraWebApi.Services.Zone
                             IHttpContextAccessor httpContextAccessor,
                             ILogActivityService logActivity,
                             IEsecutoreTransazione transazione,
-                            ICoerenzaSalaService coerenzaSala)
+                            ICoerenzaSalaService coerenzaSala,
+                            IClock clock)
         {
+            _clock = clock;
             _coerenzaSala = coerenzaSala;
             _zonaRepository = zonaRepository;
             _mapper = mapper;
@@ -139,7 +142,7 @@ namespace GestoraWebApi.Services.Zone
 
             // V2-007: spegnere una zona toglie i suoi tavoli dai posti della sala.
             if (existingZona.Attiva && !entity.Attiva)
-                await VerificaDisattivazioneAsync(entity.Id);
+                await VerificaDisattivazioneAsync(existingZona);
 
             existingZona.Nome = entity.Nome;
             existingZona.Attiva = entity.Attiva;
@@ -161,7 +164,7 @@ namespace GestoraWebApi.Services.Zone
                 throw new KeyNotFoundException($"Zona con ID {zonaId} non trovata.");
 
             if (!attiva)
-                await VerificaDisattivazioneAsync(zonaId);
+                await VerificaDisattivazioneAsync(zona);
 
             await _transazione.EseguiAsync(async () =>
             {
@@ -174,11 +177,32 @@ namespace GestoraWebApi.Services.Zone
         }
 
         /// <summary>
-        /// V2-007: la zona spenta non deve portare i posti della sala sotto il tetto di una fascia
-        /// attiva. Riattivare una zona aggiunge posti: si controlla solo lo spegnimento.
+        /// Riattivare una zona aggiunge posti: si controllano solo gli spegnimenti.
         /// </summary>
-        private Task VerificaDisattivazioneAsync(long zonaId) =>
-            _coerenzaSala.VerificaModificaSalaAsync(tavoli => tavoli, zone => zone.Where(id => id != zonaId));
+        private async Task VerificaDisattivazioneAsync(Zona zona)
+        {
+            await GuardImpegniFuturiAsync(zona);
+
+            // V2-007: la zona spenta non deve portare i posti della sala sotto il tetto di una
+            // fascia attiva.
+            await _coerenzaSala.VerificaModificaSalaAsync(tavoli => tavoli, zone => zone.Where(id => id != zona.Id));
+        }
+
+        /// <summary>
+        /// V2-012: stessa regola dei tavoli (V2-009). Spegnere una zona lascerebbe prenotazioni
+        /// ancora da servire assegnate a tavoli che non si possono più prenotare, senza avviso:
+        /// si blocca e si dice quale prenotazione sposta o annulla prima chi gestisce la sala.
+        /// </summary>
+        private async Task GuardImpegniFuturiAsync(Zona zona)
+        {
+            var impegni = await _zonaRepository.GetImpegniFuturiAsync(zona.Id, _clock.TodayInRome);
+            if (impegni.Count == 0)
+                return;
+
+            throw new ConflictException(
+                $"Impossibile disattivare la zona '{zona.Nome}': ha tavoli assegnati " +
+                $"{DescrizioneImpegni.Descrivi(impegni)}. Sposta o annulla prima quelle prenotazioni.");
+        }
 
         private void InvalidateZoneCache()
         {

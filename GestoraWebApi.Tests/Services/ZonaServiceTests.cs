@@ -38,7 +38,11 @@ public class ZonaServiceTests
         _transazione = new EsecutoreTransazioneFinto();
         _service     = new ZonaService(_repoMock.Object, _mapperMock.Object, _cache,
                                         _httpContextAccessorMock.Object, _logActivityMock.Object,
-                                        _transazione, _coerenzaSala.Object);
+                                        _transazione, _coerenzaSala.Object,
+                                        new TestClock(new DateTime(2026, 10, 13, 10, 0, 0, DateTimeKind.Utc)));
+        // Di base nessuna prenotazione da servire: i test che ne vogliono una la impostano.
+        _repoMock.Setup(r => r.GetImpegniFuturiAsync(It.IsAny<long>(), It.IsAny<DateOnly>()))
+                 .ReturnsAsync(new List<Prenotazione>());
     }
 
     [Fact]
@@ -211,6 +215,72 @@ public class ZonaServiceTests
         await Assert.ThrowsAsync<ConflictException>(() =>
             _service.UpdateAsync(new ZonaDTO { Id = 2, Nome = "Dehors", Attiva = false }));
         _repoMock.Verify(r => r.UpdateAsync(It.IsAny<Zona>()), Times.Never);
+    }
+
+    // ─── V2-012 — spegnere una zona con prenotazioni ancora da servire ─────────
+
+    private void ImpegnoNellaZona(long zonaId) =>
+        _repoMock.Setup(r => r.GetImpegniFuturiAsync(zonaId, new DateOnly(2026, 10, 13)))
+                 .ReturnsAsync(new List<Prenotazione>
+                 {
+                     new() { DataPrenotazione = new DateOnly(2026, 10, 17), NumeroCoperti = 4,
+                             FasciaOraria = new FasciaOraria { OrarioInizio = new TimeOnly(20, 0), OrarioFine = new TimeOnly(22, 0) } }
+                 });
+
+    [Fact]
+    public async Task UpdateStatoZonaAsync_Disattivare_ConPrenotazioniFuture_Blocca409_NominandoLaPrenotazione()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        ImpegnoNellaZona(2);
+
+        var errore = await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateStatoZonaAsync(2, false));
+
+        Assert.Contains("Dehors", errore.Message);
+        Assert.Contains("sabato 17/10/2026, 20:00-22:00 (4 persone)", errore.Message);
+        _repoMock.Verify(r => r.UpdateStatoZonaAsync(It.IsAny<long>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Disattivare_ConPrenotazioniFuture_Blocca409()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        _repoMock.Setup(r => r.GetByNameAsync("Dehors")).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        ImpegnoNellaZona(2);
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            _service.UpdateAsync(new ZonaDTO { Id = 2, Nome = "Dehors", Attiva = false }));
+        _repoMock.Verify(r => r.UpdateAsync(It.IsAny<Zona>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateStatoZonaAsync_Disattivare_SenzaPrenotazioniFuture_Passa()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+
+        await _service.UpdateStatoZonaAsync(2, false);
+
+        _repoMock.Verify(r => r.UpdateStatoZonaAsync(2, false), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateStatoZonaAsync_Riattivare_NonCercaLePrenotazioni()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = false });
+
+        await _service.UpdateStatoZonaAsync(2, true);
+
+        _repoMock.Verify(r => r.GetImpegniFuturiAsync(It.IsAny<long>(), It.IsAny<DateOnly>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SoloNome_NonCercaLePrenotazioni()
+    {
+        _repoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new Zona { Id = 2, Nome = "Dehors", Attiva = true });
+        _repoMock.Setup(r => r.GetByNameAsync("Terrazza")).ReturnsAsync((Zona?)null);
+
+        await _service.UpdateAsync(new ZonaDTO { Id = 2, Nome = "Terrazza", Attiva = true });
+
+        _repoMock.Verify(r => r.GetImpegniFuturiAsync(It.IsAny<long>(), It.IsAny<DateOnly>()), Times.Never);
     }
 
     [Fact]

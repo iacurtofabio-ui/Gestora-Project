@@ -1,4 +1,5 @@
 ﻿using GestoraWebApi.Context;
+using GestoraWebApi.Enums;
 using GestoraWebApi.Models;
 using GestoraWebApi.Services.Zone.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -63,6 +64,23 @@ namespace GestoraWebApi.Repositories.Zone
             return await _context.Postazioni
                 .AsNoTracking()
                 .AnyAsync(p => p.ZonaId == zonaId);
+        }
+
+        // V2-012: stesso criterio dei tavoli (PostazioneRepository.GetImpegniFuturiAsync): contano
+        // solo le prenotazioni ancora da servire, da oggi in avanti, che hanno almeno un tavolo
+        // nella zona.
+        public async Task<List<Prenotazione>> GetImpegniFuturiAsync(long zonaId, DateOnly daData)
+        {
+            return await _context.Prenotazioni
+                .AsNoTracking()
+                .Where(p => p.DataPrenotazione >= daData
+                         && (p.Stato == StatoPrenotazione.Attiva || p.Stato == StatoPrenotazione.InCorso)
+                         && p.PrenotazioniPostazioni.Any(pp => pp.Postazione.ZonaId == zonaId))
+                .Include(p => p.FasciaOraria)
+                .OrderBy(p => p.DataPrenotazione)
+                .ThenBy(p => p.FasciaOraria.OrarioInizio)
+                .ThenBy(p => p.Id)
+                .ToListAsync();
         }
 
         public async Task UpdateAsync(Zona entity)
