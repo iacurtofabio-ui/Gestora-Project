@@ -1445,6 +1445,37 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Verify(r => r.DeleteAsync(annullata), Times.Once);
     }
 
+    // V2-014: eliminazione e traccia stanno nella stessa transazione. Il rollback vero non si
+    // prova con il database finto; qui si verifica che la traccia venga scritta dopo
+    // l'eliminazione e che un errore del registro arrivi a chi chiama (e non venga ingoiato,
+    // lasciando la prenotazione eliminata senza traccia).
+    [Fact]
+    public async Task DeleteAsync_ScriveLaTracciaDopoL_Eliminazione()
+    {
+        var annullata = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.Annullata };
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(annullata);
+        var ordine = new List<string>();
+        _prenotazioniRepoMock.Setup(r => r.DeleteAsync(annullata)).Callback(() => ordine.Add("elimina")).Returns(Task.CompletedTask);
+        _logActivityMock.Setup(l => l.LogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+                        .Callback(() => ordine.Add("traccia")).Returns(Task.CompletedTask);
+
+        await _service.DeleteAsync(1);
+
+        Assert.Equal(new[] { "elimina", "traccia" }, ordine);
+        _logActivityMock.Verify(l => l.LogAsync(It.IsAny<string>(), It.Is<string>(m => m.Contains("Eliminata prenotazione ID 1")), It.IsAny<string?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_SeIlRegistroFallisce_L_ErroreArrivaAChiChiama()
+    {
+        var annullata = new Prenotazione { Id = 1, NumeroCoperti = 2, Stato = StatoPrenotazione.Annullata };
+        _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(annullata);
+        _logActivityMock.Setup(l => l.LogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+                        .ThrowsAsync(new InvalidOperationException("registro non raggiungibile"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.DeleteAsync(1));
+    }
+
     [Theory]
     [InlineData(StatoPrenotazione.Attiva)]
     [InlineData(StatoPrenotazione.NonPresentata)]

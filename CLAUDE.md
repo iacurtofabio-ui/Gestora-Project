@@ -20,7 +20,7 @@ né prenotazioni.
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 8 migration EF + tabelle Quartz |
-| Test | **379** backend (xUnit) + **87** frontend (Vitest), tutti verdi |
+| Test | **381** backend (xUnit) + **87** frontend (Vitest), tutti verdi |
 | Modifiche al database | 8, tutte applicate in locale e su Neon; l'ultima è `UtenteDataCreazioneEUltimoAccesso` (`V2-015`, 12/10/2026). Elenco nel foglio *BE · Migration* del tracker |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i rilasci del 09/10 e del 12/10/2026 sono senza tag) |
@@ -28,7 +28,9 @@ né prenotazioni.
 **Ultima cosa fatta** (13/10/2026): rilascio in produzione, senza tag, di **`V2-012`** (spegnere
 una zona con prenotazioni da servire è bloccato, come per i tavoli), sviluppato da Claude, commit
 `1ff6c57`, merge `b2d0e88`; nessuna migration. Sviluppata su `v2` anche **`V2-013`** (limite di
-200 caratteri su `NomeCliente`, backend e form), non ancora committata né rilasciata.
+200 caratteri su `NomeCliente`, backend e form) e **`V2-014`** (registro attività: eliminazione di
+prenotazioni e utenti nella stessa transazione della traccia, modifica di nome/email utente
+registrata), non ancora committate né rilasciate.
 
 **Prima ancora** (12/10/2026): rilascio in produzione, senza tag, di **`V2-011`** (limiti di
 richieste su registrazione e verifica della disponibilità) e **`V2-015`** (pulizia notturna delle

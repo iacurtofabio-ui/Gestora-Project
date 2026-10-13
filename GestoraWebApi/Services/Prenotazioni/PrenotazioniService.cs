@@ -124,8 +124,14 @@ namespace GestoraWebApi.Services.Prenotazioni
             if (prenotazione.Stato != StatoPrenotazione.Annullata)
                 throw new ConflictException("Si possono eliminare solo le prenotazioni annullate. Annulla prima la prenotazione.");
 
-            await _prenotazioniRepository.DeleteAsync(prenotazione);
-            await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Eliminata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
+            // V2-014: eliminazione e traccia sono una sola operazione, come in tutte le altre
+            // scritture. Prima, se il registro falliva, la prenotazione era gia' sparita senza
+            // lasciare nessuna traccia di chi l'aveva eliminata.
+            await EseguiInTransazioneAsync(async () =>
+            {
+                await _prenotazioniRepository.DeleteAsync(prenotazione);
+                await _logActivity.LogAsync(_httpContextAccessor.HttpContext.GetAuthenticatedUserId(), $"Eliminata prenotazione ID {id}", _httpContextAccessor.HttpContext.GetIpAddress());
+            });
         }
 
         public async Task<PrenotazioneDTO> GetByIdAsync(long id)

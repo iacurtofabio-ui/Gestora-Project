@@ -53,7 +53,7 @@ Modello da copiare:
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
 | `V2-013` | bug | `NomeCliente` senza limite di lunghezza nel validator | Claude | fatto |
-| `V2-014` | bug | Registro attività: eliminazione non nella stessa transazione, modifica di nome/email non registrata | — | da fare |
+| `V2-014` | bug | Registro attività: eliminazione non nella stessa transazione, modifica di nome/email non registrata | Claude | fatto |
 
 Tolta il 13/10/2026, perché chiusa e in produzione (rilascio del 13/10/2026, senza tag): `V2-012`
 (blocco dello spegnimento di una zona con prenotazioni da servire).
@@ -91,6 +91,10 @@ volta, decidendo ogni volta chi sviluppa.
   Mancano la prova a vista di Fabio, il commit e il rilascio; nessuna migration.
 - `V2-014` (punto 7, **basso**) — registro attività: eliminazione della prenotazione e sua traccia
   non nella stessa transazione; la modifica di nome/email di un utente non viene registrata.
+  **Sviluppa Claude (13/10/2026)**: eliminazione di prenotazione e di utente (`delete-user`,
+  stesso difetto, aggiunto) ora nella stessa transazione della traccia; `update-user` scrive nel
+  registro i nomi dei campi cambiati, non i valori. Test: backend 381. Mancano la prova a vista di
+  Fabio, il commit e il rilascio; nessuna migration.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare

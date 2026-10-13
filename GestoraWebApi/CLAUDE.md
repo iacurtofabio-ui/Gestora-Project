@@ -179,7 +179,11 @@ fisso).
   è **intero**. Attenzione scrivendo SQL a mano (query dirette, seed, fix su Neon): usare il
   valore giusto per la colonna giusta.
 - **Transazioni**: `Common/IEsecutoreTransazione` avvolge scrittura + audit log in un'unica
-  operazione atomica (usato da `ZonaService`, `PostazioneService`, `FasciaOrariaService`).
+  operazione atomica (usato da `ZonaService`, `PostazioneService`, `FasciaOrariaService` e, dal
+  `V2-014`, da `update-user` e `delete-user` in `AuthenticationUserController`). Anche
+  l'eliminazione di una prenotazione (`PrenotazioniService.DeleteAsync`) e la sua traccia stanno
+  nella stessa transazione. `update-user` scrive nel registro i **nomi** dei campi cambiati
+  («nome utente», «email»), mai i valori.
   `PrenotazioniService` ha il proprio `EseguiInTransazioneAsync` (traduce anche la violazione
   dell'unique index sullo slot in 409). **La cache si invalida dopo il commit**, mai dentro il
   blocco.
@@ -299,7 +303,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **379 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **381 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

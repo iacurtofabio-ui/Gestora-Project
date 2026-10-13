@@ -26,6 +26,7 @@ namespace GestoraWebApi.Controllers
         private readonly ILogActivityService _logActivityService;
         private readonly GestoraContext _context;
         private readonly IClock _clock;
+        private readonly IEsecutoreTransazione _transazione;
 
         public AuthenticationUserController(IJwtTokenGenerator tokenGenerator,
                                             ILogger<AuthenticationUserController> logger,
@@ -33,8 +34,10 @@ namespace GestoraWebApi.Controllers
                                             SignInManager<ApplicationUser> signInManager,
                                             ILogActivityService logActivityService,
                                             GestoraContext context,
-                                            IClock clock)
+                                            IClock clock,
+                                            IEsecutoreTransazione transazione)
         {
+            _transazione = transazione;
             _clock = clock;
             _tokenGenerator = tokenGenerator;
             _logger = logger;
@@ -330,22 +333,44 @@ namespace GestoraWebApi.Controllers
             if (user == null)
                 return NotFound($"Utente con ID '{id}' non trovato.");
 
-            if (!string.IsNullOrWhiteSpace(dto.UserName))
-                user.UserName = dto.UserName;
+            var nomeCambiato = !string.IsNullOrWhiteSpace(dto.UserName) &&
+                               !string.Equals(dto.UserName, user.UserName, StringComparison.Ordinal);
 
             var emailCambiata = !string.IsNullOrWhiteSpace(dto.Email) &&
                                 !string.Equals(dto.Email, user.Email, StringComparison.OrdinalIgnoreCase);
 
+            if (!string.IsNullOrWhiteSpace(dto.UserName))
+                user.UserName = dto.UserName;
+
             if (!string.IsNullOrWhiteSpace(dto.Email))
                 user.Email = dto.Email;
 
-            var result = await _userManager.UpdateAsync(user);
+            // V2-014: nel registro vanno i NOMI dei campi cambiati, non i valori (l'email e' un
+            // dato personale e il registro non si svuota).
+            var campi = new List<string>();
+            if (nomeCambiato) campi.Add("nome utente");
+            if (emailCambiata) campi.Add("email");
+
+            // Modifica, aggiornamento del security stamp e traccia: una sola operazione.
+            IdentityResult result = IdentityResult.Success;
+            await _transazione.EseguiAsync(async () =>
+            {
+                result = await _userManager.UpdateAsync(user);
+                if (!result.Succeeded)
+                    return;
+
+                // Il token porta l'email: se cambia, quelli gia' emessi vanno rifatti (AUD-M6).
+                if (emailCambiata)
+                    await _userManager.UpdateSecurityStampAsync(user);
+
+                if (campi.Count > 0)
+                    await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
+                        $"Modificato utente ID {id} ({string.Join(", ", campi)})",
+                        IndirizzoClient.Ottieni(HttpContext));
+            });
+
             if (!result.Succeeded)
                 throw ErroriIdentity.ComeValidationException(result, "Modifica dell'utente non riuscita: controlla i dati inseriti.");
-
-            // Il token porta l'email: se cambia, quelli gia' emessi vanno rifatti (AUD-M6).
-            if (emailCambiata)
-                await _userManager.UpdateSecurityStampAsync(user);
 
             _logger.LogInformation("[{Controller}] - [{Method}]: Utente {Id} aggiornato",
                 nameof(AuthenticationUserController), nameof(UpdateUser), id);
@@ -381,16 +406,25 @@ namespace GestoraWebApi.Controllers
                 });
             }
 
-            var result = await _userManager.DeleteAsync(user);
+            // V2-014: eliminazione e traccia sono una sola operazione. Prima, se il registro
+            // falliva, l'utente era gia' stato eliminato senza nessuna traccia.
+            IdentityResult result = IdentityResult.Success;
+            await _transazione.EseguiAsync(async () =>
+            {
+                result = await _userManager.DeleteAsync(user);
+                if (!result.Succeeded)
+                    return;
+
+                await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
+                    $"Eliminato utente ID {id}",
+                    IndirizzoClient.Ottieni(HttpContext));
+            });
+
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
             _logger.LogWarning("[{Controller}] - [{Method}]: Utente {Id} eliminato da Admin {AdminId}",
                 nameof(AuthenticationUserController), nameof(DeleteUser), id, currentUserId);
-
-            await _logActivityService.LogAsync(User.GetAuthenticatedUserId(),
-                $"Eliminato utente ID {id}",
-                IndirizzoClient.Ottieni(HttpContext));
 
             return Ok(new { message = "Utente eliminato con successo." });
         }
