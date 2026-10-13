@@ -20,7 +20,7 @@ né prenotazioni.
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 8 migration EF + tabelle Quartz |
-| Test | **371** backend (xUnit) + **85** frontend (Vitest), tutti verdi |
+| Test | **376** backend (xUnit) + **85** frontend (Vitest), tutti verdi |
 | Modifiche al database | 8, tutte applicate in locale e su Neon; l'ultima è `UtenteDataCreazioneEUltimoAccesso` (`V2-015`, 12/10/2026). Elenco nel foglio *BE · Migration* del tracker |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i rilasci del 09/10 e del 12/10/2026 sono senza tag) |
