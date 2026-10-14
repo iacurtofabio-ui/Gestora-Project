@@ -5,7 +5,7 @@
 
 ---
 
-## 1. Stato — aggiornato al 13/10/2026
+## 1. Stato — aggiornato al 14/10/2026
 
 **Gestora v2 in corso** dal 05/10/2026. Gestora è pensata per un locale vero, nei turni di
 servizio: le segnalazioni che arriveranno da lì, insieme alle nuove richieste, sono il lavoro della
@@ -25,17 +25,21 @@ né prenotazioni.
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i rilasci del 09/10 e del 12/10/2026 sono senza tag) |
 
-**Ultima cosa fatta** (13/10/2026): rilascio in produzione, senza tag, di **`V2-013`** (limite di
+**Ultima cosa fatta** (14/10/2026): rilascio in produzione, senza tag, di **`V2-003`**
+(conferma dell'email alla registrazione), sviluppata da Claude; nessuna migration. Il commit
+`086db11`, intitolato «invio email conferma registrazione», contiene tutta la voce; merge con la
+PR #5 (`915c748`). Prima le variabili `Email__*` su Azure, poi il merge. Provata a vista in locale
+e con una email reale via Brevo; in produzione sono stati controllati `/health`, l'endpoint nuovo e
+il frontend pubblicato, ma **la registrazione completa non è stata provata**, per non sporcare un
+database ancora senza primo Admin. Resta da fare in produzione il `/setup`. Non c'è un ambiente
+di collaudo (valutato e scartato il 14/10/2026).
+
+**Prima** (13/10/2026): rilascio in produzione, senza tag, di **`V2-013`** (limite di
 200 caratteri su `NomeCliente`, backend e form, commit `ceb1d68`) e **`V2-014`** (registro
 attività: eliminazione di prenotazioni e utenti nella stessa transazione della traccia, modifica
 di nome/email utente registrata, commit `22c7625`), sviluppati da Claude; nessuna migration. Con
 questi si chiude la code review dell'08/10/2026. In giornata anche **`V2-012`** (spegnere una zona
 con prenotazioni da servire è bloccato), commit `1ff6c57`, merge `b2d0e88`.
-
-**In corso su `v2`** (13/10/2026): **`V2-003`**, conferma dell'email alla registrazione, sviluppa
-Claude (backend e frontend scritti e provati con i test; mancano la prova a vista di Fabio, la
-prova reale con Brevo e il rilascio). Per metterla in produzione servono prima le variabili
-`Email__*` su Azure (`RUNBOOK.md` §5).
 
 **Prima ancora** (12/10/2026): rilascio in produzione, senza tag, di **`V2-011`** (limiti di
 richieste su registrazione e verifica della disponibilità) e **`V2-015`** (pulizia notturna delle
@@ -199,8 +203,8 @@ originale con le motivazioni è in `docs/archivio/`.
 11. **Online si prenota fino a 20 persone** (Cliente e pagina pubblica): oltre, «contatta
     direttamente il ristorante». Lo Staff, che prende anche le tavolate al telefono, arriva al
     limite tecnico di 50. Entrambi in configurazione (`V2-007`)
-12. **Chi si registra da solo deve confermare l'email prima di entrare** (`V2-003`, in sviluppo
-    su `v2`, non ancora in produzione): riceve un link valido 24 ore e fino ad allora il login
+12. **Chi si registra da solo deve confermare l'email prima di entrare** (`V2-003`, in produzione dal
+    14/10/2026): riceve un link valido 24 ore e fino ad allora il login
     risponde 403. Gli account creati da un Admin (primo Admin del `/setup`, Staff) nascono già
     confermati. Le email partono via SMTP (Brevo); in locale finiscono nei log
 
