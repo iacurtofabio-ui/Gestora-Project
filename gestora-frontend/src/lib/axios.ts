@@ -23,10 +23,19 @@ if (configurazioneMancante) {
 
 const apiClient = axios.create({ baseURL: baseURL ?? '' })
 
-// Login e registrazione non hanno bisogno del token. Allegarlo era dannoso: con una sessione
-// ancora aperta (per esempio aprendo /login a mano) una password sbagliata dava 401 su una
-// richiesta "con token", trattata come sessione scaduta: token cancellato e redirect.
-const SENZA_TOKEN: readonly string[] = [Endpoints.auth.login, Endpoints.auth.register]
+// Login, conferma dell'email e suo reinvio non hanno bisogno del token. Allegarlo era dannoso: con
+// una sessione ancora aperta (per esempio aprendo /login a mano) una password sbagliata dava 401
+// su una richiesta "con token", trattata come sessione scaduta: token cancellato e redirect.
+//
+// `register` NON è in questa lista, di proposito (V2-003): quando a chiamarlo è un Admin che crea
+// un account Staff, il server deve riconoscerlo dal token. Senza, l'account nascerebbe da
+// confermare e l'esenzione dell'Admin dal limite di registrazioni (V2-011) non scatterebbe mai.
+// Su un endpoint anonimo un token scaduto non dà 401: il server lo ignora.
+export const SENZA_TOKEN: readonly string[] = [
+  Endpoints.auth.login,
+  Endpoints.auth.confermaEmail,
+  Endpoints.auth.reinviaConferma,
+]
 
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')

@@ -67,6 +67,19 @@ export function erroriPerCampo<C extends string>(
 }
 
 /**
+ * V2-003 — il login ha rifiutato una password giusta perché l'email non è ancora confermata (403).
+ * Si riconosce dal codice stabile, non dal testo: il messaggio può cambiare, il codice no.
+ */
+export const CODICE_EMAIL_NON_CONFERMATA = 'EMAIL_NON_CONFERMATA'
+
+export function emailNonConfermata(error: unknown): boolean {
+  if (!isAxiosError<{ codice?: string }>(error)) return false
+  return (
+    error.response?.status === 403 && error.response.data?.codice === CODICE_EMAIL_NON_CONFERMATA
+  )
+}
+
+/**
  * Messaggio del login. Prima ogni errore Axios diventava "email o password errate": anche
  * l'account bloccato (423), il limite di tentativi (429) e il server spento o in avvio. Chi era
  * bloccato riprovava all'infinito una password giusta. Il backend risponde a 423/401 con una
@@ -79,6 +92,9 @@ export function messaggioErroreLogin(error: unknown): string {
   }
   if (!error.response) {
     return 'Server non raggiungibile. Controlla la connessione e riprova.'
+  }
+  if (emailNonConfermata(error)) {
+    return 'Devi confermare l’email prima di accedere. Controlla la tua posta, oppure fatti rimandare il link.'
   }
   switch (error.response.status) {
     case 400:

@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import apiClient from '@/lib/axios'
 import { Endpoints } from '@/lib/endpoints'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Logo } from '@/components/Logo'
 import { Input } from '@/components/ui/input'
 import { ErroreForm } from '@/components/PageState'
+import { SchermataMessaggio } from '@/components/SchermataMessaggio'
 import { Label } from '@/components/ui/label'
 import { emailSchema, passwordSchema, usernameSchema } from '@/lib/validazioni'
 import { erroriPerCampo, messaggioErroreCaricamento } from '@/lib/apiError'
@@ -26,7 +28,11 @@ type RegisterForm = z.infer<typeof schema>
 const CAMPI = ['username', 'email', 'password'] as const
 
 export default function RegisterPage() {
-  const navigate = useNavigate()
+  // V2-003: dopo la registrazione non si va al login (senza email confermata non si entra):
+  // si resta qui e si dice di controllare la posta.
+  const [registrata, setRegistrata] = useState<{ email: string; emailInviata: boolean } | null>(
+    null
+  )
 
   const {
     register,
@@ -37,8 +43,8 @@ export default function RegisterPage() {
 
   async function onSubmit(data: RegisterForm) {
     try {
-      await apiClient.post(Endpoints.auth.register, data)
-      navigate('/login')
+      const response = await apiClient.post(Endpoints.auth.register, data)
+      setRegistrata({ email: data.email, emailInviata: response.data?.emailInviata === true })
     } catch (err) {
       // Prima si leggeva solo `message`: gli errori di Identity (email o nome gia' usati)
       // arrivavano in un'altra forma e l'utente vedeva solo "Registrazione non riuscita".
@@ -55,6 +61,33 @@ export default function RegisterPage() {
         })
       }
     }
+  }
+
+  if (registrata) {
+    return (
+      <SchermataMessaggio
+        titolo="Controlla la tua email"
+        tono={registrata.emailInviata ? 'neutro' : 'errore'}
+        azioni={
+          <Button asChild>
+            <Link to="/login">Vai all’accesso</Link>
+          </Button>
+        }
+      >
+        {registrata.emailInviata ? (
+          <p>
+            Ti abbiamo scritto a <strong className="text-foreground">{registrata.email}</strong>.
+            Apri il link nel messaggio per attivare l’account, poi potrai accedere. Se non lo
+            trovi, guarda anche nella posta indesiderata.
+          </p>
+        ) : (
+          <p>
+            L’account è stato creato, ma non siamo riusciti a inviarti l’email di conferma. Prova
+            ad accedere: ti proporremo di farti rimandare il link.
+          </p>
+        )}
+      </SchermataMessaggio>
+    )
   }
 
   return (

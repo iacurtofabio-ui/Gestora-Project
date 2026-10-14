@@ -84,6 +84,9 @@ namespace GestoraWebApi.Controllers
                 {
                     UserName = request.Username,
                     Email = request.Email,
+                    // V2-003: il primo Admin e' l'unico che puo' confermare gli altri; se dovesse
+                    // aspettare un'email non potrebbe entrare nemmeno a configurare l'invio.
+                    EmailConfirmed = true,
                     DataCreazione = _clock.UtcNow
                 };
                 var result = await _userManager.CreateAsync(user, request.Password);

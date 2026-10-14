@@ -133,6 +133,22 @@ builder.Services.AddOptions<LimitiRichiesteSettings>()
         "Configurazione non valida: LimitiRichieste:RegistrazioniPerFinestra e RegistrazioneFinestraMinuti devono essere maggiori di zero.")
     .Validate(s => s.DisponibilitaRaffica > 0 && s.DisponibilitaAlMinuto > 0,
         "Configurazione non valida: LimitiRichieste:DisponibilitaRaffica e DisponibilitaAlMinuto devono essere maggiori di zero.")
+    .Validate(s => s.ConfermaEmailPerFinestra > 0 && s.ConfermaEmailFinestraMinuti > 0,
+        "Configurazione non valida: LimitiRichieste:ConfermaEmailPerFinestra e ConfermaEmailFinestraMinuti devono essere maggiori di zero.")
+    .ValidateOnStart();
+
+// V2-003: l'indirizzo del frontend serve per i link nelle email. Fuori da Development l'Host SMTP
+// e' obbligatorio: senza, nessuno potrebbe confermare l'email e registrarsi sarebbe inutile,
+// quindi l'app non parte (meglio un errore all'avvio che utenti bloccati in silenzio).
+var emailSoloLog = builder.Environment.IsDevelopment();
+builder.Services.AddOptions<EmailSettings>()
+    .Bind(builder.Configuration.GetSection(EmailSettings.Sezione))
+    .Validate(s => Uri.TryCreate(s.UrlFrontend, UriKind.Absolute, out _),
+        "Configurazione non valida: Email:UrlFrontend deve essere un indirizzo completo (es. https://...).")
+    .Validate(s => emailSoloLog || !string.IsNullOrWhiteSpace(s.Host),
+        "Configurazione non valida: Email:Host obbligatorio fuori da Development.")
+    .Validate(s => string.IsNullOrWhiteSpace(s.Host) || (s.Porta > 0 && !string.IsNullOrWhiteSpace(s.MittenteEmail)),
+        "Configurazione non valida: con Email:Host servono anche Email:Porta e Email:MittenteEmail.")
     .ValidateOnStart();
 
 // Json Serializza TimeSpan come stringa "HH:mm"
@@ -242,6 +258,8 @@ builder.Services.AddRateLimiter(options =>
     // LimitiRichieste, numeri in configurazione (sezione LimitiRichieste).
     options.AddPolicy(LimitiRichieste.Registrazione, httpContext =>
         LimitiRichieste.PartizioneRegistrazione(httpContext, LimitiDaConfigurazione(httpContext)));
+    options.AddPolicy(LimitiRichieste.ConfermaEmail, httpContext =>
+        LimitiRichieste.PartizioneConfermaEmail(httpContext, LimitiDaConfigurazione(httpContext)));
     options.AddPolicy(LimitiRichieste.Disponibilita, httpContext =>
         LimitiRichieste.PartizioneDisponibilita(httpContext, LimitiDaConfigurazione(httpContext)));
 
@@ -301,6 +319,15 @@ builder.Services.AddSingleton<GestoraWebApi.Common.IClock, GestoraWebApi.Common.
 // Scoped come il DbContext: deve essere lo stesso contesto della richiesta, altrimenti la
 // transazione non avvolgerebbe le scritture dei repository.
 builder.Services.AddScoped<GestoraWebApi.Common.IEsecutoreTransazione, GestoraWebApi.Common.EsecutoreTransazione>();
+
+// V2-003: con Email:Host valorizzato le email partono davvero (SMTP); altrimenti, e solo in
+// Development (lo garantisce la validazione sopra), il contenuto finisce nei log.
+if (string.IsNullOrWhiteSpace(builder.Configuration[$"{EmailSettings.Sezione}:Host"]))
+    builder.Services.AddScoped<GestoraWebApi.Services.Email.IInvioEmail, GestoraWebApi.Services.Email.InvioEmailSuLog>();
+else
+    builder.Services.AddScoped<GestoraWebApi.Services.Email.IInvioEmail, GestoraWebApi.Services.Email.InvioEmailSmtp>();
+
+builder.Services.AddScoped<GestoraWebApi.Services.Email.IConfermaEmailService, GestoraWebApi.Services.Email.ConfermaEmailService>();
 
 //REPOSITORY
 builder.Services.AddScoped<ILogActivityRepository, LogActivityRepository>();

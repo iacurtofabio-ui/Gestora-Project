@@ -15,7 +15,7 @@ logout + redirect su 401).
 
 ```
 npm run lint      # zero errori
-npm test          # 87 test, Vitest + Testing Library
+npm test          # 96 test, Vitest + Testing Library
 npm run build     # controlla i tipi — npm test NON lo fa (vedi sezione Test)
 ```
 Se hai toccato un componente/pagina visibile e non hai verificato a mano nel browser, dillo
@@ -211,9 +211,9 @@ l'etichetta è `sr-only` (design con segnaposto).
 
 ## Test
 
-**87 test** con Vitest + Testing Library: lettura difensiva del token (10), rinnovo del token in
-`AuthProvider` (5) e suo momento (3), helper errori (5 + 5 del login + 1 per campo + 2 del limite
-di richieste), messaggio della pagina pubblica sul 429 (1), regole di nome utente e campi numerici (8),
+**96 test** con Vitest + Testing Library: quali richieste portano il token (4, `V2-003`), lettura difensiva del token (10), rinnovo del token in
+`AuthProvider` (5) e suo momento (3), helper errori (5 + 5 del login + 2 del login con email non
+confermata, `V2-003` + 1 per campo + 2 del limite di richieste), pagina di conferma dell'email (3), messaggio della pagina pubblica sul 429 (1), regole di nome utente e campi numerici (8),
 `ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), limite
 online dei coperti in `PrenotazioneModal` (3), lunghezza del nome cliente in `PrenotazioneModal` (2, `V2-013`), stato delle fasce e limite online nella pagina
 pubblica `VerificaDisponibilita` (6), azioni
@@ -247,3 +247,15 @@ sempre `Cliente`. `useCreateUser` compone tre chiamate esistenti: `register` →
 recuperare l'id, `register` non lo restituisce) → `assign-role`/`remove-role` se l'Admin ha
 scelto un ruolo diverso da Cliente. Pagina pubblica `/register` chiama `register` direttamente,
 senza passare da `useCreateUser`.
+
+### Conferma dell'email (`V2-003`)
+
+Chi si registra da `/register` non entra finché non conferma l'email: la pagina non rimanda al
+login ma mostra «Controlla la tua email». Il link dell'email porta a `/conferma-email`
+(`ConfermaEmailPage`, pubblica e fuori da `SetupGuard`), che legge `userId` e `token` dall'indirizzo
+e conferma da sola. Il login con email non confermata risponde 403 con `codice`
+`EMAIL_NON_CONFERMATA`: si riconosce con `emailNonConfermata()` di `lib/apiError.ts` (mai dal
+testo) e `LoginPage` mostra il pulsante «Rimanda l'email di conferma». L'Admin che crea lo Staff
+da `useCreateUser` non cambia nulla: quegli account nascono già confermati. ⚠️ Perché il server lo
+riconosca, **`register` deve viaggiare con il token**: non rimetterlo in `SENZA_TOKEN` di
+`lib/axios.ts` (c'era, e rendeva l'Admin un anonimo anche per il limite di `V2-011`).

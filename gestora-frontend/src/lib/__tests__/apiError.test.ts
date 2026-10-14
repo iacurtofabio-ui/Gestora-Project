@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { AxiosError, AxiosHeaders } from 'axios'
 import {
   eTroppeRichieste,
+  emailNonConfermata,
   erroriPerCampo,
   messaggioErrore,
   messaggioErroreLogin,
@@ -123,6 +124,28 @@ describe('messaggioErroreLogin', () => {
 
   it('server non raggiungibile senza risposta', () => {
     expect(messaggioErroreLogin(new AxiosError('Network Error'))).toMatch(/non raggiungibile/)
+  })
+
+  // Il server aggiunge `codice` alla forma d'errore solo su questo caso (V2-003).
+  const conCodice = (stato: number) =>
+    erroreConRisposta(stato, {
+      statusCode: stato,
+      message: 'x',
+      codice: 'EMAIL_NON_CONFERMATA',
+    } as ApiErrorResponse)
+
+  it('email non confermata su 403 con il codice dedicato (V2-003)', () => {
+    const errore = conCodice(403)
+
+    expect(emailNonConfermata(errore)).toBe(true)
+    expect(messaggioErroreLogin(errore)).toMatch(/confermare/)
+  })
+
+  it('un 403 senza il codice non è email non confermata', () => {
+    expect(emailNonConfermata(erroreConRisposta(403, vuoto))).toBe(false)
+    expect(emailNonConfermata(conCodice(401))).toBe(false)
+    expect(emailNonConfermata(new AxiosError('Network Error'))).toBe(false)
+    expect(messaggioErroreLogin(erroreConRisposta(403, vuoto))).not.toMatch(/confermare/)
   })
 })
 

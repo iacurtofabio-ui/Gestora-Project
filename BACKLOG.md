@@ -49,14 +49,14 @@ Modello da copiare:
 
 | Sigla | Tipo | Cosa | Chi sviluppa | Stato |
 |---|---|---|---|---|
-| `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | — | da fare |
+| `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | Claude | in corso |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
-| `V2-013` | bug | `NomeCliente` senza limite di lunghezza nel validator | Claude | fatto |
-| `V2-014` | bug | Registro attività: eliminazione non nella stessa transazione, modifica di nome/email non registrata | Claude | fatto |
 
-Tolta il 13/10/2026, perché chiusa e in produzione (rilascio del 13/10/2026, senza tag): `V2-012`
-(blocco dello spegnimento di una zona con prenotazioni da servire).
+Tolte il 13/10/2026, perché chiuse e in produzione (rilascio del 13/10/2026, senza tag): `V2-012`
+(blocco dello spegnimento di una zona con prenotazioni da servire), `V2-013` (limite di 200
+caratteri su `NomeCliente`) e `V2-014` (registro attività: eliminazioni atomiche, modifica utente
+registrata).
 
 Tolte il 12/10/2026, perché chiuse e in produzione (rilascio del 12/10/2026, senza tag):
 `V2-011` (limiti di richieste su registrazione e verifica della disponibilità) e `V2-015`
@@ -69,6 +69,13 @@ Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter preno
 esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
 collega all'idea *Email di conferma e promemoria* qui sotto.
 
+**Decisioni del 13/10/2026 — sviluppa Claude.** Invio con SMTP (MailKit), fornitore Brevo,
+cambiabile con la sola configurazione. Chi non ha confermato **non può entrare** (login rifiutato
+con un codice dedicato). Nessuna retro-conferma degli utenti esistenti, quindi in locale vanno
+sistemati a mano (SQL nel `RUNBOOK.md`); produzione è ancora vuota. Gli account creati da un Admin
+(primo Admin del `/setup`, Staff) nascono già confermati. Il piano a passi è nel tracker (foglio
+*Task*, `V2-003-Tnn`).
+
 **Da riprendere insieme (12/10/2026): eliminazione delle utenze inattive.** Oggi `V2-015`
 elimina solo le utenze *mai usate* (nessun login). Un Cliente entrato almeno una volta resta per
 sempre, anche se non torna da anni. Estendere la pulizia a chi non entra da N mesi (es. 24) è
@@ -79,22 +86,6 @@ voce. Lato codice è piccolo: una condizione in più in
 `UtentiRepository.GetUtenzeMaiUsateAsync` (`UltimoAccesso` più vecchio della soglia) e un valore
 in `UtenzeSettings`, nessuna migration. Chi ha prenotazioni resta comunque protetto dalla FK, e
 le prenotazioni concluse spariscono dopo 6 mesi.
-
-### Code review dell'08/10/2026 — punti ancora da affrontare
-Revisione di Claude su backend e accesso del frontend. I punti 1–4 sono stati `V2-008`, `V2-009`,
-`V2-010` e `V2-011`, il punto 5 è `V2-012`: tutti in produzione. Gli altri si prendono uno alla
-volta, decidendo ogni volta chi sviluppa.
-- `V2-013` (punto 6, **basso**) — `NomeCliente` senza limite di lunghezza nel validator: oltre i
-  200 caratteri del database l'utente vede un «errore interno». **Sviluppa Claude
-  (13/10/2026)**: regola di 200 caratteri nel validator (create e modifica usano lo stesso) e nel
-  form della prenotazione, con il messaggio sotto il campo. Test: backend 379, frontend 87.
-  Mancano la prova a vista di Fabio, il commit e il rilascio; nessuna migration.
-- `V2-014` (punto 7, **basso**) — registro attività: eliminazione della prenotazione e sua traccia
-  non nella stessa transazione; la modifica di nome/email di un utente non viene registrata.
-  **Sviluppa Claude (13/10/2026)**: eliminazione di prenotazione e di utente (`delete-user`,
-  stesso difetto, aggiunto) ora nella stessa transazione della traccia; `update-user` scrive nel
-  registro i nomi dei campi cambiati, non i valori. Test: backend 381. Mancano la prova a vista di
-  Fabio, il commit e il rilascio; nessuna migration.
 
 ### `V2-004`, `V2-005`
 Arrivano dal foglio *Appunti e Step* del tracker, dove erano segnate «Da fare». Da precisare

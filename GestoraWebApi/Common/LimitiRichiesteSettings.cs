@@ -20,6 +20,17 @@ namespace GestoraWebApi.Common
         public int RegistrazioneFinestraMinuti { get; set; }
 
         /// <summary>
+        /// V2-003: richieste ammesse per indirizzo, nella finestra, su conferma dell'email e
+        /// reinvio del link. Limite a parte dalla registrazione: chi si registra ne consuma una
+        /// per sé più qualche reinvio, e il reinvio manda una email a un indirizzo scelto da chi
+        /// chiama, quindi non può restare senza freno.
+        /// </summary>
+        public int ConfermaEmailPerFinestra { get; set; }
+
+        /// <summary>Durata della finestra della conferma email, in minuti.</summary>
+        public int ConfermaEmailFinestraMinuti { get; set; }
+
+        /// <summary>
         /// Verifiche di disponibilità di fila, senza attesa. Il form di prenotazione la chiama a
         /// ogni cambio di data o coperti, quindi chi compila ne fa parecchie in pochi secondi.
         /// </summary>

@@ -5,6 +5,7 @@ using GestoraWebApi.Extensions;
 using GestoraWebApi.Infrastructure.Auth;
 using GestoraWebApi.Infrastructure.RateLimiting;
 using GestoraWebApi.Services.Auth.DTOs;
+using GestoraWebApi.Services.Email;
 using GestoraWebApi.Services.LogActivity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -27,6 +28,7 @@ namespace GestoraWebApi.Controllers
         private readonly GestoraContext _context;
         private readonly IClock _clock;
         private readonly IEsecutoreTransazione _transazione;
+        private readonly IConfermaEmailService _confermaEmail;
 
         public AuthenticationUserController(IJwtTokenGenerator tokenGenerator,
                                             ILogger<AuthenticationUserController> logger,
@@ -35,8 +37,10 @@ namespace GestoraWebApi.Controllers
                                             ILogActivityService logActivityService,
                                             GestoraContext context,
                                             IClock clock,
-                                            IEsecutoreTransazione transazione)
+                                            IEsecutoreTransazione transazione,
+                                            IConfermaEmailService confermaEmail)
         {
+            _confermaEmail = confermaEmail;
             _transazione = transazione;
             _clock = clock;
             _tokenGenerator = tokenGenerator;
@@ -47,15 +51,23 @@ namespace GestoraWebApi.Controllers
             _context = context;
         }
 
-        /// <summary>Registrazione pubblica — assegna automaticamente il ruolo Cliente</summary>
+        /// <summary>
+        /// Registrazione — assegna automaticamente il ruolo Cliente. V2-003: dalla registrazione
+        /// pubblica l'utente riceve un link per confermare l'email e senza conferma non entra.
+        /// Se a chiamare è un Admin (crea gli account dello Staff) l'account nasce già confermato
+        /// e non parte nessuna email: l'indirizzo lo ha scelto l'Admin, non va dimostrato.
+        /// </summary>
         [EnableRateLimiting(LimitiRichieste.Registrazione)]
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDTO request)
         {
+            var creatoDaAdmin = User.IsInRole(Roles.Admin);
+
             var user = new ApplicationUser
             {
                 UserName = request.Username,
                 Email = request.Email,
+                EmailConfirmed = creatoDaAdmin,
                 DataCreazione = _clock.UtcNow
             };
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -92,7 +104,40 @@ namespace GestoraWebApi.Controllers
             // ripetere l'email nel testo del messaggio la duplicherebbe senza aggiungere nulla.
             await _logActivityService.LogAsync(user.Id, "Registrazione nuovo utente", HttpContext.GetIpAddress());
 
-            return Ok($"Registrazione di '{user.UserName}' avvenuta con successo.");
+            // Se l'invio fallisce l'utente resta registrato (non si butta via un account per un
+            // problema di posta): la risposta lo dice e dalla schermata di login si puo' chiedere il reinvio.
+            var emailInviata = !creatoDaAdmin && await _confermaEmail.InviaConfermaAsync(user);
+
+            return Ok(new
+            {
+                Messaggio = $"Registrazione di '{user.UserName}' avvenuta con successo.",
+                RichiedeConferma = !creatoDaAdmin,
+                EmailInviata = emailInviata
+            });
+        }
+
+        /// <summary>V2-003 — conferma dell'email dal link ricevuto. Pubblico: chi clicca non ha ancora fatto il login.</summary>
+        [EnableRateLimiting(LimitiRichieste.ConfermaEmail)]
+        [HttpPost("conferma-email")]
+        public async Task<IActionResult> ConfermaEmail(ConfermaEmailDTO request)
+        {
+            var confermata = await _confermaEmail.ConfermaAsync(request.UserId, request.Token, HttpContext.GetIpAddress());
+            if (!confermata)
+                return BadRequest("Il link di conferma non è valido o è scaduto. Richiedine uno nuovo dalla pagina di accesso.");
+
+            return Ok("Email confermata. Ora puoi accedere.");
+        }
+
+        /// <summary>
+        /// V2-003 — nuovo link di conferma. Risponde sempre allo stesso modo, esista o no l'email e
+        /// sia o no già confermata: altrimenti si potrebbe scoprire chi è registrato.
+        /// </summary>
+        [EnableRateLimiting(LimitiRichieste.ConfermaEmail)]
+        [HttpPost("reinvia-conferma")]
+        public async Task<IActionResult> ReinviaConferma(ReinviaConfermaDTO request)
+        {
+            await _confermaEmail.ReinviaAsync(request.Email);
+            return Ok("Se l'indirizzo è registrato e non ancora confermato, riceverai una nuova email.");
         }
 
         /// <summary>Login — restituisce il token JWT con i ruoli dell'utente</summary>
@@ -135,6 +180,21 @@ namespace GestoraWebApi.Controllers
                     nameof(AuthenticationUserController), nameof(Login), user.Id, HttpContext.GetIpAddress());
 
                 return Unauthorized("Credenziali non valide.");
+            }
+
+            // V2-003: senza email confermata non si entra. Il controllo viene DOPO la password,
+            // cosi' chi non la conosce non scopre se un indirizzo e' registrato. Il codice e'
+            // stabile: il frontend lo riconosce e propone il reinvio del link.
+            if (!user.EmailConfirmed)
+            {
+                _logger.LogInformation("[{Controller}] - [{Method}]: Login rifiutato per {UserId}, email non confermata",
+                    nameof(AuthenticationUserController), nameof(Login), user.Id);
+
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    Codice = CodiciErrore.EmailNonConfermata,
+                    Messaggio = "Devi confermare l'email prima di accedere. Controlla la tua posta."
+                });
             }
 
             // V2-015: un'utenza che ha fatto almeno un login non e' "mai usata" e la pulizia
