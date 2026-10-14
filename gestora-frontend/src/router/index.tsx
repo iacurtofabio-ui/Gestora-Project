@@ -5,6 +5,7 @@ import RedirectSeAutenticato from './RedirectSeAutenticato'
 import LandingPage from '@/pages/LandingPage'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
+import ConfermaEmailPage from '@/pages/ConfermaEmailPage'
 import AppLayout from '@/layouts/AppLayout'
 import PrenotazionePage from '@/pages/PrenotazionePage'
 import DashboardPage from '@/pages/DashboardPage'
@@ -59,6 +60,9 @@ export const router = createBrowserRouter([
     ),
     errorElement,
   },
+  // V2-003: pagina del link ricevuto per email. Pubblica e fuori da SetupGuard: apre da sola,
+  // senza token e senza passare dal controllo del primo avvio.
+  { path: '/conferma-email', element: <ConfermaEmailPage />, errorElement },
   { path: '/unauthorized', element: <UnauthorizedPage />, errorElement },
 
   {

@@ -256,6 +256,47 @@ Stessa logica per il token (`V2-010`): `JwtSettings:ExpiryMinutes` (60, durata d
 > ⚠️ All'avvio l'app controlla che entrambi siano maggiori di zero e che **un token non duri più
 > della sessione** (`ExpiryMinutes` ≤ `MaxSessionHours` × 60): se no **non parte**.
 
+### Le email (conferma dell'indirizzo) su Azure e in locale
+
+Dal `V2-003` chi si registra da solo riceve una email con il link per confermare l'indirizzo, e
+senza conferma non entra. L'invio usa SMTP; il fornitore previsto è **Brevo** (piano gratuito),
+ma si cambia solo con questi valori. Gli account creati da un Admin (primo Admin del `/setup`,
+Staff) nascono già confermati.
+
+| Variabile su Azure (doppio underscore) | Cosa è | Esempio |
+|---|---|---|
+| `Email__Host` | server SMTP | `smtp-relay.brevo.com` |
+| `Email__Porta` | porta | `587` |
+| `Email__Utente` | utente SMTP | l'account Brevo |
+| `Email__Password` | chiave SMTP (**segreta**) | la chiave SMTP di Brevo, non la password di accesso |
+| `Email__MittenteEmail` | indirizzo che compare come mittente | quello verificato su Brevo |
+| `Email__MittenteNome` | nome del mittente | `Gestora` (già il predefinito) |
+| `Email__UrlFrontend` | indirizzo del frontend, per il link nell'email | `https://gestora-project-xi.vercel.app` (senza `/` finale) |
+
+> ⚠️ **Prima le variabili, poi il deploy.** All'avvio l'app controlla che `Email__UrlFrontend` sia un
+> indirizzo completo e, fuori da Development, che `Email__Host` ci sia (con `Email__Porta` e
+> `Email__MittenteEmail`): se no **non parte** e `/health` non risponde. La password non va in chat
+> né nei file: vedi §7 per digitarla senza mostrarla.
+
+**In locale** non serve nessun account: con `Email:Host` vuoto (è così) le email **non partono** e
+il contenuto, link compreso, compare nei log della console del backend (`[Email di sviluppo, non
+inviata]`). Per provare l'invio vero con Brevo: `dotnet user-secrets set "Email:Host" ...` (e gli
+altri valori della tabella, con i nomi con i due punti) da dentro `GestoraWebApi\`.
+
+**Utenti già presenti nel database locale.** Gli account creati prima di `V2-003` non hanno l'email
+confermata e non possono più entrare, Admin compreso. Una sola volta, sul database **locale**:
+
+```powershell
+psql -U postgres -d gestora_db -c 'UPDATE \"AspNetUsers\" SET \"EmailConfirmed\" = true WHERE \"EmailConfirmed\" = false;'
+```
+
+(In alternativa si rifà il database con `dotnet run -- --seed-sviluppo`, §3.) In produzione non
+serve: al momento non ci sono utenti.
+
+Il link vale 24 ore. Chi non lo trova può farselo rimandare dalla pagina di accesso. Limite di
+richieste su conferma e reinvio: `LimitiRichieste:ConfermaEmailPerFinestra` (10) ogni
+`ConfermaEmailFinestraMinuti` (60) per indirizzo.
+
 ### Il primo avvio di un locale
 
 Dal `V2-007` il tetto di una fascia non può superare i posti della sala: l'ordine è **zone → tavoli

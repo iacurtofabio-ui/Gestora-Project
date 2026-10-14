@@ -23,6 +23,8 @@ namespace GestoraWebApi.Tests.Infrastructure
         {
             RegistrazioniPerFinestra = 3,
             RegistrazioneFinestraMinuti = 60,
+            ConfermaEmailPerFinestra = 2,
+            ConfermaEmailFinestraMinuti = 60,
             DisponibilitaRaffica = 5,
             DisponibilitaAlMinuto = 30
         };
@@ -95,6 +97,17 @@ namespace GestoraWebApi.Tests.Infrastructure
             Assert.Equal(3, RichiesteAccettate(partizione, 10));
         }
 
+        // --- Conferma email e reinvio (V2-003) ---
+
+        [Fact]
+        public void ConfermaEmail_SiFermaAlLimiteDellaFinestra()
+        {
+            var partizione = LimitiRichieste.PartizioneConfermaEmail(Richiesta(), Limiti);
+
+            Assert.Equal("ip:79.30.166.123", partizione.PartitionKey);
+            Assert.Equal(2, RichiesteAccettate(partizione, 10));
+        }
+
         // --- Verifica della disponibilità ---
 
         [Fact]
@@ -131,6 +144,8 @@ namespace GestoraWebApi.Tests.Infrastructure
 
         [Theory]
         [InlineData(typeof(AuthenticationUserController), nameof(AuthenticationUserController.Register), LimitiRichieste.Registrazione)]
+        [InlineData(typeof(AuthenticationUserController), nameof(AuthenticationUserController.ConfermaEmail), LimitiRichieste.ConfermaEmail)]
+        [InlineData(typeof(AuthenticationUserController), nameof(AuthenticationUserController.ReinviaConferma), LimitiRichieste.ConfermaEmail)]
         [InlineData(typeof(PrenotazioneController), nameof(PrenotazioneController.CheckDisponibilita), LimitiRichieste.Disponibilita)]
         public void Endpoint_HaLaSuaRegola(Type controller, string metodo, string regola)
         {

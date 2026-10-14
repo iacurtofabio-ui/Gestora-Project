@@ -20,17 +20,22 @@ né prenotazioni.
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 8 migration EF + tabelle Quartz |
-| Test | **381** backend (xUnit) + **87** frontend (Vitest), tutti verdi |
+| Test | **395** backend (xUnit) + **96** frontend (Vitest), tutti verdi |
 | Modifiche al database | 8, tutte applicate in locale e su Neon; l'ultima è `UtenteDataCreazioneEUltimoAccesso` (`V2-015`, 12/10/2026). Elenco nel foglio *BE · Migration* del tracker |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i rilasci del 09/10 e del 12/10/2026 sono senza tag) |
 
-**Ultima cosa fatta** (13/10/2026): rilascio in produzione, senza tag, di **`V2-012`** (spegnere
-una zona con prenotazioni da servire è bloccato, come per i tavoli), sviluppato da Claude, commit
-`1ff6c57`, merge `b2d0e88`; nessuna migration. Sviluppata su `v2` anche **`V2-013`** (limite di
-200 caratteri su `NomeCliente`, backend e form) e **`V2-014`** (registro attività: eliminazione di
-prenotazioni e utenti nella stessa transazione della traccia, modifica di nome/email utente
-registrata), non ancora committate né rilasciate.
+**Ultima cosa fatta** (13/10/2026): rilascio in produzione, senza tag, di **`V2-013`** (limite di
+200 caratteri su `NomeCliente`, backend e form, commit `ceb1d68`) e **`V2-014`** (registro
+attività: eliminazione di prenotazioni e utenti nella stessa transazione della traccia, modifica
+di nome/email utente registrata, commit `22c7625`), sviluppati da Claude; nessuna migration. Con
+questi si chiude la code review dell'08/10/2026. In giornata anche **`V2-012`** (spegnere una zona
+con prenotazioni da servire è bloccato), commit `1ff6c57`, merge `b2d0e88`.
+
+**In corso su `v2`** (13/10/2026): **`V2-003`**, conferma dell'email alla registrazione, sviluppa
+Claude (backend e frontend scritti e provati con i test; mancano la prova a vista di Fabio, la
+prova reale con Brevo e il rilascio). Per metterla in produzione servono prima le variabili
+`Email__*` su Azure (`RUNBOOK.md` §5).
 
 **Prima ancora** (12/10/2026): rilascio in produzione, senza tag, di **`V2-011`** (limiti di
 richieste su registrazione e verifica della disponibilità) e **`V2-015`** (pulizia notturna delle
@@ -39,8 +44,7 @@ utenze mai usate), entrambi sviluppati da Claude, commit `73b7a95`, merge con la
 mano (*Create Deployment*): la pubblicazione automatica non era partita (vedi `RUNBOOK.md` §8).
 Prima ancora, il 09/10/2026, `V2-009` e `V2-010`, e l'08/10/2026 il rilascio **`v2.0.0`**. I
 punti 1–4 della code review dell'08/10/2026 sono `V2-008`…`V2-011`; i punti 5–7 sono
-`V2-012`…`V2-014` in `BACKLOG.md` (`V2-012` è in produzione) e si affrontano uno alla volta, decidendo ogni volta chi
-sviluppa. I rilasci li decide Fabio (`RUNBOOK.md` §5); `dev` non si usa
+`V2-012`…`V2-014`, tutti in produzione. I rilasci li decide Fabio (`RUNBOOK.md` §5); `dev` non si usa
 più.
 
 Per dati su cui provare: `dotnet run -- --seed-sviluppo` da `GestoraWebApi`.
@@ -195,6 +199,10 @@ originale con le motivazioni è in `docs/archivio/`.
 11. **Online si prenota fino a 20 persone** (Cliente e pagina pubblica): oltre, «contatta
     direttamente il ristorante». Lo Staff, che prende anche le tavolate al telefono, arriva al
     limite tecnico di 50. Entrambi in configurazione (`V2-007`)
+12. **Chi si registra da solo deve confermare l'email prima di entrare** (`V2-003`, in sviluppo
+    su `v2`, non ancora in produzione): riceve un link valido 24 ore e fino ad allora il login
+    risponde 403. Gli account creati da un Admin (primo Admin del `/setup`, Staff) nascono già
+    confermati. Le email partono via SMTP (Brevo); in locale finiscono nei log
 
 ---
 

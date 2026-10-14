@@ -18,6 +18,26 @@ namespace GestoraWebApi.Infrastructure.RateLimiting
     {
         public const string Registrazione = "RegistrazionePolicy";
         public const string Disponibilita = "DisponibilitaPolicy";
+        public const string ConfermaEmail = "ConfermaEmailPolicy";
+
+        /// <summary>
+        /// V2-003: conferma email e reinvio del link. Finestra scorrevole per indirizzo, come la
+        /// registrazione ma con un contatore proprio. Nessuna esenzione per l'Admin: non usa
+        /// mai questi endpoint.
+        /// </summary>
+        public static RateLimitPartition<string> PartizioneConfermaEmail(
+            HttpContext httpContext, LimitiRichiesteSettings limiti)
+        {
+            return RateLimitPartition.GetSlidingWindowLimiter(
+                "ip:" + Indirizzo(httpContext),
+                _ => new SlidingWindowRateLimiterOptions
+                {
+                    PermitLimit = limiti.ConfermaEmailPerFinestra,
+                    Window = TimeSpan.FromMinutes(limiti.ConfermaEmailFinestraMinuti),
+                    SegmentsPerWindow = 6,
+                    QueueLimit = 0
+                });
+        }
 
         /// <summary>
         /// Registrazione: <b>finestra scorrevole</b> per indirizzo. A differenza della finestra

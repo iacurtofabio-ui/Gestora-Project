@@ -1,8 +1,14 @@
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, Link } from 'react-router-dom'
-import { messaggioErroreLogin } from '@/lib/apiError'
+import { toast } from 'sonner'
+import {
+  emailNonConfermata,
+  messaggioErroreCaricamento,
+  messaggioErroreLogin,
+} from '@/lib/apiError'
 import { useAuth } from '@/hooks/useAuth'
 import { paginaDiCasa } from '@/lib/navigazione'
 import apiClient from '@/lib/axios'
@@ -25,14 +31,34 @@ export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  // V2-003: password giusta ma email non confermata. Si offre il reinvio del link.
+  const [daConfermare, setDaConfermare] = useState(false)
+  const [invioInCorso, setInvioInCorso] = useState(false)
+
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
     setError,
   } = useForm<LoginForm>({ resolver: zodResolver(schema) })
 
+  async function rimandaConferma() {
+    setInvioInCorso(true)
+    try {
+      const risposta = await apiClient.post<string>(Endpoints.auth.reinviaConferma, {
+        email: getValues('email'),
+      })
+      toast.success(risposta.data)
+    } catch (errore) {
+      toast.error(messaggioErroreCaricamento(errore, 'Invio non riuscito. Riprova tra poco.'))
+    } finally {
+      setInvioInCorso(false)
+    }
+  }
+
   async function onSubmit(data: LoginForm) {
+    setDaConfermare(false)
     try {
       const response = await apiClient.post(Endpoints.auth.login, data)
       // REV-014: il token non si ridecodifica qui. Ci pensa il context, che e' anche l'unico
@@ -43,6 +69,7 @@ export default function LoginPage() {
       // Un token illeggibile non e' un problema di credenziali: dirlo com'e', altrimenti si
       // manda l'utente a riprovare all'infinito una password che era giusta.
       setError('root', { message: messaggioErroreLogin(errore) })
+      setDaConfermare(emailNonConfermata(errore))
     }
   }
 
@@ -85,6 +112,16 @@ export default function LoginPage() {
               )}
             </div>
             <ErroreForm messaggio={errors.root?.message} />
+            {daConfermare && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={rimandaConferma}
+                disabled={invioInCorso}
+              >
+                {invioInCorso ? 'Invio…' : 'Rimanda l’email di conferma'}
+              </Button>
+            )}
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Accesso…' : 'Accedi'}
             </Button>

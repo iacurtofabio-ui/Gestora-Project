@@ -61,6 +61,18 @@ liste scritte a mano: invecchiano. Quello che il codice non dice da solo:
   lì gli account dello Staff); la disponibilità conta per **utente** chi ha fatto l'accesso, per
   indirizzo gli altri (lo Staff è tutto sullo stesso wifi). Non partizionare per indirizzo gli
   utenti autenticati. Il 429 ha il corpo `ErrorDetails` e, dove il limitatore lo sa, `Retry-After`.
+- **Conferma dell'email** (`V2-003`): `register` pubblico crea l'utente non confermato e manda il link
+  (`Services/Email/ConfermaEmailService`, invio dietro `IInvioEmail`: SMTP con MailKit se
+  `Email:Host` è valorizzato, altrimenti solo in Development il contenuto va nei log). Se a
+  chiamare `register` è un **Admin** l'account nasce già confermato e non parte nessuna email;
+  anche il primo Admin di `Setup/admin`. Il token di Identity viaggia in Base64 adatto agli URL
+  (`conferma-email` lo decodifica). `login` con password giusta ma email non confermata risponde
+  **403** con `{ codice: "EMAIL_NON_CONFERMATA", messaggio }` (`Common/CodiciErrore`), dopo il
+  controllo della password: chi non la conosce non scopre se l'indirizzo esiste. `conferma-email` e
+  `reinvia-conferma` sono pubblici, con la regola `LimitiRichieste.ConfermaEmail`; il reinvio
+  risponde **sempre allo stesso modo**. Configurazione: sezione `Email` (vedi `RUNBOOK.md` §5);
+  fuori da Development l'app non parte senza `Email:Host` e `Email:UrlFrontend`. Se l'invio
+  fallisce alla registrazione l'utente resta e la risposta ha `emailInviata: false`.
 - **`JobsController`** (`POST trigger/{jobName}`, solo Admin) è **attivo anche in produzione**,
   nessun filtro per ambiente: forza un job Quartz già registrato senza aspettare il cron.
 - **`update-prenotazione`/`annulla-prenotazione`**: aperte anche al Cliente, ma solo sulla propria
@@ -303,13 +315,16 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **381 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **395 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa
   riga tutti i test della classe falliscono (l'InMemory non supporta transazioni).
 - Orologio nei test: `TestClock` (istante fisso).
 - Nessun test su `AuthenticationUserController`: la logica di auth non è ancora estratta in un
-  service dedicato (idea in `BACKLOG.md`, sezione *Idee → Codice*).
+  service dedicato (idea in `BACKLOG.md`, sezione *Idee → Codice*). Fa eccezione la conferma
+  dell'email (`V2-003`), che sta in `ConfermaEmailService` ed è coperta da
+  `ConfermaEmailServiceTests` (`UserManager` finto con Moq); il blocco del login per email non
+  confermata resta nel controller, quindi si prova a vista.
 - Per mockare `IQueryable<T>` dai repository: pacchetto `MockQueryable.Moq` (7.0.3, unica
   versione compatibile con net9.0) — pattern `lista.AsQueryable().BuildMockDbSet().Object`.
