@@ -5,9 +5,19 @@
 
 ---
 
-## 1. Stato — aggiornato al 14/10/2026
+## 1. Stato — aggiornato al 15/10/2026
 
-**Gestora v2 in corso** dal 05/10/2026. Gestora è pensata per un locale vero, nei turni di
+**Verso la v3.0.0, production ready** (decisione del 15/10/2026): Gestora va resa pronta per
+chiunque, con privacy, sicurezza, modulo dei pareri e vetrina. Piano in sei fasi (F0-F5:
+`V2-016`…`V2-019`, `V2-022`, `V2-023` in `BACKLOG.md`), nello
+[studio di fattibilità](https://claude.ai/code/artifact/f31f316c-733c-4a5e-a93f-2f139c0518c1):
+circa 37 ore a 3-4 ore a settimana, fino a fine gennaio 2027. La v2 si chiude con il tag `v2.1.0`
+e la produzione resta in **«portale in manutenzione»** fino al rilascio `v3.0.0` (`RUNBOOK.md` §5).
+A v3.0.0 chiusa si decide se fare la **v3.1.0**, una demo interattiva `/demo` per i visitatori
+(nota in `BACKLOG.md`).
+⚠️ **.NET 9 esce dal supporto il 10/11/2026**: `V2-017` (.NET 10) va in produzione prima.
+
+**Gestora v2** dal 05/10/2026. Gestora è pensata per un locale vero, nei turni di
 servizio: le segnalazioni che arriveranno da lì, insieme alle nuove richieste, sono il lavoro della
 v2 (vedi §4).
 
@@ -20,7 +30,7 @@ né prenotazioni.
 | Backend | `https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net` — Azure App Service (F1), distribuzione continua da Docker Hub attiva |
 | Frontend | `https://gestora-project-xi.vercel.app` — Vercel, punta al backend Azure |
 | Database | PostgreSQL su Neon (gratuito permanente): 8 migration EF + tabelle Quartz |
-| Test | **395** backend (xUnit) + **96** frontend (Vitest), tutti verdi |
+| Test | **403** backend (xUnit) + **101** frontend (Vitest), tutti verdi |
 | Modifiche al database | 8, tutte applicate in locale e su Neon; l'ultima è `UtenteDataCreazioneEUltimoAccesso` (`V2-015`, 12/10/2026). Elenco nel foglio *BE · Migration* del tracker |
 | Vulnerabilità note nelle librerie | 1 — AutoMapper 12.0.1, accettata (vedi `BACKLOG.md`, *Rischi accettati*) |
 | Branch | si lavora su **`v2`**; `main` è quello pubblicato in produzione (ultimo tag **`v2.0.0`**; i rilasci del 09/10 e del 12/10/2026 sono senza tag) |
@@ -245,15 +255,27 @@ manuale, nessuna automazione.
 Una **Dashboard** con indice cliccabile e conteggi automatici, poi un foglio per ogni parte del
 progetto, con backend e frontend separati (prefisso `BE ·` e `FE ·`: Models, DTO, Repository,
 Services, Controllers, Method, Validators, Infrastruttura, Test, Auth e Security, Jobs, Migration
-· Pagine, Componenti, Hook e API, Auth, Test). **Appunti e Step**, **Fix e Bug** e **Task** si
-compilano a mano; in *Fix e Bug* si usa la stessa sigla `V2-xxx` di `BACKLOG.md`, in *Task* ogni
-voce è divisa in attività `V2-xxx-Tnn` con categoria, dipendenze, criteri di accettazione e stato. Quando il codice cambia (un
+· Pagine, Componenti, Hook e API, Auth, Test). **Appunti e Step**, **Fix e Bug**, **Task v2** e
+**Task v3** si compilano a mano; in *Fix e Bug* si usa la stessa sigla `V2-xxx` di `BACKLOG.md`, nei
+fogli dei task ogni voce è divisa in attività `V2-xxx-Tnn` con categoria, dipendenze, criteri di
+accettazione e stato. Quando il codice cambia (un
 endpoint, un test, una migration) va aggiornato il foglio corrispondente.
 
+**Il piano si segue da un solo posto: il foglio Task v3** (dal 15/10/2026). La colonna **Ordine**
+(10, 20, 30…: si può inserire un passo in mezzo senza rinumerare) dà la sequenza; il **prossimo
+passo** è la prima riga, in ordine, non *Fatto* né *Bloccato*, e la Dashboard lo mostra in cima
+(«Prossimo passo»). A inizio sessione Claude legge *Task v3* e dice qual è il prossimo passo; a
+fine passo lo segna *Fatto* con date e nota. Quando si apre una fase, il suo «Precisare la
+richiesta» diventa i passi veri, già con il loro numero d'ordine. Un'urgenza (segnalazione dal
+locale) entra con un numero prima degli altri. *Task v2* è lo storico della v2: non si modifica,
+restano lì solo `V2-004` e `V2-005` in pausa. Il tracker non sta su Git: a ogni fase chiusa se ne
+salva una copia con la data.
+
 **Cosa vuol dire lo Stato in ogni foglio** (dall'08/10/2026). Una cosa da fare si scrive come
-aperta in **un solo posto**, il foglio *Task*: così riaprendo il file si vede subito cosa manca.
-- **Task**: l'unico foglio che segue il lavoro ancora da fare, rilascio compreso. Ogni passo è
-  un task: *Da fare*, *In corso* o *Fatto*.
+aperta in **un solo posto**, il foglio dei task: così riaprendo il file si vede subito cosa manca.
+- **Task v3** (e *Task v2* per lo storico): l'unico foglio che segue il lavoro ancora da fare,
+  rilascio compreso. Ogni passo è un task: *Da fare*, *In corso*, *Fatto*; *Bloccato* per una voce
+  scartata o in pausa, con il motivo nelle note.
 - **Fix e Bug**: *Risolto* quando il difetto è corretto e verificato, anche se è solo su `v2`.
   Se manca il rilascio lo si scrive nella soluzione, con il task che lo segue (es. «su v2,
   rilascio nel task V2-009-T07»), non nello stato. *Aperto* = non ancora corretto.
