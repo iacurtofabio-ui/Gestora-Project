@@ -8,6 +8,8 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/context/ThemeContext'
 import ConfigurazioneMancante from '@/components/ConfigurazioneMancante'
 import { configurazioneMancante } from '@/lib/axios'
+import PortaleInManutenzione from '@/components/PortaleInManutenzione'
+import { inManutenzione } from '@/lib/manutenzione'
 import { queryClient } from '@/lib/queryClient'
 import { DevtoolsQuery } from '@/components/DevtoolsQuery'
 import './index.css'
@@ -17,7 +19,10 @@ const radice = createRoot(document.getElementById('root')!)
 
 // REV-017: senza l'indirizzo del backend non ha senso montare l'app - ogni pagina fallirebbe.
 // Si mostra invece cosa manca, a schermo e non solo in console.
-if (configurazioneMancante) {
+// V2-016: in manutenzione l'app non si monta affatto, quindi nessuna chiamata al backend.
+if (inManutenzione) {
+  radice.render(<PortaleInManutenzione />)
+} else if (configurazioneMancante) {
   radice.render(<ConfigurazioneMancante />)
 } else {
   radice.render(

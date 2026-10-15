@@ -1,9 +1,10 @@
 # Gestora v2 — cosa resta da fare
 
-Aggiornato il **14/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **15/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
-Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
+Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti, il foglio *Task v3* la
+sequenza dei passi da fare (il prossimo è in cima alla Dashboard); questo file è la
 vista d'insieme che si guarda per decidere cosa fare.
 
 ---
@@ -20,7 +21,7 @@ comportamento, codice più pulito) · `studio` (documentazione, analisi, crescit
 **Chi sviluppa**: si decide **prima di iniziare**, ogni volta (vedi `CLAUDE.md`, *Come
 lavoriamo*): `io` (Fabio, guidato da Claude) oppure `Claude`. Finché non si è deciso, resta `—`.
 
-**Stato**: `da fare` · `in corso` · `fatto` · `scartato`. Le voci `fatto` e `scartato` restano
+**Stato**: `da fare` · `in corso` · `fatto` · `scartato` · `in pausa`. Le voci `fatto` e `scartato` restano
 qui fino al rilascio successivo, poi si tolgono.
 
 ---
@@ -47,10 +48,48 @@ Modello da copiare:
 
 ## 🔵 Da fare
 
+### Verso la v3.0.0 — production ready
+
+Piano del 15/10/2026 nello studio [Gestora – Studio di fattibilità e piano di attacco per la v3](https://claude.ai/code/artifact/f31f316c-733c-4a5e-a93f-2f139c0518c1):
+sei fasi (F0-F5), circa 37 ore a 3-4 ore a settimana, fino a fine gennaio 2027. La v2 si chiude con
+il tag `v2.1.0` e la produzione resta in «Portale in manutenzione» fino al rilascio `v3.0.0`. Le
+fasi vanno su `main` una alla volta, dietro la manutenzione.
+
+| Sigla | Fase | Tipo | Cosa | Chi sviluppa | Stato |
+|---|---|---|---|---|---|
+| `V2-016` | F0 | richiesta | Chiusura v2 (tag `v2.1.0`) e «Portale in manutenzione» attivabile da variabili, frontend e backend | Claude | in corso |
+| `V2-017` | F1 | miglioramento | Passaggio a .NET 10 LTS: framework, pacchetti, Dockerfile, CI. **In produzione prima del 10/11/2026** | Claude | da fare |
+| `V2-018` | F2 | miglioramento | Robustezza: chiavi Data Protection salvate, header di sicurezza, build nella CI del frontend, UptimeRobot su `/health`, procedura di backup | Claude | da fare |
+| `V2-019` | F3 | richiesta | Privacy e account: informativa e termini, presa visione in registrazione, cancellazione ed export dei propri dati, registro attività a 24 mesi, recupero password, «Il mio account» | Claude | da fare |
+| `V2-022` | F4 | richiesta | Modulo pubblico dei pareri con invio email a Fabio | Claude | da fare |
+| `V2-023` | F5 | studio | Vetrina e rilascio: README in inglese, screenshot, LICENSE, CHANGELOG, anteprime social, `v3.0.0` | Claude | da fare |
+
+Scartate il 15/10/2026, prima di iniziare: `V2-020` e `V2-021` (prova pubblica con una sandbox in
+memoria per visitatore, backend e frontend, circa 21 ore). Al loro posto la nota qui sotto.
+
+### Da decidere a v3.0.0 chiusa: la v3.1.0 con una demo interattiva
+
+**Quando la v3.0.0 è rilasciata, decidere se fare la v3.1.0.** Non è un impegno. La proposta è una
+**demo interattiva** (*product tour*): una pagina pubblica `/demo` nel frontend di produzione, senza
+login, senza backend, senza dati salvati.
+1. Tour guidato: 6-7 schermate vere di Gestora (zone → tavoli → fasce → prenotazione → dashboard),
+   ognuna con un punto evidenziato e una frase semplice.
+2. Riquadro «Quanti siete?»: il visitatore sceglie le persone e vede su una piantina finta quali
+   tavoli Gestora unisce. Richiede una piccola copia in TypeScript della regola di
+   `AssegnazioneTavoli`, dichiarata come dimostrativa.
+3. Il modulo dei pareri (`V2-022`) in fondo.
+
+Circa **8-10 ore** con il riquadro, **6** con solo tour e pareri: 2-3 settimane dopo la v3.0.0.
+Niente seconda app su Azure né secondo progetto Vercel; nessun dato dei visitatori. Scartati gli
+strumenti esterni (Arcade, Storylane): aggiungono i loro cookie. Se si decide di farla, diventa una
+voce `V2-0xx` nuova.
+
+### In pausa fino al rilascio `v3.0.0`
+
 | Sigla | Tipo | Cosa | Chi sviluppa | Stato |
 |---|---|---|---|---|
-| `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
-| `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
+| `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | in pausa |
+| `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | in pausa |
 
 Tolta il 14/10/2026, perché chiusa e in produzione (rilascio del 14/10/2026, senza tag): `V2-003`
 (conferma dell'email alla registrazione, merge con la PR #5, `915c748`; il commit `086db11`,
@@ -67,10 +106,10 @@ Tolte il 12/10/2026, perché chiuse e in produzione (rilascio del 12/10/2026, se
 `V2-011` (limiti di richieste su registrazione e verifica della disponibilità) e `V2-015`
 (pulizia notturna delle utenze mai usate, migration 8 applicata su Neon). Prima, il 09/10/2026:
 `V2-001`, `V2-002`, `V2-007`, `V2-008`, `V2-009`, `V2-010` e `V2-006` scartata. La loro storia
-resta nel tracker (fogli *Fix e Bug* e *Task*) e nella cronologia Git di questo file.
+resta nel tracker (fogli *Fix e Bug* e *Task v2*) e nella cronologia Git di questo file.
 
 ### Da riprendere insieme: eliminazione delle utenze inattive
-Nota del 12/10/2026. Oggi `V2-015`
+Nota del 12/10/2026, da valutare dentro `V2-019` (F3, privacy). Oggi `V2-015`
 elimina solo le utenze *mai usate* (nessun login). Un Cliente entrato almeno una volta resta per
 sempre, anche se non torna da anni. Estendere la pulizia a chi non entra da N mesi (es. 24) è
 la pratica corretta anche per il GDPR, ma va fatto **con un'email di avviso** qualche settimana
@@ -131,7 +170,11 @@ nostra le rende utili.
 
 **Altro**
 - Export CSV/PDF dei report — oggi **non esiste**: esistono solo i due endpoint della dashboard
-- Gestione di più locali sullo stesso impianto
+- Gestione di più locali sullo stesso impianto (*multi-tenant*). Valutata il 15/10/2026: **per ora
+  un locale**, la v3.0.0 resta così. Se arriva un secondo locale vero: subito si può dare
+  un'installazione per locale (stesso codice, un'app Azure, un database Neon e un progetto Vercel
+  ciascuno); il multi-tenant vero (colonna «locale» ovunque, filtri, ruoli per locale, privacy con
+  ogni locale titolare e Fabio responsabile) è stimato 40-60 ore, da fare come v4
 
 ---
 

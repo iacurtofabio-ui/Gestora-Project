@@ -15,7 +15,7 @@ logout + redirect su 401).
 
 ```
 npm run lint      # zero errori
-npm test          # 96 test, Vitest + Testing Library
+npm test          # 101 test, Vitest + Testing Library
 npm run build     # controlla i tipi — npm test NON lo fa (vedi sezione Test)
 ```
 Se hai toccato un componente/pagina visibile e non hai verificato a mano nel browser, dillo
@@ -190,7 +190,8 @@ vuoto), valorizzata = edit (form ripopolato via `useEffect` + `reset`).
 | `components/AzioniRiga.tsx` / `AzioniPrenotazione.tsx` | Azioni di riga generiche / quale azione ha senso in quale stato |
 | `components/BandaCoperti.tsx` | La banda che si riempie di coperti, soglie in `lib/coperti.ts` |
 | `components/IntestazionePagina.tsx` | Titolo + conteggio + azione primaria |
-| `components/SchermataMessaggio.tsx` | Schermata a tutta pagina: errore, accesso negato, config mancante |
+| `components/SchermataMessaggio.tsx` | Schermata a tutta pagina: errore, accesso negato, config mancante, manutenzione |
+| `lib/manutenzione.ts` + `components/PortaleInManutenzione.tsx` | `V2-016`: con `VITE_MANUTENZIONE=true` (Vercel, entra nella build) `main.tsx` non monta l'app e mostra solo la schermata di manutenzione |
 | `components/Logo.tsx` | Il marchio, SVG che prende i colori del tema |
 | `components/ErrorBoundary.tsx` | Rete di sicurezza **sopra** il router (unico componente a classe: React non ha equivalente a hook) |
 | `router/RouteErrorPage.tsx` | Rete di sicurezza **dentro** il router (React Router cattura gli errori prima dell'ErrorBoundary) |
@@ -211,7 +212,7 @@ l'etichetta è `sr-only` (design con segnaposto).
 
 ## Test
 
-**96 test** con Vitest + Testing Library: quali richieste portano il token (4, `V2-003`), lettura difensiva del token (10), rinnovo del token in
+**101 test** con Vitest + Testing Library: portale in manutenzione (1 + 4 della lettura di `VITE_MANUTENZIONE`, `V2-016`), quali richieste portano il token (4, `V2-003`), lettura difensiva del token (10), rinnovo del token in
 `AuthProvider` (5) e suo momento (3), helper errori (5 + 5 del login + 2 del login con email non
 confermata, `V2-003` + 1 per campo + 2 del limite di richieste), pagina di conferma dell'email (3), messaggio della pagina pubblica sul 429 (1), regole di nome utente e campi numerici (8),
 `ProtectedRoute` su accesso e ruoli (6), scelta fascia oraria in `PrenotazioneModal` (5), limite

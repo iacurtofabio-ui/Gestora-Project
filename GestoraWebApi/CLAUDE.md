@@ -73,6 +73,10 @@ liste scritte a mano: invecchiano. Quello che il codice non dice da solo:
   risponde **sempre allo stesso modo**. Configurazione: sezione `Email` (vedi `RUNBOOK.md` §5);
   fuori da Development l'app non parte senza `Email:Host` e `Email:UrlFrontend`. Se l'invio
   fallisce alla registrazione l'utente resta e la risposta ha `emailInviata: false`.
+- **Portale in manutenzione** (`V2-016`): con `Manutenzione:Attiva = true` (su Azure
+  `Manutenzione__Attiva`) `Infrastructure/Middleware/ManutenzioneMiddleware` risponde **503** a ogni
+  `/api` con il corpo `ErrorDetails`; `/health` resta libero. Sta dopo `UseCors` (il browser deve
+  leggere il 503) e prima di autenticazione e limiti. Spento di default in `appsettings.json`.
 - **`JobsController`** (`POST trigger/{jobName}`, solo Admin) è **attivo anche in produzione**,
   nessun filtro per ambiente: forza un job Quartz già registrato senza aspettare il cron.
 - **`update-prenotazione`/`annulla-prenotazione`**: aperte anche al Cliente, ma solo sulla propria
@@ -315,7 +319,7 @@ fisso).
 ## Test
 
 `GestoraWebApi.Tests/Services/` — xUnit + Moq, Arrange/Act/Assert. Un file per service, più il
-motore puro, i job, i validator, il mapping, il repository, il modello. **395 test totali.**
+motore puro, i job, i validator, il mapping, il repository, il modello. **403 test totali.**
 
 - `PrenotazioniServiceTests` configura l'InMemory con
   `ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))` — senza questa

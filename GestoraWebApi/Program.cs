@@ -137,6 +137,10 @@ builder.Services.AddOptions<LimitiRichiesteSettings>()
         "Configurazione non valida: LimitiRichieste:ConfermaEmailPerFinestra e ConfermaEmailFinestraMinuti devono essere maggiori di zero.")
     .ValidateOnStart();
 
+// V2-016: «portale in manutenzione», spento di default. Nessun controllo: true o false.
+builder.Services.AddOptions<ManutenzioneSettings>()
+    .Bind(builder.Configuration.GetSection(ManutenzioneSettings.Sezione));
+
 // V2-003: l'indirizzo del frontend serve per i link nelle email. Fuori da Development l'Host SMTP
 // e' obbligatorio: senza, nessuno potrebbe confermare l'email e registrarsi sarebbe inutile,
 // quindi l'app non parte (meglio un errore all'avvio che utenti bloccati in silenzio).
@@ -468,6 +472,10 @@ app.UseSerilogRequestLogging(options =>
 app.UseGlobalExceptionHandler();
 
 app.UseCors("FrontendPolicy");
+
+// V2-016: dopo UseCors (il browser deve poter leggere il 503), prima di autenticazione e limiti
+// di richieste: in manutenzione nessuna chiamata a /api arriva ai controller.
+app.UseMiddleware<ManutenzioneMiddleware>();
 
 //app.UseHttpsRedirection(); (verificare se serve abilitare in produzione)
 

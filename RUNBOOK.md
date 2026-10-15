@@ -54,7 +54,7 @@ cd "...\gestora-frontend"; npm run build
 cd "...\gestora-frontend"; npm run lint
 ```
 
-Valori attesi oggi: **294** test backend, **64** frontend, build senza errori, lint senza errori.
+Valori attesi oggi: **403** test backend, **101** frontend, build senza errori, lint senza errori.
 I test del backend stanno in `GestoraWebApi.Tests/`, accanto all'API: si lanciano dalla radice
 attraverso `Gestora.sln`.
 
@@ -209,8 +209,10 @@ resta lo stesso), e viceversa. La catena backend ha due passaggi automatici in s
 webhook Azure): se `/health` non risponde subito dopo il push, aspettare qualche minuto prima di
 sospettare un problema — è la catena che sta ancora girando, non necessariamente un guasto.
 
-**Numerazione:** l'ultimo tag pubblicato è `v2.0.0` (08/10/2026, primo rilascio della v2).
-Poi `v2.x.0` per un gruppo di funzionalità o segnalazioni, `v2.x.y` per fix e correzioni. Un
+**Numerazione:** la v2 si chiude con il tag `v2.1.0` (ottobre 2026); il prossimo tag è `v3.0.0`,
+alla fine del piano della v3 (`BACKLOG.md`). Fino ad allora i rilasci delle singole fasi vanno su
+`main` **senza tag**, dietro il «portale in manutenzione» (sotto). In generale: `vX.y.0` per un
+gruppo di funzionalità o segnalazioni, `vX.y.z` per fix e correzioni. Un
 riordino interno, senza effetti sull'applicazione, può restare **senza tag**.
 
 **Verifica dopo il deploy:**
@@ -296,6 +298,33 @@ serve: al momento non ci sono utenti.
 Il link vale 24 ore. Chi non lo trova può farselo rimandare dalla pagina di accesso. Limite di
 richieste su conferma e reinvio: `LimitiRichieste:ConfermaEmailPerFinestra` (10) ogni
 `ConfermaEmailFinestraMinuti` (60) per indirizzo.
+
+### Il portale in manutenzione (`V2-016`)
+
+Finché la v3 non è rilasciata, la produzione resta chiusa. Il blocco ha **due interruttori**, uno
+per parte, e non richiede modifiche al codice:
+
+| Dove | Variabile | Effetto |
+|---|---|---|
+| Azure App Service (*Impostazioni → Variabili di ambiente*) | `Manutenzione__Attiva` = `true` | ogni chiamata a `/api` risponde **503** «Gestora è in manutenzione: torna presto.»; `/health` resta libero |
+| Vercel (*Settings → Environment Variables*, tipo *Config*, ambiente Production) | `VITE_MANUTENZIONE` = `true` | ogni pagina mostra solo «Gestora è in manutenzione» e nessuna chiamata parte verso il backend |
+
+**Accendere:** impostare le due variabili. Azure riavvia l'app da solo al salvataggio; su Vercel
+serve una nuova pubblicazione (*Deployments → Create Deployment* con `main`): la variabile entra
+nella build, non viene letta a ogni apertura.
+
+**Verificare:**
+```powershell
+curl https://gestora-api-emdvdqegg7g8gmaq.canadacentral-01.azurewebsites.net/health
+```
+deve rispondere `Healthy`; una chiamata a `/api` (per esempio `.../api/Setup/stato`) deve
+rispondere 503. Aprendo il frontend si vede solo la schermata di manutenzione.
+
+**Spegnere** (al rilascio `v3.0.0`): togliere le due variabili, o metterle a `false`, e ripubblicare
+il frontend.
+
+> ⚠️ Spenta di default: in `appsettings.json` `Manutenzione:Attiva` vale `false`, e senza la
+> variabile su Vercel il frontend si apre normalmente. In locale non cambia niente.
 
 ### Il primo avvio di un locale
 
