@@ -1,6 +1,6 @@
 # Gestora v2 — cosa resta da fare
 
-Aggiornato il **13/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
+Aggiornato il **14/10/2026**. Questo è **l'unico elenco valido** delle cose aperte: se una cosa
 non è scritta qui, non è in programma.
 
 Il foglio *Fix e Bug* del tracker resta il registro dettagliato dei difetti; questo file è la
@@ -49,9 +49,14 @@ Modello da copiare:
 
 | Sigla | Tipo | Cosa | Chi sviluppa | Stato |
 |---|---|---|---|---|
-| `V2-003` | richiesta | Conferma dell'email alla registrazione di un utente | Claude | in corso |
 | `V2-004` | studio | Agente/MCP personalizzato per lavorare su Gestora | — | da fare |
 | `V2-005` | studio | Documentazione del progetto come linea guida per metterne in piedi altri | — | da fare |
+
+Tolta il 14/10/2026, perché chiusa e in produzione (rilascio del 14/10/2026, senza tag): `V2-003`
+(conferma dell'email alla registrazione, merge con la PR #5, `915c748`; il commit `086db11`,
+intitolato «invio email conferma registrazione», contiene tutta la voce). Provata a vista in locale
+e con una email reale via Brevo; la prova completa in produzione non è stata fatta, per non
+sporcare un database che ancora non ha il primo Admin.
 
 Tolte il 13/10/2026, perché chiuse e in produzione (rilascio del 13/10/2026, senza tag): `V2-012`
 (blocco dello spegnimento di una zona con prenotazioni da servire), `V2-013` (limite di 200
@@ -64,25 +69,14 @@ Tolte il 12/10/2026, perché chiuse e in produzione (rilascio del 12/10/2026, se
 `V2-001`, `V2-002`, `V2-007`, `V2-008`, `V2-009`, `V2-010` e `V2-006` scartata. La loro storia
 resta nel tracker (fogli *Fix e Bug* e *Task*) e nella cronologia Git di questo file.
 
-### `V2-003` — conferma dell'email
-Alla registrazione l'utente dovrebbe confermare l'indirizzo prima di poter prenotare. Oggi non
-esiste nessun invio di email: va scelto anche *come* inviarle (servizio esterno), quindi si
-collega all'idea *Email di conferma e promemoria* qui sotto.
-
-**Decisioni del 13/10/2026 — sviluppa Claude.** Invio con SMTP (MailKit), fornitore Brevo,
-cambiabile con la sola configurazione. Chi non ha confermato **non può entrare** (login rifiutato
-con un codice dedicato). Nessuna retro-conferma degli utenti esistenti, quindi in locale vanno
-sistemati a mano (SQL nel `RUNBOOK.md`); produzione è ancora vuota. Gli account creati da un Admin
-(primo Admin del `/setup`, Staff) nascono già confermati. Il piano a passi è nel tracker (foglio
-*Task*, `V2-003-Tnn`).
-
-**Da riprendere insieme (12/10/2026): eliminazione delle utenze inattive.** Oggi `V2-015`
+### Da riprendere insieme: eliminazione delle utenze inattive
+Nota del 12/10/2026. Oggi `V2-015`
 elimina solo le utenze *mai usate* (nessun login). Un Cliente entrato almeno una volta resta per
 sempre, anche se non torna da anni. Estendere la pulizia a chi non entra da N mesi (es. 24) è
 la pratica corretta anche per il GDPR, ma va fatto **con un'email di avviso** qualche settimana
 prima («il tuo account verrà eliminato, entra per tenerlo»): senza, un cliente che viene una
-volta l'anno ritrova l'account cancellato. Per questo aspetta l'invio delle email di questa
-voce. Lato codice è piccolo: una condizione in più in
+volta l'anno ritrova l'account cancellato. L'invio delle email c'è dal 14/10/2026 (`V2-003`,
+`IInvioEmail`), quindi si può fare come voce a sé. Lato codice è piccolo: una condizione in più in
 `UtentiRepository.GetUtenzeMaiUsateAsync` (`UltimoAccesso` più vecchio della soglia) e un valore
 in `UtenzeSettings`, nessuna migration. Chi ha prenotazioni resta comunque protetto dalla FK, e
 le prenotazioni concluse spariscono dopo 6 mesi.
@@ -123,7 +117,8 @@ nostra le rende utili.
 - CAPTCHA sulla registrazione (es. Cloudflare Turnstile): l'unica difesa contro chi cambia IP
 
 **Utenti e comunicazione**
-- Email di conferma e promemoria
+- Promemoria della prenotazione per email (la conferma dell'indirizzo c'è dal 14/10/2026, `V2-003`)
+- Pagina del registro attività nel frontend (oggi il registro si legge solo dal database)
 - Recupero password autonomo
 - Autenticazione con cookie `HttpOnly` + protezione CSRF, al posto del token in `localStorage`.
   È una riprogettazione, non un fix: il token in `localStorage` non è un bug (vedi `RUNBOOK.md`
