@@ -209,7 +209,7 @@ resta lo stesso), e viceversa. La catena backend ha due passaggi automatici in s
 webhook Azure): se `/health` non risponde subito dopo il push, aspettare qualche minuto prima di
 sospettare un problema — è la catena che sta ancora girando, non necessariamente un guasto.
 
-**Numerazione:** la v2 si chiude con il tag `v2.1.0` (ottobre 2026); il prossimo tag è `v3.0.0`,
+**Numerazione:** la v2 si è chiusa con il tag `v2.1.0` (15/10/2026); il prossimo tag è `v3.0.0`,
 alla fine del piano della v3 (`BACKLOG.md`). Fino ad allora i rilasci delle singole fasi vanno su
 `main` **senza tag**, dietro il «portale in manutenzione» (sotto). In generale: `vX.y.0` per un
 gruppo di funzionalità o segnalazioni, `vX.y.z` per fix e correzioni. Un
