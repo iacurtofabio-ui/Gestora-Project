@@ -57,8 +57,8 @@ fasi vanno su `main` una alla volta, dietro la manutenzione.
 
 | Sigla | Fase | Tipo | Cosa | Chi sviluppa | Stato |
 |---|---|---|---|---|---|
-| `V2-016` | F0 | richiesta | Chiusura v2 (tag `v2.1.0`) e «Portale in manutenzione» attivabile da variabili, frontend e backend | Claude | in corso |
-| `V2-017` | F1 | miglioramento | Passaggio a .NET 10 LTS: framework, pacchetti, Dockerfile, CI. **In produzione prima del 10/11/2026** | Claude | da fare |
+| `V2-016` | F0 | richiesta | Chiusura v2 (tag `v2.1.0`) e «Portale in manutenzione» attivabile da variabili, frontend e backend. In produzione dal 15/10/2026 (PR #7) | Claude | fatto |
+| `V2-017` | F1 | miglioramento | Passaggio a .NET 10 LTS: framework, pacchetti, Dockerfile, CI. **In produzione prima del 10/11/2026**. Analisi fatta il 15/10 | Claude | in corso |
 | `V2-018` | F2 | miglioramento | Robustezza: chiavi Data Protection salvate, header di sicurezza, build nella CI del frontend, UptimeRobot su `/health`, procedura di backup | Claude | da fare |
 | `V2-019` | F3 | richiesta | Privacy e account: informativa e termini, presa visione in registrazione, cancellazione ed export dei propri dati, registro attività a 24 mesi, recupero password, «Il mio account» | Claude | da fare |
 | `V2-022` | F4 | richiesta | Modulo pubblico dei pareri con invio email a Fabio | Claude | da fare |
