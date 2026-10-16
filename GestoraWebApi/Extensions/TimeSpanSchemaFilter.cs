@@ -1,15 +1,16 @@
-﻿using Microsoft.OpenApi.Models;
+﻿using Microsoft.OpenApi;
+using System.Text.Json.Nodes;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace GestoraWebApi.Extensions
 {
     public class TimeSpanSchemaFilter : ISchemaFilter
     {
-        public void Apply(OpenApiSchema schema, SchemaFilterContext context)
+        public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
         {
-            if (context.Type == typeof(TimeSpan))
+            if (context.Type == typeof(TimeSpan) && schema is OpenApiSchema openApiSchema)
             {
-                schema.Example = new Microsoft.OpenApi.Any.OpenApiString("08:30");
+                openApiSchema.Examples = [JsonValue.Create("08:30")];
             }
         }
     }

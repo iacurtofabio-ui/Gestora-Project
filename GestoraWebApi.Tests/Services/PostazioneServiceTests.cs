@@ -86,7 +86,7 @@ public class PostazioneServiceTests
         _postazioneRepoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(postazione);
         _postazioneRepoMock.Setup(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome)).ReturnsAsync(new List<Prenotazione>());
         _postazioneRepoMock.Setup(r => r.GetAllQueryable())
-                            .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+                            .Returns(new List<Postazione>().BuildMockDbSet().Object);
         _zonaRepoMock.Setup(r => r.GetByIdAsync(999)).ReturnsAsync((Zona?)null);
 
         // Act & Assert
@@ -133,7 +133,7 @@ public class PostazioneServiceTests
     public async Task GetPostazioneDTOByIdAsync_RestituisceNull_QuandoLIdNonEsiste()
     {
         _postazioneRepoMock.Setup(r => r.GetAllQueryable())
-                           .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+                           .Returns(new List<Postazione>().BuildMockDbSet().Object);
 
         var risultato = await _service.GetPostazioneDTOByIdAsync(999);
 
@@ -202,7 +202,7 @@ public class PostazioneServiceTests
             new Postazione { Id = 1, Numero = 5, CapienzaMassima = capienzaAttuale, Attiva = true, ZonaId = 10 });
         _postazioneRepoMock.Setup(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome)).ReturnsAsync(impegni.ToList());
         _postazioneRepoMock.Setup(r => r.GetAllQueryable())
-                           .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+                           .Returns(new List<Postazione>().BuildMockDbSet().Object);
         _zonaRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Zona { Id = 10, Nome = "Sala", Attiva = true });
         _zonaRepoMock.Setup(r => r.GetByIdAsync(20)).ReturnsAsync(new Zona { Id = 20, Nome = "Terrazza", Attiva = true });
 
@@ -427,7 +427,7 @@ public class PostazioneServiceTests
                            .ReturnsAsync(new Postazione { Id = 1, Numero = 5, CapienzaMassima = 6, Attiva = true, ZonaId = 10 });
         _postazioneRepoMock.Setup(r => r.GetImpegniFuturiAsync(1, _clock.TodayInRome)).ReturnsAsync(new List<Prenotazione>());
         _postazioneRepoMock.Setup(r => r.GetAllQueryable())
-                           .Returns(new List<Postazione>().AsQueryable().BuildMockDbSet().Object);
+                           .Returns(new List<Postazione>().BuildMockDbSet().Object);
         _zonaRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new Zona { Id = 10, Nome = "Sala", Attiva = true });
         return new PostazioneUpdateDTO { Id = 1, Numero = 5, CapienzaMassima = nuovaCapienza, ZonaId = 10, Attiva = attiva };
     }

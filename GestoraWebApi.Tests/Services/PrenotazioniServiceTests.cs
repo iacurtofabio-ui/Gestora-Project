@@ -321,7 +321,7 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
         _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(fascia);
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioniEsistenti.ToList().AsQueryable().BuildMock());
+                             .Returns(prenotazioniEsistenti.ToList().BuildMock());
         _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
         _context.SaveChanges();
         _assignmentServiceMock.Setup(s => s.AssegnaPostazioneDisponibileAsync(It.IsAny<PrenotazioneCreateDTO>(), 1))
@@ -399,7 +399,7 @@ public class PrenotazioniServiceTests
 
         _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(fascia);
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioniEsistenti.ToList().AsQueryable().BuildMock());
+                             .Returns(prenotazioniEsistenti.ToList().BuildMock());
         _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
         _context.SaveChanges();
         _assignmentServiceMock.Setup(s => s.AssegnaPostazioneDisponibileAsync(It.IsAny<PrenotazioneCreateDTO>(), null))
@@ -863,7 +863,7 @@ public class PrenotazioniServiceTests
         // Arrange senza postazioni: non si passa dal solito arranger, che ne aggiunge una.
         _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(Fascia());
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
+                             .Returns(new List<Prenotazione>().BuildMock());
         var dto = new PrenotazioneCreateDTO { DataPrenotazione = DataLunediFuturo, NumeroCoperti = 2, FasciaOrariaId = 1 };
 
         await Assert.ThrowsAsync<ArgumentException>(() => _service.AddAsync(dto));
@@ -959,7 +959,7 @@ public class PrenotazioniServiceTests
         _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(1)).ReturnsAsync(prenotazione);
         _fasciaRepoMock.Setup(r => r.GetByIdConLockAsync(1)).ReturnsAsync(fascia);
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
+                             .Returns(new List<Prenotazione>().BuildMock());
         _context.Postazioni.Add(new Postazione { Id = 1, Numero = 1, CapienzaMassima = 4, Attiva = true, ZonaId = 1 });
         _context.SaveChanges();
         _assignmentServiceMock.Setup(s => s.AssegnaPostazioneDisponibileAsync(It.IsAny<PrenotazioneCreateDTO>(), 1))
@@ -1240,7 +1240,7 @@ public class PrenotazioniServiceTests
     private void ArrangeQueryable(params Prenotazione[] prenotazioni)
     {
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioni.ToList().AsQueryable().BuildMock());
+                             .Returns(prenotazioni.ToList().BuildMock());
         foreach (var p in prenotazioni)
             _prenotazioniRepoMock.Setup(r => r.GetTrackedByIdAsync(p.Id)).ReturnsAsync(p);
     }
@@ -1552,7 +1552,7 @@ public class PrenotazioniServiceTests
         // giorno non c'e' nessuna prenotazione" veniva presentato al chiamante come una risorsa
         // inesistente, cioe' come un errore, quando e' semplicemente un giorno libero.
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(new List<Prenotazione>().AsQueryable().BuildMock());
+                             .Returns(new List<Prenotazione>().BuildMock());
         _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
                    .Returns(new List<PrenotazioneDTO>());
 
@@ -1580,7 +1580,7 @@ public class PrenotazioniServiceTests
 
         var prenotazione = new Prenotazione { Id = 42, DataPrenotazione = lunedi, FasciaOrariaId = 1, NumeroCoperti = 2 };
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(new List<Prenotazione> { prenotazione }.AsQueryable().BuildMock());
+                             .Returns(new List<Prenotazione> { prenotazione }.BuildMock());
         _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
                    .Returns(new List<PrenotazioneDTO> { new() { Id = 42 } });
 
@@ -1598,7 +1598,7 @@ public class PrenotazioniServiceTests
 
         var prenotazione = new Prenotazione { Id = 42, DataPrenotazione = lunedi, FasciaOrariaId = 1, NumeroCoperti = 2 };
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(new List<Prenotazione> { prenotazione }.AsQueryable().BuildMock());
+                             .Returns(new List<Prenotazione> { prenotazione }.BuildMock());
         _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
                    .Returns(new List<PrenotazioneDTO> { new() { Id = 42 } });
 
@@ -1630,7 +1630,7 @@ public class PrenotazioniServiceTests
         };
 
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioni.AsQueryable().BuildMock());
+                             .Returns(prenotazioni.BuildMock());
         _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
                    .Returns((object src) => ((IEnumerable<Prenotazione>)src)
                                             .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());
@@ -1662,7 +1662,7 @@ public class PrenotazioniServiceTests
         var prenotazioni = new List<Prenotazione> { Del(1, -10), Del(2, -1), Del(3, 0), Del(4, 5), Del(5, 1) };
 
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioni.AsQueryable().BuildMock());
+                             .Returns(prenotazioni.BuildMock());
         _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
                    .Returns((object src) => ((IEnumerable<Prenotazione>)src)
                                             .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());
@@ -1683,7 +1683,7 @@ public class PrenotazioniServiceTests
             new() { Id = 2, DataPrenotazione = data, UserId = "u", FasciaOrariaId = 2, NumeroCoperti = 2 },
         };
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioni.AsQueryable().BuildMock());
+                             .Returns(prenotazioni.BuildMock());
         _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
                    .Returns((object src) => ((IEnumerable<Prenotazione>)src)
                                             .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());
@@ -1707,7 +1707,7 @@ public class PrenotazioniServiceTests
         };
 
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioni.AsQueryable().BuildMock());
+                             .Returns(prenotazioni.BuildMock());
         _mapperMock.Setup(m => m.Map<List<PrenotazioneDTO>>(It.IsAny<object>()))
                    .Returns((object src) => ((IEnumerable<Prenotazione>)src)
                                             .Select(p => new PrenotazioneDTO { Id = p.Id }).ToList());

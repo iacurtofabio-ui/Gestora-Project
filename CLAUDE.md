@@ -119,9 +119,9 @@ Gestora/
 In radice stanno solo i documenti vivi. Appunti personali, credenziali e backup **non vanno
 messi in questa cartella**, nemmeno ignorati da Git.
 
-### Backend — ASP.NET Core 9
+### Backend — ASP.NET Core 10
 
-Entity Framework Core 9 su PostgreSQL, autenticazione con ASP.NET Identity + token JWT.
+Entity Framework Core 10 su PostgreSQL, autenticazione con ASP.NET Identity + token JWT.
 In più: **Quartz** per i tre lavori notturni programmati, **FluentValidation** per i controlli
 sui dati in ingresso, **AutoMapper**, **Serilog** per i log, cache in memoria.
 Test con **xUnit + Moq**. Deploy con **Dockerfile** (immagine su Docker Hub, Azure la scarica da

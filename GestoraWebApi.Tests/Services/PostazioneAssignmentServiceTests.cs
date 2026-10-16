@@ -57,7 +57,7 @@ public class PostazioneAssignmentServiceTests
 
     private void ArrangePrenotazioni(params Prenotazione[] prenotazioni) =>
         _prenotazioniRepoMock.Setup(r => r.GetAllQueryableAsync())
-                             .Returns(prenotazioni.ToList().AsQueryable().BuildMock());
+                             .Returns(prenotazioni.ToList().BuildMock());
 
     /// <summary>Prenotazione che occupa i tavoli indicati nello slot data+fascia.</summary>
     private static Prenotazione PrenotazioneCheOccupa(long id, StatoPrenotazione stato, DateOnly data, long fasciaId, params long[] postazioniIds) =>

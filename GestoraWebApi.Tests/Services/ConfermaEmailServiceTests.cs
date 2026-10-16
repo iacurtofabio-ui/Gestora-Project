@@ -133,7 +133,7 @@ namespace GestoraWebApi.Tests.Services
             _userManager.Setup(m => m.FindByIdAsync("utente-1")).ReturnsAsync(utente);
             _userManager.Setup(m => m.ConfirmEmailAsync(utente, TokenIdentity))
                 .ReturnsAsync(IdentityResult.Failed(new IdentityError { Code = "InvalidToken" }));
-            _userManager.Setup(m => m.Users).Returns(new List<ApplicationUser> { Utente() }.AsQueryable().BuildMockDbSet().Object);
+            _userManager.Setup(m => m.Users).Returns(new List<ApplicationUser> { Utente() }.BuildMockDbSet().Object);
 
             var esito = await _service.ConfermaAsync("utente-1", InUrl(TokenIdentity), "1.2.3.4");
 
@@ -150,7 +150,7 @@ namespace GestoraWebApi.Tests.Services
             _userManager.Setup(m => m.FindByIdAsync("utente-1")).ReturnsAsync(utente);
             _userManager.Setup(m => m.ConfirmEmailAsync(utente, TokenIdentity))
                 .ReturnsAsync(IdentityResult.Failed(new IdentityError { Code = "ConcurrencyFailure" }));
-            _userManager.Setup(m => m.Users).Returns(new List<ApplicationUser> { Utente(confermato: true) }.AsQueryable().BuildMockDbSet().Object);
+            _userManager.Setup(m => m.Users).Returns(new List<ApplicationUser> { Utente(confermato: true) }.BuildMockDbSet().Object);
 
             var esito = await _service.ConfermaAsync("utente-1", InUrl(TokenIdentity), "1.2.3.4");
 

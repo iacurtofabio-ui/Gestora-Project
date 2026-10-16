@@ -115,7 +115,7 @@ namespace GestoraWebApi.Tests.Services
 
             _repoMock.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(fasciaDaRiattivare);
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria> { fasciaDaRiattivare, fasciaAttivaEsistente }.AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria> { fasciaDaRiattivare, fasciaAttivaEsistente }.BuildMockDbSet().Object);
 
             // Act & Assert
             await Assert.ThrowsAsync<ConflictException>(() => _service.UpdateStatoAsync(1, true));
@@ -132,7 +132,7 @@ namespace GestoraWebApi.Tests.Services
                                                          OrarioInizio = new TimeOnly(12, 0), OrarioFine = new TimeOnly(14, 0) };
 
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria> { fasciaDisattivata }.AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria> { fasciaDisattivata }.BuildMockDbSet().Object);
 
             var dto = new FasciaOrariaDTO
             {
@@ -164,7 +164,7 @@ namespace GestoraWebApi.Tests.Services
                                                        OrarioInizio = new TimeOnly(12, 0), OrarioFine = new TimeOnly(14, 0) };
 
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria> { fasciaEsistente }.AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria> { fasciaEsistente }.BuildMockDbSet().Object);
 
             var dto = new FasciaOrariaDTO
             {
@@ -190,7 +190,7 @@ namespace GestoraWebApi.Tests.Services
         {
             // Arrange: nessuna fascia esistente, quindi nessuna sovrapposizione possibile
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria>().BuildMockDbSet().Object);
 
             FasciaOraria? inserita = null;
             _repoMock.Setup(r => r.AddAsync(It.IsAny<FasciaOraria>()))
@@ -222,7 +222,7 @@ namespace GestoraWebApi.Tests.Services
         {
             // Arrange
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria>().BuildMockDbSet().Object);
 
             var dto = new FasciaOrariaDTO
             {
@@ -245,7 +245,7 @@ namespace GestoraWebApi.Tests.Services
         {
             // Arrange
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria>().BuildMockDbSet().Object);
 
             var cacheKey = GestoraWebApi.Common.CacheKeys.FascePerGiorno + (int)DayOfWeek.Monday;
             _cache.Set(cacheKey, new List<FasciaOrariaDTO> { new FasciaOrariaDTO() });
@@ -362,7 +362,7 @@ namespace GestoraWebApi.Tests.Services
         {
             _repoMock.Setup(r => r.GetByIdAsync(fascia.Id)).ReturnsAsync(fascia);
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria> { fascia }.AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria> { fascia }.BuildMockDbSet().Object);
             _repoMock.Setup(r => r.HasPrenotazioniFutureAsync(fascia.Id, _clock.TodayInRome))
                      .ReturnsAsync(prenotazioniFuture);
         }
@@ -439,7 +439,7 @@ namespace GestoraWebApi.Tests.Services
 
         private void NessunaSovrapposizione() =>
             _repoMock.Setup(r => r.GetAllQueryable())
-                     .Returns(new List<FasciaOraria>().AsQueryable().BuildMockDbSet().Object);
+                     .Returns(new List<FasciaOraria>().BuildMockDbSet().Object);
 
         private void SalaTroppoPiccola() =>
             _coerenzaSala.Setup(c => c.VerificaTettoFasciaAsync(It.IsAny<int>()))
