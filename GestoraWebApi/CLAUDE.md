@@ -5,9 +5,9 @@ prodotto e regole del progetto vedi il `CLAUDE.md` alla radice del repo — rest
 
 ## Stack
 
-ASP.NET Core 9, C#, Entity Framework Core 9 + Npgsql (PostgreSQL), ASP.NET Identity + JWT
+ASP.NET Core 10 (dal `V2-017`), C#, Entity Framework Core 10 + Npgsql (PostgreSQL), ASP.NET Identity + JWT
 Bearer (3 ruoli: Admin, Staff, Cliente), FluentValidation 11, AutoMapper, Serilog,
-IMemoryCache (30 min, invalidazione su write), Quartz.NET 3.15 (persistenza su Postgres,
+IMemoryCache (30 min, invalidazione su write), Quartz.NET 3.22 (persistenza su Postgres,
 tabelle `QRTZ_*` — **non create automaticamente**, va eseguito `Scripts/quartz_postgres.sql`).
 
 ## Verifica prima di dire "fatto"
@@ -330,5 +330,6 @@ motore puro, i job, i validator, il mapping, il repository, il modello. **403 te
   dell'email (`V2-003`), che sta in `ConfermaEmailService` ed è coperta da
   `ConfermaEmailServiceTests` (`UserManager` finto con Moq); il blocco del login per email non
   confermata resta nel controller, quindi si prova a vista.
-- Per mockare `IQueryable<T>` dai repository: pacchetto `MockQueryable.Moq` (7.0.3, unica
-  versione compatibile con net9.0) — pattern `lista.AsQueryable().BuildMockDbSet().Object`.
+- Per mockare `IQueryable<T>` dai repository: pacchetto `MockQueryable.Moq` (10.x, dal `V2-017`) —
+  pattern `lista.BuildMockDbSet().Object`, direttamente sulla lista: dalla 10 `BuildMock` e
+  `BuildMockDbSet` non accettano più un `IQueryable`, quindi niente `.AsQueryable()` prima.

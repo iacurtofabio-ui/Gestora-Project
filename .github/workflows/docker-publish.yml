@@ -18,7 +18,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       # I test stanno in GestoraWebApi.Tests/, accanto all'API: si lanciano dalla radice
       # attraverso la soluzione, che li contiene entrambi.
